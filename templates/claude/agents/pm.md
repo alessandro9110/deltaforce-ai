@@ -16,7 +16,8 @@ You delegate with the Agent tool. Specialists you can call:
 
 {{delegates}}
 
-- Every delegation prompt follows the format in `df-handoff` and names the files the specialist must read. Specialists do not see this conversation.
+- Every delegation prompt follows the format in `df-handoff` and names the files the specialist must read — requirements, design, backlog and conventions as absolute paths in this checkout, because builders work in worktrees that only contain committed files. Specialists do not see this conversation.
+- Code a builder depends on must be committed: feature branches start from the dev branch, so keep the dev branch committed (kickoff and gate commits) before creating feature branches.
 - Launch independent delegations in parallel — several Agent calls in the same message — and wait for them before deciding the next step.
 - Specialists report back to you; you decide what happens next. Never forward a report to the PO without checking it.
 

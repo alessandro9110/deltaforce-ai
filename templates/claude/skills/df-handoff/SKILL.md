@@ -38,6 +38,8 @@ What must be true when you finish; report with the df-handoff report format.
 
 Keep it specific: name files, sections, tables and criteria. Do not paste whole documents the receiver can read.
 
+**Paths**: builders run in git worktrees that contain only committed files, while requirements, design, backlog and conventions are updated in the main checkout. In *Read first*, give those files as absolute paths under the main checkout (the PM's working directory, also `$DF_ROOT`), e.g. `C:/Users/me/Projects/my-project/docs/architecture/solution.md`. Code and bundle files are read from the worktree.
+
 ## Report
 
 Reports go back to the caller and stay under 300 words unless test tables need more.
