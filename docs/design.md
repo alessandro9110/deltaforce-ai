@@ -24,6 +24,8 @@ It is installed from GitHub with `install.sh` into a **target project repo**, co
 | PO involvement | Approves design + feature list once (G1), validates **every** feature (G2), and is consulted on blockers or changes to the request |
 | Feature cadence | Independent features run in parallel (up to three active); a feature starts when its dependencies are done; the PO validates every feature |
 | Backlog | Markdown files in the repo, machine-readable (future monitoring app) |
+| Deliverables | Functional Analysis (Business Analyst) and Architecture (Solution Architect): English, Markdown, standard DeltaForce structure, versioned with a *Document control* table (`1.0 — Approved` at G1), under `.deltaforce/` |
+| Production data | Production is a separate workspace. Reads only (SQL queries, model and vector search calls, Genie, table stats), through one dedicated role for audit; every other activity on prod is blocked by hooks |
 
 ## 3. Two repositories
 
@@ -242,8 +244,8 @@ The backlog is designed to be read by a future monitoring app without changes.
   bin/, runtime/        # uv, Databricks CLI, Python, AI Dev Kit, MCP venv (gitignored)
   conventions.yaml      # client conventions (created by the installer, filled at kickoff)
   state.yaml            # phase, active features, G1 decision (created at kickoff)
-  requirements/         # request.md, requirements.md
-  architecture/         # discovery.md, solution.md, adr/
+  requirements/         # request.md, functional-analysis.md
+  architecture/         # discovery.md, architecture.md, adr/
   backlog/F-003-silver-customer-dedup.md
   reports/F-003-po-review.md
   events.jsonl          # lifecycle events

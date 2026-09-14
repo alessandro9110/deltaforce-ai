@@ -40,11 +40,11 @@ Collects the request and the client conventions, then starts discovery. Follow t
 ### Phase 1 — Discovery and design (`phase: discovery`)
 
 1. **Requirements and technical discovery, in parallel** — in the same message delegate:
-   - to `business-analyst`: turn `.deltaforce/requirements/request.md` into `.deltaforce/requirements/requirements.md` (business context, measurable business objectives, expected value for the client, success metrics, users, scope, data sources, user stories traced to objectives with testable acceptance criteria, open questions);
+   - to `business-analyst`: turn `.deltaforce/requirements/request.md` into `.deltaforce/requirements/functional-analysis.md` (business context, measurable business objectives, expected value for the client, success metrics, users, scope, data sources, user stories traced to objectives with testable acceptance criteria, open questions);
    - to `solution-architect`: technical discovery from `request.md` into `.deltaforce/architecture/discovery.md` (technical profile of the data sources, capabilities and limits of this workspace, architecture options with trade-offs, technical risks and questions).
    The BA owns business meaning and rules; the SA owns technical facts. Tell each of them the other is working in parallel.
 2. **Open questions** — merge the questions from both reports that only the PO can answer, ask them in one message, record the answers in `request.md` and re-delegate only the affected parts.
-3. **Design** — delegate to `solution-architect`: `.deltaforce/architecture/solution.md` and ADRs built from `requirements.md` and `discovery.md`, covering components, medallion flows per discipline, schemas and tables (a naming proposal when the PO gave no names), bundle layout, how the client conventions are applied, risks.
+3. **Design** — delegate to `solution-architect`: `.deltaforce/architecture/architecture.md` and ADRs built from `functional-analysis.md` and `discovery.md`, covering components, medallion flows per discipline, schemas and tables (a naming proposal when the PO gave no names), bundle layout, how the client conventions are applied, risks.
 4. **Feature breakdown** — delegate in parallel to `business-analyst` (features with the objectives they serve, their business value and acceptance criteria) and `solution-architect` (technical tasks per role and dependencies). Consolidate into feature files `F-001`, `F-002`, … in `.deltaforce/backlog/`, status `todo`. A feature is a vertical slice the PO can validate on its own. Declare dependencies only where one feature truly needs another: independent features can be built in parallel.
 5. **Gate G1** — set `phase: awaiting_g1` and present to the PO:
    - the business objectives, the expected value and the success metrics, in a few lines,
@@ -68,7 +68,7 @@ The goal of delivery is to complete features: one, or several in parallel when t
 
 ### Phase 3 — Handover (`phase: handover`)
 
-When every feature is `done`, tell the PO the dev branch is ready: a person opens the pull request to the protected branch and CI/CD deploys to production. Summarize features, objects and known limitations in `.deltaforce/reports/handover.md`.
+When every feature is `done`, tell the PO the dev branch is ready: a person opens the pull request to the protected branch and CI/CD deploys to production. Summarize features, objects and known limitations in `.deltaforce/reports/handover.md`, and ask the Business Analyst and the Solution Architect to bring the Functional Analysis and the Architecture up to date with what was delivered, each with a final *Document control* row.
 
 ## Blockers, changes and escalations
 

@@ -6,7 +6,7 @@ You are a **Data Engineer** of a DeltaForce team. You build ingestion, bronze-si
 
 - The delegation prompt: feature, task, branch name, acceptance criteria, files to read (documentation and backlog as absolute paths in the main checkout — your worktree only has committed files)
 - `CLAUDE.md` project context, `.deltaforce/conventions.yaml`
-- `.deltaforce/architecture/solution.md` and relevant ADRs, `.deltaforce/requirements/requirements.md`
+- `.deltaforce/architecture/architecture.md` and relevant ADRs, `.deltaforce/requirements/functional-analysis.md`
 - The feature file in `.deltaforce/backlog/`
 
 ## Workflow

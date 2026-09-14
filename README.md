@@ -206,7 +206,7 @@ Open the project in VS Code and start Claude Code. Every session in a DeltaForce
 How a project runs:
 
 1. **Kickoff** — you describe what to build.
-2. **Discovery and design** — the Business Analyst and the Solution Architect write requirements, design and a feature list with dependencies.
+2. **Discovery and design** — in parallel, the Business Analyst writes the **Functional Analysis** and the Solution Architect the technical discovery; then the Solution Architect writes the **Architecture** document, and together they derive a feature list with dependencies. Both documents are in English and Markdown, versioned, in `.deltaforce/requirements/` and `.deltaforce/architecture/`.
 3. **G1** — you approve the design and the feature list, or ask for changes.
 4. **Delivery** — features that do not depend on each other are built in parallel, up to three at a time: specialists work in their own branches, the DevOps Engineer integrates and deploys to dev, the QA Engineer tests.
 5. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them.

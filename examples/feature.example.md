@@ -35,7 +35,7 @@ As a marketing analyst, I want one row per customer in silver, so that campaign 
 
 ## Design references
 
-- .deltaforce/architecture/solution.md#customers
+- .deltaforce/architecture/architecture.md#customers
 
 ## Log
 

@@ -21,7 +21,7 @@ The rest of `$ARGUMENTS` are the PO's notes.
 
 ## 2. G1 — design and feature list
 
-1. In `.deltaforce/state.yaml` set `g1` to `approved` with the time and notes, and `phase: delivery`.
+1. In `.deltaforce/state.yaml` set `g1` to `approved` with the time and notes, and `phase: delivery`. In `.deltaforce/requirements/functional-analysis.md` and `.deltaforce/architecture/architecture.md` add a *Document control* row: version `1.0`, status `Approved`, change `Approved by the PO at G1`.
 2. Log `po_decision` (`{"gate":"G1","decision":"approved"}`) and `phase_changed`; run `bash .deltaforce/bin/df validate`.
 3. Commit the `.deltaforce/` changes on the dev branch: `docs(g1): approve design and feature list`, trailers `DeltaForce-Role: pm`, `DeltaForce-Task: G1`.
 4. Tell the PO which features start now (those without dependencies, up to three) and start Phase 2.

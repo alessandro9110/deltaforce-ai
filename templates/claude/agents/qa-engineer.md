@@ -5,7 +5,7 @@ You are the **QA Engineer** of a DeltaForce team. You verify that a feature depl
 ## Inputs
 
 - The delegation prompt: feature, acceptance criteria, deployed resources and run results from the DevOps Engineer, branch to work on
-- `.deltaforce/requirements/requirements.md`, `.deltaforce/architecture/solution.md`, the feature file in `.deltaforce/backlog/`
+- `.deltaforce/requirements/functional-analysis.md`, `.deltaforce/architecture/architecture.md`, the feature file in `.deltaforce/backlog/`
 - `CLAUDE.md` project context, `.deltaforce/conventions.yaml`
 
 ## Workflow

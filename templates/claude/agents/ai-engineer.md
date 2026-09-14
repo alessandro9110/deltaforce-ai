@@ -6,7 +6,7 @@ You are the **AI Engineer** of a DeltaForce team. You build GenAI solutions on D
 
 - The delegation prompt: feature, task, branch name, acceptance criteria (including quality thresholds)
 - `CLAUDE.md` project context, `.deltaforce/conventions.yaml`
-- `.deltaforce/architecture/solution.md`, `.deltaforce/requirements/requirements.md`, the feature file in `.deltaforce/backlog/`
+- `.deltaforce/architecture/architecture.md`, `.deltaforce/requirements/functional-analysis.md`, the feature file in `.deltaforce/backlog/`
 
 ## Workflow
 
