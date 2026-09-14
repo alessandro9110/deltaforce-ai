@@ -86,9 +86,11 @@ df_ensure_dev_branch() {
 }
 
 df_ask_workspace() {
+    # A URL copied from the browser (path, ?o=<workspace-id>, #fragment) is accepted; only the host is kept.
     df_ask_valid DF_DB_HOST "Databricks workspace URL" "${DF_DB_HOST:-}" \
-        '^https://[^/[:space:]]+/?$' "https://<workspace-host>"
-    DF_DB_HOST=${DF_DB_HOST%/}
+        '^https://[^/?#[:space:]]+([/?#][^[:space:]]*)?$' "https://<workspace-host>"
+    [[ $DF_DB_HOST =~ ^(https://[^/?#[:space:]]+) ]] && DF_DB_HOST=${BASH_REMATCH[1]}
+    df_ok "Workspace: $DF_DB_HOST"
     while true; do
         df_ask_valid DF_DB_PROFILE "Databricks CLI profile name" "${DF_DB_PROFILE:-deltaforce-$DF_PROJECT_NAME}" \
             '^[A-Za-z0-9_-]+$' "letters, digits, '-' and '_'"

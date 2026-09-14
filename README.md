@@ -61,23 +61,28 @@ Where the project should live:
 
 Use the line that matches the terminal shown in the terminal panel's drop-down.
 
+The commands are split into short lines on purpose, so they survive copy and paste: paste all the lines at once.
+
 **PowerShell** (VS Code default on Windows):
 
 ```powershell
-& "$env:ProgramFiles\Git\bin\bash.exe" -c 'test -d .deltaforce/framework || git clone -q --depth 1 https://github.com/alessandro9110/deltaforce-ai .deltaforce/framework; bash .deltaforce/framework/install.sh'
-```
-
-**Command Prompt**:
-
-```bat
-"%ProgramFiles%\Git\bin\bash.exe" -c "test -d .deltaforce/framework || git clone -q --depth 1 https://github.com/alessandro9110/deltaforce-ai .deltaforce/framework; bash .deltaforce/framework/install.sh"
+& "$env:ProgramFiles\Git\bin\bash.exe" -c '
+d=.deltaforce/framework
+u=https://github.com/alessandro9110/deltaforce-ai
+test -d $d || git clone -q --depth 1 $u $d
+bash $d/install.sh'
 ```
 
 **Git Bash**:
 
 ```bash
-test -d .deltaforce/framework || git clone -q --depth 1 https://github.com/alessandro9110/deltaforce-ai .deltaforce/framework; bash .deltaforce/framework/install.sh
+d=.deltaforce/framework
+u=https://github.com/alessandro9110/deltaforce-ai
+test -d $d || git clone -q --depth 1 $u $d
+bash $d/install.sh
 ```
+
+**Command Prompt** cannot take multi-line commands: switch the terminal to PowerShell or Git Bash from the terminal panel's drop-down.
 
 The command downloads DeltaForce into `.deltaforce/framework` (the first time) and starts the guided installer. The repository is private: the first time, Git may open a browser window to sign in to GitHub.
 
@@ -111,7 +116,7 @@ Press Enter to accept the value in `[brackets]`. In menus, type the number of an
 
 ### Databricks workspace
 
-1. **Workspace URL** — e.g. `https://adb-1234567890123456.7.azuredatabricks.net`.
+1. **Workspace URL** — e.g. `https://adb-1234567890123456.7.azuredatabricks.net`. A URL copied from the browser address bar works too (`...net/?o=123...`): the installer keeps only the host.
 2. **CLI profile name** — default `deltaforce-<project>`. `DEFAULT` is not allowed.
 3. **Authentication method**:
    - **OAuth** (recommended) — a browser window opens; sign in and return to the terminal.
