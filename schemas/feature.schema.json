@@ -42,6 +42,8 @@
         }
       ]
     },
+    "started": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+    "completed": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
     "created": { "$ref": "#/$defs/timestamp" },
     "updated": { "$ref": "#/$defs/timestamp" }
   },

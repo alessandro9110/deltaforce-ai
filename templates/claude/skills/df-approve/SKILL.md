@@ -30,6 +30,6 @@ The rest of `$ARGUMENTS` are the PO's notes.
 
 1. In the feature file set `po_decision` to `approved` with the time and notes; log `po_decision` (`{"gate":"G2","decision":"approved"}`).
 2. Delegate to `devops-engineer`: merge `df/F-xxx` into the dev branch, push, rebuild `df/integration` with the features still active.
-3. When the merge is confirmed: set the feature `done`, remove it from `active_features`, log `feature_status_changed`, validate, and commit the backlog and state changes on the dev branch.
+3. When the merge is confirmed: set the feature `done` and `completed` to the current time, remove it from `active_features`, log `feature_status_changed`, validate, and commit the backlog and state changes on the dev branch.
 4. Tell the PO in one or two lines what was merged and what starts or continues now, then go on with Phase 2: start the features this one unblocked.
 5. When every feature is `done`, move to Phase 3 (handover).

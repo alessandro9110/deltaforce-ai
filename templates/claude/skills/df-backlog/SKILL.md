@@ -57,6 +57,8 @@ tasks:
     status: in_progress
     branch: null
 po_decision: null            # or {decision: approved|changes_requested, at: <timestamp>, notes: "..."}
+started: 2026-09-14T11:00:00Z  # first time the feature went in_progress; null before
+completed: null              # when it became done; null until then
 created: 2026-09-14T10:00:00Z
 updated: 2026-09-14T15:32:00Z
 ---
@@ -88,6 +90,7 @@ Feature: `todo → in_progress → integrating → in_test → awaiting_po → d
 
 - `changes_requested` at G2 moves `awaiting_po → in_progress` with new fix tasks.
 - Only a PO decision (`/df-approve`) moves a feature to `done`, after the DevOps Engineer merged it into the dev branch.
+- Set `started` the first time a feature moves to `in_progress` and never change it afterwards; set `completed` when it moves to `done`. They feed the project board (what was delivered and when, cycle time).
 - A feature can start only when all `depends_on` features are `done`.
 
 Task: `todo → in_progress → ready_for_integration → integrated → done`, plus `blocked`.

@@ -16,6 +16,8 @@ tasks:
     status: in_progress
     branch: null
 po_decision: null
+started: 2026-09-14T11:00:00Z
+completed: null
 created: 2026-09-14T10:00:00Z
 updated: 2026-09-14T15:32:00Z
 ---

@@ -25,7 +25,7 @@ It is installed from GitHub with `install.sh` into a **target project repo**, co
 | Feature cadence | Independent features run in parallel (up to three active); a feature starts when its dependencies are done; the PO validates every feature |
 | Backlog | Markdown files in the repo, machine-readable (future monitoring app) |
 | Deliverables | Functional Analysis (Business Analyst) and Architecture (Solution Architect): English, Markdown, standard DeltaForce structure, versioned with a *Document control* table (`1.0 — Approved` at G1), under `.deltaforce/` |
-| Production data | Production is a separate workspace. Reads only (SQL queries, model and vector search calls, Genie, table stats), through one dedicated role for audit; every other activity on prod is blocked by hooks |
+| Production data | Production is a separate workspace. Every role that works with data may read from it — SQL queries, model and vector search calls, Genie, table stats — and every access is audited with the role that made it; every other activity on prod is blocked by hooks |
 
 ## 3. Two repositories
 

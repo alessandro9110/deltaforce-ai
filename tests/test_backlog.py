@@ -57,6 +57,12 @@ def test_invalid_status_and_missing_active_feature(project):
     assert any("active feature F-004" in p for p in problems)
 
 
+def test_started_and_completed_must_be_timestamps(project):
+    path = project.backlog / "F-001-silver-customer-dedup.md"
+    path.write_text(path.read_text(encoding="utf-8").replace("completed: null", "completed: yesterday"), encoding="utf-8")
+    assert any("completed" in p for p in backlog.validate_project(project))
+
+
 def test_append_event_and_validate_events(project):
     event = backlog.append_event(project, "feature_status_changed", "pm", "F-001", None, {"from": "in_test", "to": "awaiting_po"})
     assert event["ts"].endswith("Z")
