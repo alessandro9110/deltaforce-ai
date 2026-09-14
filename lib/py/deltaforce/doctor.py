@@ -185,6 +185,15 @@ class Doctor:
         ok, output = self.run_command([self.paths.venv_python, "-c", "import databricks_mcp_server"], timeout=300)
         self.add("mcp-runtime", title, ok, "importable" if ok else _first_line(output))
 
+    def check_monitor(self) -> None:
+        title = "Monitor"
+        if not self.paths.venv_python.exists():
+            self.add("monitor", title, False, "runtime missing — re-run the installer", "warn")
+            return
+        ok, output = self.run_command([self.paths.venv_python, "-c", "import yaml"], timeout=120)
+        detail = "opens in the browser when the team starts working" if ok else f"{_first_line(output)} — re-run the installer"
+        self.add("monitor", title, ok, detail, "warn")
+
     def check_skills(self) -> None:
         expected = cfg.skills_for_roles(self.config["team"]["roles"])
         missing = [skill for skill in expected if not (self.paths.skills / skill / "SKILL.md").exists()]
@@ -303,6 +312,7 @@ def run(paths: ProjectPaths) -> dict[str, Any]:
         doctor.check_tools()
         workspace_ok = doctor.check_workspace()
         doctor.check_mcp_runtime()
+        doctor.check_monitor()
         doctor.check_skills()
         doctor.check_generated()
         doctor.check_team()

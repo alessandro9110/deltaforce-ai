@@ -3,18 +3,21 @@
 
 The installer registers this script in .claude/settings.local.json:
 
-    python deltaforce_hook.py <pre|post|subagent-start|subagent-stop> <guard-policy.json>
+    python deltaforce_hook.py <mode> <guard-policy.json>
+    modes: pre, post, activity, subagent-start, subagent-stop, session-start, session-end
 
 Claude Code passes the hook input as JSON on stdin. In `pre` mode the script prints a deny
 decision when an action breaks a DeltaForce rule; otherwise it prints nothing and Claude Code
 applies its normal permission flow. Every denial, Databricks call and shell command is appended
-to the audit file; agent activity feeds the monitoring view.
+to the audit file. Agent activity (tool calls, delegations, agents, sessions) feeds the monitor,
+which the hook starts with a session and opens in the browser when the team starts working.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -43,6 +46,11 @@ RESOURCE_TOOLS = {
 DATA_WRITE_TOOLS_WITHOUT_ACTION = {"generate_and_upload_pdf"}
 PUSH_FORBIDDEN_FLAGS = {"-f", "-d", "--delete", "--mirror", "--prune"}
 SHELL_WRAPPERS = {"timeout", "nohup", "time", "command", "env", "nice"}
+AGENT_TOOLS = {"Agent", "Task"}
+FILE_TOOLS = {"Edit", "Write", "NotebookEdit", "Read"}
+FEATURE_REF = re.compile(r"\bF-\d{3,}\b")
+TASK_REF = re.compile(r"\bT-(\d{3,})\.\d+\b")
+MONITOR_MODES = {"post", "activity", "subagent-start", "session-start"}
 
 WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 NAME = r"[A-Za-z0-9_-]+"
@@ -526,6 +534,15 @@ def audit(event: dict[str, Any], policy: dict[str, Any], decision: str, reason: 
     _append(policy.get("audit_file"), record)
 
 
+def _detail(tool: str, tool_input: dict[str, Any]) -> str:
+    """What a tool call touches, for the monitor: a file, a command, a delegation or a Databricks call."""
+    if tool in FILE_TOOLS:
+        return str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+    if tool in AGENT_TOOLS:
+        return str(tool_input.get("description") or "")[:200]
+    return _summary(tool, tool_input, 200)
+
+
 def activity(event: dict[str, Any], policy: dict[str, Any], kind: str) -> None:
     record = {
         "ts": _now(),
@@ -534,9 +551,20 @@ def activity(event: dict[str, Any], policy: dict[str, Any], kind: str) -> None:
         "role": role_of(event, policy),
         "event": kind,
     }
-    if event.get("tool_name"):
-        record["tool"] = event["tool_name"]
-        record["summary"] = _summary(str(event["tool_name"]), event.get("tool_input") or {}, 200)
+    tool = str(event.get("tool_name") or "")
+    tool_input = event.get("tool_input") or {}
+    if tool:
+        record["tool"] = tool
+        record["summary"] = _detail(tool, tool_input)
+    if tool in AGENT_TOOLS:
+        record["target_role"] = tool_input.get("subagent_type")
+        text = f"{tool_input.get('description', '')}\n{str(tool_input.get('prompt', ''))[:4000]}"
+        if task := TASK_REF.search(text):
+            record["task"] = task.group(0)
+        if feature := FEATURE_REF.search(text):
+            record["feature"] = feature.group(0)
+        elif task:
+            record["feature"] = f"F-{task.group(1)}"
     if event.get("reason"):
         record["reason"] = event["reason"]
     _append(policy.get("activity_file"), record)
@@ -572,6 +600,8 @@ def main(argv: list[str]) -> int:
     elif mode == "post":
         audit(event, policy, "allowed")
         activity(event, policy, "tool_used")
+    elif mode == "activity":
+        activity(event, policy, "delegated" if str(event.get("tool_name")) in AGENT_TOOLS else "tool_used")
     elif mode == "subagent-start":
         activity(event, policy, "agent_started")
     elif mode == "subagent-stop":
@@ -580,7 +610,24 @@ def main(argv: list[str]) -> int:
         activity(event, policy, "session_started")
     elif mode == "session-end":
         activity(event, policy, "session_ended")
+    if mode in MONITOR_MODES:
+        monitor(event, policy, open_page=mode != "session-start")
     return 0
+
+
+def monitor(event: dict[str, Any], policy: dict[str, Any], open_page: bool) -> None:
+    """Start the monitor with a session; open it in the browser the first time the team works in it."""
+    root = policy.get("project_root")
+    disabled = os.environ.get("DELTAFORCE_MONITOR", "").strip().lower() in {"off", "0", "false", "no"}
+    if not policy.get("monitor_enabled") or not root or disabled:
+        return
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from monitor import launcher
+
+        launcher.ensure(Path(root), Path(sys.executable), event.get("session_id"), open_page)
+    except Exception:  # the monitor never gets in the team's way
+        pass
 
 
 def _deny(reason: str) -> None:

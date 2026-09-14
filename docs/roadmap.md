@@ -20,13 +20,15 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] PO sees work in progress before G2 in `.deltaforce/review/` (integration worktree); main checkout never leaves dev; agent worktrees cleaned up at feature close
 - [x] Fixes from the first sandbox run: task branch naming, `sys.exit` on serverless, PM checks before answering
 - [x] Installed files are off-limits to agents (edits, write commands, commits); the installer commits them; the doctor checks agents and skills are unchanged; conventions changed only by the PM
+- [x] Monitor (M5 base): local read-only page in the system browser — now and waiting for the PO, team with current work, feature board with dates, clickable features, agents and documents; starts with the session, opens on the team's first work, stops by itself; `df monitor`
 
 ### Next
 
 - [ ] First MVP run in the sandbox (kickoff → G1 → parallel features → G2) and fixes for what it reveals
-- [ ] Monitoring app (M5): virtual office and project board, starts automatically, reads files only (no tokens)
+- [ ] Monitor: first live run with the new hooks in the sandbox (re-install with Claude Code closed), then timeline, deploys and tests, audit and guardrail views
 - [ ] CI/CD templates (M4): Azure DevOps, then GitHub Actions
 - [ ] Installer warning when a Claude Code session is open on the project
+
 ### Later
 
 - [ ] Per-role service principals with Unity Catalog grants
@@ -90,6 +92,8 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - **Starts automatically** when the team works: no manual command. The server starts with the Claude Code session, the page opens the first time the team starts working in that session, and the server stops by itself when no session is active.
 
 **Exit**: live view of an M3 run.
+
+**Status (2026-09-14)**: base implemented in `lib/monitor/` (design §9 *Monitor*): header, now and waiting for the PO, team, feature board, side panels for features, agents and documents; automatic start from the hooks, validated on Windows (a server started by an async `SessionStart` hook survives Claude Code) and against the sandbox backlog. Pending: a live run with the new hooks, timeline, deploys and tests, audit, branches.
 
 ## M6 — Hardening
 

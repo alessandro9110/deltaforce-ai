@@ -63,14 +63,17 @@ INSTALLED_COMMIT_PATHS = (
 SECRET_FILE = ".deltaforce/.databrickscfg"
 LEGACY_DENY_RULES = ("Edit(**/.deltaforce/runtime/guard-policy.json)",)
 
-# (event, matcher, hook mode, timeout in seconds)
+# (event, matcher, hook mode, timeout in seconds, runs in the background). Only the guard must block the
+# tool call; audit and activity run in the background. SessionEnd stays synchronous so it is not cut short.
 HOOK_EVENTS = (
-    ("PreToolUse", "Bash|Edit|Write|NotebookEdit|Read|mcp__databricks.*", "pre", 30),
-    ("PostToolUse", "Bash|mcp__databricks.*", "post", 30),
-    ("SubagentStart", None, "subagent-start", 15),
-    ("SubagentStop", None, "subagent-stop", 15),
-    ("SessionStart", None, "session-start", 15),
-    ("SessionEnd", None, "session-end", 15),
+    ("PreToolUse", "Bash|Edit|Write|NotebookEdit|Read|mcp__databricks.*", "pre", 30, False),
+    ("PreToolUse", "Agent|Task", "activity", 30, True),
+    ("PostToolUse", "Bash|mcp__databricks.*", "post", 30, True),
+    ("PostToolUse", "Edit|Write|NotebookEdit", "activity", 30, True),
+    ("SubagentStart", None, "subagent-start", 30, True),
+    ("SubagentStop", None, "subagent-stop", 15, True),
+    ("SessionStart", None, "session-start", 30, True),
+    ("SessionEnd", None, "session-end", 15, False),
 )
 
 
@@ -110,6 +113,8 @@ def build_policy(config: Mapping[str, Any], paths: ProjectPaths, roles: Mapping[
         "secret_file": SECRET_FILE,
         "audit_file": _posix(paths.audit),
         "activity_file": _posix(paths.activity),
+        "project_root": _posix(paths.root),
+        "monitor_enabled": True,
     }
 
 
@@ -141,17 +146,16 @@ def merge_hooks(existing: Mapping[str, Any] | None, paths: ProjectPaths) -> dict
     hooks: dict[str, list[Any]] = {
         event: [group for group in groups if not _is_deltaforce_group(group)] for event, groups in (existing or {}).items()
     }
-    for event, matcher, mode, timeout in HOOK_EVENTS:
-        group: dict[str, Any] = {
-            "hooks": [
-                {
-                    "type": "command",
-                    "command": _posix(paths.venv_python),
-                    "args": [_posix(HOOK_SCRIPT), mode, _posix(paths.guard_policy)],
-                    "timeout": timeout,
-                }
-            ]
+    for event, matcher, mode, timeout, background in HOOK_EVENTS:
+        hook: dict[str, Any] = {
+            "type": "command",
+            "command": _posix(paths.venv_python),
+            "args": [_posix(HOOK_SCRIPT), mode, _posix(paths.guard_policy)],
+            "timeout": timeout,
         }
+        if background:
+            hook["async"] = True
+        group: dict[str, Any] = {"hooks": [hook]}
         if matcher:
             group = {"matcher": matcher, **group}
         hooks.setdefault(event, []).append(group)

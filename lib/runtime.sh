@@ -35,7 +35,8 @@ df_install_ai_dev_kit() {
     "$DF_UV" venv --quiet --allow-existing --python "$DF_PYTHON_VERSION" "$(df_native_path "$venv")" \
         || df_die "Could not create the MCP server virtual environment"
     python=$(df_venv_python)
-    "$DF_UV" pip install --quiet --python "$(df_native_path "$python")" \
+    # PyYAML is also used by the DeltaForce monitor, which runs with this interpreter.
+    "$DF_UV" pip install --quiet --python "$(df_native_path "$python")" "pyyaml>=6" \
         -e "$(df_native_path "$source_dir/databricks-tools-core")" \
         -e "$(df_native_path "$source_dir/databricks-mcp-server")" \
         || df_die "Could not install the MCP server packages"

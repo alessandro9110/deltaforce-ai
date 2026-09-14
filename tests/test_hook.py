@@ -289,6 +289,29 @@ def test_main_denies_with_json_and_audits(policy, tmp_path):
     assert activity[-1]["reason"] == "logout" and activity[-1]["role"] == "pm"
 
 
+def test_activity_records_delegations_and_edits_for_the_monitor(policy, tmp_path):
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+    delegation = {
+        "hook_event_name": "PreToolUse", "session_id": "s1", "tool_name": "Agent",
+        "tool_input": {"description": "Fix runner exit handling", "prompt": "Task T-001.4 of df/F-001 ...", "subagent_type": "data-engineer"},
+    }
+    edit = {
+        "hook_event_name": "PostToolUse", "session_id": "s1", "agent_id": "a1", "agent_type": "data-engineer",
+        "tool_name": "Write", "tool_input": {"file_path": "C:/p/src/x.py", "content": "x = 1\n" * 500},
+    }
+    assert run_hook("activity", policy_path, delegation).stdout.strip() == ""
+    run_hook("activity", policy_path, edit)
+
+    records = [json.loads(line) for line in (tmp_path / "activity.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert records[0] == {
+        **records[0], "event": "delegated", "role": "pm", "target_role": "data-engineer",
+        "summary": "Fix runner exit handling", "task": "T-001.4", "feature": "F-001",
+    }
+    assert records[1] == {**records[1], "event": "tool_used", "role": "data-engineer", "summary": "C:/p/src/x.py"}
+    assert not (tmp_path / "audit.jsonl").exists()  # activity is not audit
+
+
 def test_missing_policy_fails_closed_on_production(tmp_path):
     missing = tmp_path / "missing.json"
     prod = run_hook("pre", missing, {"tool_name": PROD_SQL, "tool_input": {"sql_query": "SELECT 1"}})

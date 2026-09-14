@@ -169,6 +169,7 @@ Everything lives inside the project repository.
 | `.deltaforce/bin/df` | Helper the team uses to validate state and log events | ignored |
 | `.deltaforce/audit.jsonl` | Audit trail: every Databricks call, shell command and blocked action, with the role that made it | ignored |
 | `.deltaforce/runtime/guard-policy.json` | Guardrail rules generated from your configuration | ignored |
+| `.deltaforce/runtime/activity.jsonl`, `monitor.json`, `monitor.log` | What the agents are doing, read by the monitor page; the monitor's address and log | ignored |
 | `.claude/agents/` | The DeltaForce agents for the enabled roles | committed |
 | `.claude/skills/df-*` | Team skills and Product Owner commands | committed |
 | `.claude/skills/databricks-*` | Databricks agent skills for the enabled roles | committed |
@@ -194,7 +195,7 @@ The installer ends with the readiness checks. To run them again, in the VS Code 
 | Command Prompt | `"%ProgramFiles%\Git\bin\bash.exe" -c "bash .deltaforce/framework/install.sh --doctor"` |
 | Git Bash | `bash .deltaforce/framework/install.sh --doctor` |
 
-The checks cover the configuration, Claude Code, git and the dev branch, tool versions, the Databricks sign-in, the warehouse (or cluster), the catalog and schemas, the MCP server, the skills, the generated files, and `databricks bundle validate -t dev` (warning only).
+The checks cover the configuration, Claude Code, git and the dev branch, tool versions, the Databricks sign-in, the warehouse (or cluster), the catalog and schemas, the MCP server, the monitor (warning only), the skills, the generated files, and `databricks bundle validate -t dev` (warning only).
 
 - **DeltaForce is ready** — open Claude Code in the project and start with `/df-kickoff` (see [section 6](#6-work-with-the-team)).
 - **Not ready yet** — each failed check says what to fix. Fix it and run the checks again. `/df-kickoff` only starts when `.deltaforce/status.json` says `"ready": true`.
@@ -224,6 +225,15 @@ How a project runs:
 **See the work in progress.** Until you approve a feature at G2, its code is not in your project folder: the dev branch only holds approved work. The code currently deployed on dev — bundle resources, pipelines, tests of every active feature — is in `.deltaforce/review/`. Add that folder to your VS Code workspace once (**File → Add Folder to Workspace…**) and it stays up to date after every deployment.
 
 **You can close Claude Code at any time.** Nothing depends on the conversation: the next session starts from `.deltaforce/` — `state.yaml` (phase, next steps, last update), the backlog and the saved task reports — checks unfinished tasks on their branches and continues. `/df-status` shows you the same.
+
+### Watch the team in the browser
+
+The first time the team starts working in a Claude Code session, DeltaForce opens the **monitor** in your default browser. It shows what is happening now and what is waiting for you, each agent with what it is doing, and every feature on a board — to do, in progress, waiting for your review, done with its completion date and how long it took. Click a feature for its tasks, activity and details, an agent for its tasks and recent actions, **Documents** for the Functional Analysis, the Architecture and the reports.
+
+- It runs on your computer only (`http://127.0.0.1:87xx`, always the same address for a project) and only reads the files in `.deltaforce/`: it uses no tokens and changes nothing. Approvals stay in Claude Code (`/df-approve`, `/df-changes`).
+- It updates by itself every few seconds, and stops on its own about half an hour after the last session closes.
+- To open it at any other time, in Git Bash: `bash .deltaforce/bin/df monitor` (PowerShell: `& "$env:ProgramFiles\Git\bin\bash.exe" -c 'bash .deltaforce/bin/df monitor'`).
+- To stop it from opening automatically, set the environment variable `DELTAFORCE_MONITOR=off` before starting Claude Code.
 
 The team asks you only at G1, at G2, and when something blocks or changes what you asked for. Everything the team writes to organize itself — request, requirements, design, backlog, reports, state and events — lives in `.deltaforce/`; outside it there is only the product: `src/`, `resources/`, `tests/`, `databricks.yml`.
 
@@ -273,6 +283,7 @@ To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databri
 | OAuth browser window does not open | Copy the URL printed in the terminal into your browser |
 | Authentication check fails | Run the install command again and sign in, or check that your account can access the workspace |
 | Catalog or schema check fails | Create them in Databricks (or ask an administrator), or run the installer again and pick existing ones |
+| The monitor page does not open | Run `bash .deltaforce/bin/df monitor` in Git Bash; if it reports an error, look at `.deltaforce/runtime/monitor.log`, then re-run the install command. The page shows *Offline* when the monitor stopped after the sessions closed: it starts again when the team works |
 | `databricks bundle validate` warning | Not blocking. Run `.deltaforce/bin/databricks bundle validate -t dev` in Git Bash to see the details |
 | Downloads fail | Check access to `github.com`, including through a corporate proxy |
 
