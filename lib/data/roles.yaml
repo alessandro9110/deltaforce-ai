@@ -1,0 +1,35 @@
+# DeltaForce roles: the single source of truth for role ids, default models and
+# the Databricks agent skills each role needs. The installer installs the union
+# of skills for the enabled roles. Keep role ids in sync with
+# schemas/config.schema.json (tests enforce it).
+
+roles:
+  pm:
+    title: Project Manager
+    model: opus
+    skills: [databricks-core]
+  solution-architect:
+    title: Solution Architect
+    model: opus
+    skills: [databricks-core, databricks-dabs, databricks-unity-catalog, databricks-docs, databricks-metric-views]
+  business-analyst:
+    title: Business Analyst
+    skills: [databricks-core, databricks-data-discovery]
+  data-engineer:
+    title: Data Engineer
+    skills: [databricks-core, databricks-pipelines, databricks-jobs, databricks-dabs, databricks-lakeflow-connect, databricks-spark-structured-streaming]
+  data-analyst:
+    title: Data Analyst
+    skills: [databricks-core, databricks-dbsql, databricks-aibi-dashboards, databricks-metric-views, databricks-data-discovery]
+  data-scientist:
+    title: Data Scientist
+    skills: [databricks-core, databricks-ml-training, databricks-synthetic-data-gen, databricks-python-sdk]
+  ai-engineer:
+    title: AI Engineer
+    skills: [databricks-core, databricks-agent-bricks, databricks-vector-search, databricks-model-serving, databricks-mlflow-evaluation, databricks-ai-functions, databricks-apps-python]
+  qa-engineer:
+    title: QA Engineer
+    skills: [databricks-core, databricks-dbsql, databricks-mlflow-evaluation, databricks-synthetic-data-gen]
+  devops-engineer:
+    title: DevOps Engineer
+    skills: [databricks-core, databricks-dabs, databricks-jobs, databricks-pipelines]

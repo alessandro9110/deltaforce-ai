@@ -13,6 +13,7 @@ It is installed from GitHub with `install.sh` into a **target project repo**, co
 | Topic | Decision |
 |---|---|
 | Agent runtime | Claude Code only |
+| Install scope | **Project only, never global**: skills, MCP server, ai-dev-kit runtime and Claude Code config all live inside the target repo |
 | Team OS | Windows (installer and hooks run under Git Bash); CI runners are Linux |
 | Deployment unit | Databricks Asset Bundles (DABs) |
 | Prod deployment | Only through CI/CD — Azure DevOps now, GitHub Actions later |
@@ -233,7 +234,10 @@ The backlog is designed to be read by a future monitoring app without changes.
 
 ```
 .deltaforce/
-  config.yaml           # kickoff inputs, medallion layout, tables, models, protected branches
+  config.yaml           # installer answers (committed, no secrets); kickoff adds request and tables
+  status.json           # doctor result gating /df-kickoff (gitignored)
+  .databrickscfg        # project-local CLI profile (gitignored)
+  bin/, runtime/        # uv, Databricks CLI, Python, AI Dev Kit, MCP venv (gitignored)
   state.yaml            # current phase, current feature, dev branch
   backlog/F-003-silver-customer-dedup.md
   reports/F-003-po-review.md
@@ -288,34 +292,32 @@ Single-writer rules:
 
 ## 11. Installer
 
-Run from the target repo root, in Git Bash:
+**The installer only installs.** It asks for the technical environment, installs everything, and finishes with the doctor. `/df-kickoff` (what to build, table names) starts only once the doctor reports ready.
+
+**Everything is project-scoped — nothing is installed globally.** Git for Windows and Claude Code are checked, never installed. With OAuth, the Databricks CLI keeps its token cache in the user profile; that cache is the only user-level artifact.
+
+**The whole installation happens in the IDE's integrated terminal, with one command** — no separate windows, no manual cloning. The command (PowerShell, Command Prompt and Git Bash variants in the README) clones the framework into `.deltaforce/framework` if missing and runs `bash .deltaforce/framework/install.sh`. The same command updates and reconfigures later.
+
+`install.sh` bootstraps itself: when it runs without its `lib/` folder (e.g. piped) it clones `DF_REPO_URL` at `DF_REF` (default `main`) into `.deltaforce/framework`; when it runs from `.deltaforce/framework` it fetches `DF_REF` first; then it re-executes the fresh copy. `--help` and `--doctor` skip the update. The framework copy is gitignored.
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/<org>/deltaforce-ai/main/install.sh) [flags]
+bash .deltaforce/framework/install.sh [--target DIR] [--advanced] [--non-interactive] [--yes] [--dry-run] [--doctor]
 ```
 
-Flags: `--ref <tag>`, `--profile <name>`, `--yes`, `--dry-run`, `--doctor`, `--update`, `--uninstall`.
+Steps (implemented in `install.sh` + `lib/`):
 
-Steps:
+1. **Preflight** — bash ≥ 4, `git`, `curl`, `tar`, `unzip` (Windows); offers `git init` when the folder is not a repository (never during `--dry-run`); must be the repository root; Windows path length vs `LongPathsEnabled`; Claude Code detected; conflicting `DATABRICKS_*` environment variables are ignored and reported.
+2. **Questions, part 1** — project name, protected branches, dev branch, CI/CD provider (git provider detected from `origin`), workspace URL, CLI profile name (never `DEFAULT`), auth method (`oauth` default, `pat`, `service-principal`). Values from an existing config are the defaults. `--dry-run` prints the plan here and exits.
+3. **Git and project-local tools** — after confirmation, the dev branch is checked out; if missing, the installer offers to create it (with an initial empty commit in an empty repository) and to push it when a remote exists. Then uv and Databricks CLI downloaded from their GitHub releases into `.deltaforce/bin/` at the versions pinned in `lib/data/versions.env`; Python installed by uv into `.deltaforce/runtime/python` (`UV_PYTHON_INSTALL_DIR`, `UV_CACHE_DIR`, `UV_LINK_MODE=copy` because OneDrive rejects hardlinks).
+4. **Authentication** — profile written to `.deltaforce/.databrickscfg` through `DATABRICKS_CONFIG_FILE`: `databricks auth login` (OAuth), `databricks configure` (PAT, token read hidden) or a client ID/secret section (service principal); verified with `current-user me`.
+5. **Questions, part 2** (live lists from the workspace) — SQL warehouse, compute (serverless or cluster), dev catalog, medallion layout and schema(s). With `--advanced`: roles, default model, nesting depth, AI Dev Kit ref.
+6. **Configuration** — `.deltaforce/config.yaml`, validated against `schemas/config.schema.json`.
+7. **AI Dev Kit MCP server** — sparse, shallow clone of `databricks-mcp-server` and `databricks-tools-core` at the pinned ref into `.deltaforce/runtime/ai-dev-kit` (`core.longpaths=true`), venv in `.deltaforce/runtime/venv` built directly with uv (the upstream `setup.sh`/`mcp_install.sh` assume Unix venv paths).
+8. **Databricks skills** — `databricks aitools install --path .claude/skills --skills <union of role skills>`: plain folders, no symlinks and no global state (aitools project scope symlinks, which Windows restricts).
+9. **Generated files** — from the config: `.mcp.json` (absolute paths, gitignored), `.claude/settings.json` (nesting depth, agent teams off, `worktree.baseRef: head`, `enabledMcpjsonServers`), `.claude/settings.local.json` (`DATABRICKS_CONFIG_FILE` + profile for every Bash call), the `CLAUDE.md` project-context block, `databricks.yml` (created once) and `resources/deltaforce.variables.yml` (dev values only; prod values must come from CI/CD), a managed `.gitignore` block.
+10. **Doctor** — config, Claude Code, git and dev branch, tool versions, authentication, warehouse/cluster, catalog and schemas, MCP server import, skills, generated files, `bundle validate -t dev` (warning only). Result in `.deltaforce/status.json`; `/df-kickoff` requires `ready: true`. Rerun with `--doctor`.
 
-1. **Prerequisites** — check version, not just presence. If one is missing, ask consent and install (`--yes` skips prompts). If installation fails (winget blocked, no admin, proxy), print manual instructions and continue.
-
-   | Tool | Minimum | Install on Windows |
-   |---|---|---|
-   | Git for Windows (Git Bash) | — | required by Claude Code itself |
-   | Claude Code | — | detected only |
-   | Databricks CLI | 1.0.0 (for `aitools`) | `winget install Databricks.DatabricksCLI` |
-   | uv | — | `winget install astral-sh.uv` |
-   | Python | 3.11+ | `uv python install` |
-   | Azure CLI | optional | `winget install Microsoft.AzureCLI` |
-
-2. **Databricks auth** — select or create a profile; run `databricks auth login --host <url> --profile <name>` (browser OAuth); verify with `databricks current-user me -p <name>`.
-3. **Templates** — copy agents, skills, hooks, settings, CLAUDE.md, bundle skeleton, `.deltaforce/`. A manifest with checksums (`.deltaforce/manifest.json`) lets `--update` refresh framework-owned files without overwriting project-owned ones.
-4. **Agent skills** — `databricks aitools install --agents claude-code --scope project --skills-only --skills <union of role skills>`.
-5. **MCP server** — fetch `databricks-solutions/ai-dev-kit` at a pinned ref into a per-user cache, build its venv with uv, register it per machine (not committed, so no absolute paths in the repo). The script handles Windows venv paths (`.venv\Scripts\python.exe`) instead of relying on the Unix-oriented `mcp_install.sh`.
-6. **Doctor** — final verification; `--doctor` can be rerun any time.
-
-The installer is idempotent.
+The installer is idempotent: re-runs reuse downloaded tools, the AI Dev Kit checkout at the same ref, and regenerate managed files without touching user content outside managed blocks.
 
 ## 12. Framework repository layout (planned)
 
@@ -345,6 +347,7 @@ PO-facing commands: `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `
 - Task branch naming inside Claude-created worktrees: rename on start vs custom `WorktreeCreate` hook.
 - `agent_type` present in hook input for every role subagent and for `--agent pm`, on Windows.
 - Nested delegation: whether `SubagentStart` exposes the parent agent, so `events.jsonl` can record the full delegation chain; worktree behaviour when a worktree-isolated subagent spawns another (`baseRef: "head"` should resolve to the parent worktree).
-- Per-machine MCP registration working together with subagent tool allowlists.
-- `aitools --skills-only` output location and matching names for `skills:` preload; whether installed skills are committed (proposed: yes, for reproducibility).
+- `.mcp.json` MCP server usable from worktree-isolated subagents, together with per-role MCP tool allowlists.
+- Whether installed `.claude/skills` are committed (proposed: yes, for reproducibility) and how the `skills:` preload resolves them.
+- `targets.dev.variables` defined in the included `resources/deltaforce.variables.yml` being merged by `bundle validate` (doctor reports it as a warning).
 - ai-dev-kit MCP server maintenance is best-effort upstream: pin the ref and keep a fallback to the Databricks CLI for critical operations (deploy, run).

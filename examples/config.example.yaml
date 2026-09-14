@@ -1,0 +1,43 @@
+# DeltaForce AI project configuration.
+# Written by install.sh — re-run the installer to change it. Contains no secrets.
+version: 1
+project:
+  name: customer-360
+  dev_branch: dev
+  protected_branches:
+  - main
+  - master
+  git_provider: azure-devops
+  cicd: azure-devops
+databricks:
+  host: https://adb-1234567890123456.7.azuredatabricks.net
+  profile: deltaforce-customer-360
+  auth: oauth
+  warehouse_id: 1234abcd5678efgh
+  compute: serverless
+  cluster_id: null
+targets:
+  dev:
+    catalog: sandbox_dev
+    medallion:
+      layout: single_schema
+      schema: customer_360
+team:
+  roles:
+  - pm
+  - solution-architect
+  - business-analyst
+  - data-engineer
+  - data-analyst
+  - data-scientist
+  - ai-engineer
+  - qa-engineer
+  - devops-engineer
+  models:
+    default: sonnet
+    pm: opus
+    solution-architect: opus
+  max_spawn_depth: 3
+ai_dev_kit:
+  repo: https://github.com/databricks-solutions/ai-dev-kit.git
+  ref: v0.2.0

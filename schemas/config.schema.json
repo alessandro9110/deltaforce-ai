@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alessandro9110/deltaforce-ai/blob/main/schemas/config.schema.json",
+  "title": "DeltaForce AI project configuration",
+  "description": "Contents of .deltaforce/config.yaml in a target repository. Written by install.sh; never contains secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "project", "databricks", "targets", "team", "ai_dev_kit"],
+  "properties": {
+    "version": { "const": 1 },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "dev_branch", "protected_branches", "git_provider", "cicd"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+        "dev_branch": { "$ref": "#/$defs/branch" },
+        "protected_branches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/branch" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "git_provider": { "enum": ["azure-devops", "github", "other"] },
+        "cicd": { "enum": ["azure-devops", "github", "none"] }
+      }
+    },
+    "databricks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "profile", "auth", "warehouse_id", "compute"],
+      "properties": {
+        "host": { "type": "string", "pattern": "^https://[^/\\s]+$" },
+        "profile": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$", "not": { "const": "DEFAULT" } },
+        "auth": { "enum": ["oauth", "pat", "service-principal"] },
+        "warehouse_id": { "type": "string", "pattern": "^[A-Za-z0-9]+$" },
+        "compute": { "enum": ["serverless", "cluster"] },
+        "cluster_id": { "type": ["string", "null"] }
+      },
+      "if": { "required": ["compute"], "properties": { "compute": { "const": "cluster" } } },
+      "then": {
+        "required": ["cluster_id"],
+        "properties": { "cluster_id": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" } }
+      }
+    },
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev"],
+      "properties": { "dev": { "$ref": "#/$defs/target" } }
+    },
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roles", "models", "max_spawn_depth"],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/role" },
+          "uniqueItems": true,
+          "contains": { "const": "pm" }
+        },
+        "models": {
+          "type": "object",
+          "required": ["default"],
+          "propertyNames": { "anyOf": [{ "const": "default" }, { "$ref": "#/$defs/role" }] },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "max_spawn_depth": { "type": "integer", "minimum": 1, "maximum": 5 }
+      }
+    },
+    "ai_dev_kit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "ref"],
+      "properties": {
+        "repo": { "type": "string", "pattern": "^https://" },
+        "ref": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "branch": { "type": "string", "pattern": "^[^\\s]+$" },
+    "uc_name": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+    "role": {
+      "enum": [
+        "pm",
+        "solution-architect",
+        "business-analyst",
+        "data-engineer",
+        "data-analyst",
+        "data-scientist",
+        "ai-engineer",
+        "qa-engineer",
+        "devops-engineer"
+      ]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog", "medallion"],
+      "properties": {
+        "catalog": { "$ref": "#/$defs/uc_name" },
+        "medallion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["layout"],
+          "properties": {
+            "layout": { "enum": ["single_schema", "multi_schema"] },
+            "schema": { "$ref": "#/$defs/uc_name" },
+            "bronze": { "$ref": "#/$defs/uc_name" },
+            "silver": { "$ref": "#/$defs/uc_name" },
+            "gold": { "$ref": "#/$defs/uc_name" }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["layout"], "properties": { "layout": { "const": "single_schema" } } },
+              "then": {
+                "required": ["schema"],
+                "not": { "anyOf": [{ "required": ["bronze"] }, { "required": ["silver"] }, { "required": ["gold"] }] }
+              }
+            },
+            {
+              "if": { "required": ["layout"], "properties": { "layout": { "const": "multi_schema" } } },
+              "then": { "required": ["bronze", "silver", "gold"], "not": { "required": ["schema"] } }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

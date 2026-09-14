@@ -1,0 +1,231 @@
+"""Post-install checks. The report is written to .deltaforce/status.json and gates /df-kickoff."""
+
+from __future__ import annotations
+
+import datetime as dt
+import json
+import os
+import shutil
+import subprocess
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+from . import config as cfg
+from .generate import CLAUDE_MD_START, GITIGNORE_START, MCP_SERVER_NAME, medallion_schemas
+from .paths import ProjectPaths
+
+CONFLICTING_ENV = ("DATABRICKS_HOST", "DATABRICKS_TOKEN", "DATABRICKS_CLIENT_ID", "DATABRICKS_CLIENT_SECRET")
+
+
+@dataclass
+class Check:
+    id: str
+    title: str
+    ok: bool
+    detail: str = ""
+    severity: str = "error"  # "error" blocks kickoff, "warn" does not
+
+
+def _first_line(text: str) -> str:
+    """The most useful line of CLI output: the first 'Error' line, else the first non-notice line."""
+    lines = [line.strip() for line in str(text).splitlines() if line.strip()]
+    # The Databricks CLI prints this notice on every command when skills live in a custom path.
+    lines = [line for line in lines if "databricks aitools install" not in line] or lines
+    errors = [line for line in lines if line.lower().startswith("error")]
+    return (errors or lines or [""])[0][:200]
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+class Doctor:
+    def __init__(self, paths: ProjectPaths) -> None:
+        self.paths = paths
+        self.checks: list[Check] = []
+        self.config: dict[str, Any] | None = None
+
+    def add(self, check_id: str, title: str, ok: bool, detail: str = "", severity: str = "error") -> bool:
+        self.checks.append(Check(check_id, title, ok, detail, severity))
+        return ok
+
+    def run_command(
+        self, argv: list[Any], *, cwd: Path | None = None, timeout: int = 120, databricks_env: bool = False
+    ) -> tuple[bool, str]:
+        env = dict(os.environ)
+        if databricks_env and self.config:
+            for name in CONFLICTING_ENV:
+                env.pop(name, None)
+            env["DATABRICKS_CONFIG_FILE"] = str(self.paths.databricks_cfg)
+            env["DATABRICKS_CONFIG_PROFILE"] = self.config["databricks"]["profile"]
+        try:
+            result = subprocess.run(
+                [str(arg) for arg in argv],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                cwd=cwd,
+                env=env,
+                timeout=timeout,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return False, str(exc)
+        if result.returncode == 0:
+            return True, result.stdout.strip()
+        return False, (result.stderr or result.stdout).strip()
+
+    def databricks(self, *args: str, cwd: Path | None = None) -> tuple[bool, Any]:
+        ok, output = self.run_command(
+            [self.paths.databricks_cli, *args, "-o", "json"], cwd=cwd, databricks_env=True
+        )
+        if not ok:
+            return False, _first_line(output)
+        try:
+            return True, json.loads(output) if output else {}
+        except json.JSONDecodeError:
+            return True, output
+
+    # ─── checks ────────────────────────────────────────────────
+
+    def check_config(self) -> None:
+        try:
+            self.config = cfg.load_config(self.paths.config)
+        except cfg.ConfigError as exc:
+            self.add("config", "Configuration", False, _first_line(exc))
+            return
+        self.add("config", "Configuration", True, ".deltaforce/config.yaml is valid")
+
+    def check_claude(self) -> None:
+        path = shutil.which("claude")
+        self.add("claude", "Claude Code", bool(path), path or "claude not found on PATH")
+
+    def check_environment(self) -> None:
+        conflicts = {name for name in os.environ.get("DF_ENV_CONFLICTS", "").split(",") if name}
+        conflicts.update(name for name in CONFLICTING_ENV if os.environ.get(name))
+        detail = ""
+        if conflicts:
+            detail = f"unset {', '.join(sorted(conflicts))} before starting Claude Code — they override the project profile"
+        self.add("environment", "No conflicting Databricks environment variables", not conflicts, detail, "warn")
+
+    def check_git(self) -> None:
+        root, branch = self.paths.root, self.config["project"]["dev_branch"]
+        ok, _ = self.run_command(["git", "-C", root, "rev-parse", "--is-inside-work-tree"])
+        if not self.add("git", "Git repository", ok, str(root)):
+            return
+        found = any(
+            self.run_command(["git", "-C", root, "show-ref", "--verify", "--quiet", ref])[0]
+            for ref in (f"refs/heads/{branch}", f"refs/remotes/origin/{branch}")
+        )
+        hint = f"create it: git switch -c {branch} && git push -u origin {branch}"
+        self.add("dev-branch", f"Dev branch '{branch}'", found, "exists" if found else hint)
+
+    def check_tools(self) -> None:
+        versions = cfg.load_versions()
+        for check_id, title, binary, version in (
+            ("uv", "Project-local uv", self.paths.uv, versions["DF_UV_VERSION"]),
+            ("databricks-cli", "Project-local Databricks CLI", self.paths.databricks_cli, versions["DF_DATABRICKS_CLI_VERSION"]),
+        ):
+            ok, output = self.run_command([binary, "--version"])
+            self.add(check_id, title, ok and version in output, _first_line(output) or "missing")
+
+    def check_workspace(self) -> bool:
+        db, dev = self.config["databricks"], self.config["targets"]["dev"]
+
+        ok, user = self.databricks("current-user", "me")
+        detail = user.get("userName", "") if ok and isinstance(user, dict) else str(user)
+        if not self.add("auth", f"Authentication (profile {db['profile']})", ok, detail):
+            return False
+
+        ok, warehouse = self.databricks("warehouses", "get", db["warehouse_id"])
+        detail = f"{warehouse.get('name')} ({warehouse.get('state')})" if ok and isinstance(warehouse, dict) else str(warehouse)
+        self.add("warehouse", f"SQL warehouse {db['warehouse_id']}", ok, detail)
+
+        if db["compute"] == "cluster":
+            ok, cluster = self.databricks("clusters", "get", db["cluster_id"])
+            detail = f"{cluster.get('cluster_name')} ({cluster.get('state')})" if ok and isinstance(cluster, dict) else str(cluster)
+            self.add("cluster", f"Cluster {db['cluster_id']}", ok, detail)
+
+        ok, output = self.databricks("catalogs", "get", dev["catalog"])
+        self.add("catalog", f"Dev catalog '{dev['catalog']}'", ok, "exists" if ok else str(output))
+        for schema in medallion_schemas(dev):
+            full_name = f"{dev['catalog']}.{schema}"
+            ok, output = self.databricks("schemas", "get", full_name)
+            self.add(f"schema:{schema}", f"Dev schema '{full_name}'", ok, "exists" if ok else str(output))
+        return True
+
+    def check_mcp_runtime(self) -> None:
+        title = f"AI Dev Kit MCP server ({self.config['ai_dev_kit']['ref']})"
+        if not self.paths.mcp_entry.exists():
+            self.add("mcp-runtime", title, False, "source missing — re-run the installer")
+            return
+        ok, output = self.run_command([self.paths.venv_python, "-c", "import databricks_mcp_server"], timeout=300)
+        self.add("mcp-runtime", title, ok, "importable" if ok else _first_line(output))
+
+    def check_skills(self) -> None:
+        expected = cfg.skills_for_roles(self.config["team"]["roles"])
+        missing = [skill for skill in expected if not (self.paths.skills / skill / "SKILL.md").exists()]
+        detail = f"{len(expected)} skills" if not missing else "missing: " + ", ".join(missing)
+        self.add("skills", "Databricks agent skills", not missing, detail)
+
+    def check_generated(self) -> None:
+        server = _read_json(self.paths.mcp_json).get("mcpServers", {}).get(MCP_SERVER_NAME, {})
+        ok = bool(server) and Path(server.get("command", "")).exists()
+        self.add("mcp-json", ".mcp.json registers the databricks MCP server", ok, "" if ok else "missing or stale — re-run the installer")
+
+        settings = _read_json(self.paths.claude_settings)
+        ok = MCP_SERVER_NAME in settings.get("enabledMcpjsonServers", [])
+        self.add("settings", ".claude/settings.json enables the MCP server", ok)
+
+        local_env = _read_json(self.paths.claude_settings_local).get("env", {})
+        ok = local_env.get("DATABRICKS_CONFIG_PROFILE") == self.config["databricks"]["profile"]
+        self.add("settings-local", ".claude/settings.local.json selects the project profile", ok)
+
+        claude_md = self.paths.claude_md.read_text(encoding="utf-8") if self.paths.claude_md.exists() else ""
+        self.add("claude-md", "CLAUDE.md project context block", CLAUDE_MD_START in claude_md)
+
+        gitignore = self.paths.gitignore.read_text(encoding="utf-8") if self.paths.gitignore.exists() else ""
+        self.add("gitignore", ".gitignore excludes machine-specific files and secrets", GITIGNORE_START in gitignore)
+
+        ok = self.paths.bundle.exists() and self.paths.bundle_variables.exists()
+        self.add("bundle-files", "databricks.yml and bundle variables", ok)
+
+    def check_bundle_validate(self) -> None:
+        ok, output = self.databricks("bundle", "validate", "-t", "dev", cwd=self.paths.root)
+        self.add("bundle-validate", "databricks bundle validate -t dev", ok, "valid" if ok else str(output), "warn")
+
+
+def run(paths: ProjectPaths) -> dict[str, Any]:
+    doctor = Doctor(paths)
+    doctor.check_config()
+    doctor.check_claude()
+    doctor.check_environment()
+    if doctor.config:
+        doctor.check_git()
+        doctor.check_tools()
+        workspace_ok = doctor.check_workspace()
+        doctor.check_mcp_runtime()
+        doctor.check_skills()
+        doctor.check_generated()
+        if workspace_ok:
+            doctor.check_bundle_validate()
+
+    report = {
+        "ready": all(check.ok for check in doctor.checks if check.severity == "error"),
+        "checked_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "checks": [asdict(check) for check in doctor.checks],
+    }
+    paths.state.mkdir(parents=True, exist_ok=True)
+    paths.status.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    return report
+
+
+def print_report(report: dict[str, Any]) -> None:
+    for check in report["checks"]:
+        mark = "✓" if check["ok"] else ("!" if check["severity"] == "warn" else "✗")
+        detail = f" — {check['detail']}" if check["detail"] else ""
+        print(f"  {mark} {check['title']}{detail}")
