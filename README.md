@@ -105,7 +105,7 @@ Add options after `install.sh` in the command, e.g. `bash .deltaforce/framework/
 
 ## 3. What the installer asks
 
-Press Enter to accept the value in `[brackets]`. In menus, type the number of an option; where allowed you can also type a value (e.g. a catalog name not shown in the list).
+Type the answer and press Enter. When a question shows `[Enter = value]`, just press Enter to accept that value, e.g. `Project name [Enter = my-project]:`. In menus, type the number of an option; where allowed you can also type a value (e.g. a catalog name not shown in the list). Ctrl+C stops the installer at any time without breaking anything.
 
 ### Project
 

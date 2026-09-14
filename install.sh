@@ -130,6 +130,12 @@ main() {
     df_preflight
     df_load_existing_config
 
+    if [ "$DF_INTERACTIVE" = true ]; then
+        df_msg ""
+        df_msg "Answer each question and press Enter. To accept the value shown as [Enter = ...],"
+        df_msg "just press Enter. Ctrl+C stops the installer at any time without breaking anything."
+    fi
+
     df_step "Project"
     df_ask_project
 

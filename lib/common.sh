@@ -45,7 +45,7 @@ df_ask() {
     local __var=$1 __question=$2 __default=${3-} __answer
     if [ "$DF_INTERACTIVE" = true ]; then
         if [ -n "$__default" ]; then
-            __answer=$(df_read_line "  $__question [$__default]: ")
+            __answer=$(df_read_line "  $__question [Enter = $__default]: ")
         else
             __answer=$(df_read_line "  $__question: ")
         fi
@@ -111,7 +111,7 @@ df_choose() {
 
     while true; do
         if [ -n "$__default" ]; then
-            __answer=$(df_read_line "  Choose ($__hint) [${__default_index:-$__default}]: ")
+            __answer=$(df_read_line "  Choose ($__hint) [Enter = ${__default_index:-$__default}]: ")
             [ -n "$__answer" ] || __answer=${__default_index:-$__default}
         else
             __answer=$(df_read_line "  Choose ($__hint): ")
@@ -133,7 +133,7 @@ df_confirm() {
     local answer
     [ "$DF_ASSUME_YES" = true ] && return 0
     [ "$DF_INTERACTIVE" = true ] || return 0
-    answer=$(df_read_line "  $1 [Y/n]: ")
+    answer=$(df_read_line "  $1 [Y/n, Enter = yes]: ")
     case "$answer" in
         ""|[yY]|[yY][eE][sS]) return 0 ;;
         *) return 1 ;;
