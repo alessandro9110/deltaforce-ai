@@ -97,6 +97,7 @@ Versioning: drafts are `0.x`; the PM sets `1.0 — Approved` at G1; every later 
 
 ## Rules
 
+- Every Databricks resource is declared in the asset bundle and deployed by the DevOps Engineer. Section 6 of the Architecture lists each resource with its bundle file; a resource the bundle cannot declare gets a bundle job task that creates it and an ADR.
 - The dev catalog is the boundary. Inside it the team may create the schemas and tables the solution needs, as long as they follow the medallion layers and the architecture.
 - Never write catalog, schema or table names literally in designs meant for code: use the bundle variables listed in `CLAUDE.md`.
 - Prefer managed, serverless and declarative Databricks features (Lakeflow Declarative Pipelines, Jobs, Unity Catalog, Metric Views, Vector Search, Model Serving) unless the requirements say otherwise.

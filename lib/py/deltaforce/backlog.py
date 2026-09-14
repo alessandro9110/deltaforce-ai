@@ -112,6 +112,10 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
                 problems.append(f"{path.name}: task {task_id} does not belong to {data['id']}")
         if len(task_ids) != len(set(task_ids)):
             problems.append(f"{path.name}: duplicate task ids")
+        for task in data["tasks"]:
+            report = task.get("report")
+            if report and not (paths.root / report).exists():
+                problems.append(f"{path.name}: report {report} of {task['id']} does not exist")
         features[data["id"]] = data
 
     for feature in features.values():
@@ -122,9 +126,13 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
                 problems.append(f"{feature['id']}: depends on itself")
 
     if paths.state_yaml.exists() and not any(p.startswith("state.yaml") for p in problems):
-        for feature_id in _load_yaml(paths.state_yaml).get("active_features", []):
+        state = _load_yaml(paths.state_yaml)
+        for feature_id in state.get("active_features", []):
             if feature_id not in features:
                 problems.append(f"state.yaml: active feature {feature_id} has no backlog file")
+        for step in state.get("next_steps", []):
+            if step.get("feature") and step["feature"] not in features:
+                problems.append(f"state.yaml: next step references unknown feature {step['feature']}")
 
     if paths.events.exists():
         for number, line in enumerate(paths.events.read_text(encoding="utf-8").splitlines(), start=1):

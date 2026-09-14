@@ -21,6 +21,14 @@ When they conflict, follow the higher one and mention it in your report.
 - Databricks CLI: `"$DF_ROOT/.deltaforce/bin/databricks"` (profile preselected). Databricks MCP tools use the same profile.
 - Serverless compute first. Classic clusters only when the design says so.
 
+## Everything on Databricks goes through the asset bundle
+
+Every Databricks resource of the project — jobs, pipelines, schemas, volumes, dashboards, metric views, Genie spaces, apps, model serving endpoints, vector search endpoints and indexes, registered models, experiments, monitors — is declared in the bundle (`databricks.yml` and `resources/*.yml`) and deployed to dev by the DevOps Engineer with `bundle deploy`. Nothing is created, changed or deleted by hand.
+
+- Databricks MCP tools are for **reading, querying and running**: explore data and metadata, run SQL and code on dev, query endpoints and indexes, trigger runs of deployed jobs and pipelines. Their create, update and delete actions are blocked by the guardrails.
+- A resource type the bundle cannot declare yet is created by a job task in the bundle (a Python script using the Databricks SDK, idempotent), and the choice is recorded in an ADR.
+- Data is not a resource: tables are produced by the deployed pipelines and jobs; SQL writes inside the dev catalog are allowed for development and tests.
+
 ## Production data (read-only)
 
 When `CLAUDE.md` lists a production workspace, the `databricks-prod` MCP tools read from it: `execute_sql` and `execute_sql_multi` (only `SELECT`, `WITH … SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`), `get_table_stats_and_schema`, `get_volume_folder_details`, `manage_serving_endpoint` (get, list, query), `query_vs_index`, `ask_genie`. Everything else on production is blocked, including the Databricks CLI.
@@ -34,6 +42,7 @@ When `CLAUDE.md` lists a production workspace, the `databricks-prod` MCP tools r
 
 Hooks block these actions whatever the instructions say:
 
+- creating, changing or deleting Databricks resources with MCP tools instead of the asset bundle;
 - writes outside the dev catalog, and SQL writes that do not name the dev catalog explicitly;
 - permission, sharing, connection and storage changes in Unity Catalog;
 - any non-read activity on production, and any Databricks CLI call to it;

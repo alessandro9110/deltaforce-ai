@@ -23,7 +23,8 @@
           "title": { "type": "string", "minLength": 1 },
           "role": { "$ref": "#/$defs/role" },
           "status": { "enum": ["todo", "in_progress", "ready_for_integration", "integrated", "done", "blocked"] },
-          "branch": { "type": ["string", "null"] }
+          "branch": { "type": ["string", "null"] },
+          "report": { "description": "Specialist reports for this task, one dated section per delegation", "type": ["string", "null"] }
         }
       }
     },

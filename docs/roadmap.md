@@ -2,6 +2,37 @@
 
 Each milestone ends with a demo against a real Databricks dev workspace. See [design.md](design.md) for the architecture.
 
+## Status — what exists and what is left
+
+Updated with every change that adds or completes something. Last update: 2026-09-14.
+
+### Done
+
+- [x] Guided, project-scoped installer started with one command from the IDE terminal; self-bootstrap and update; readiness checks gate `/df-kickoff`
+- [x] Project configuration and JSON Schemas (config, conventions, state, feature, event)
+- [x] Nine agents rendered from the role catalog, five process skills, PO commands (`/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions`)
+- [x] Parallel discovery (Business Analyst and Solution Architect) and parallel delivery of independent features through a local integration branch
+- [x] Functional Analysis and Architecture as versioned deliverables; business objectives, value and success metrics
+- [x] Team documents and state under `.deltaforce/`
+- [x] Guardrail and audit hooks; read-only access to a separate production workspace; Databricks resources only through the asset bundle
+- [x] Tracking for the board and for resuming work: feature start/completion times, saved task reports, `next_steps` and `last_update`, session and agent activity
+- [x] End-to-end install validated on Windows against Databricks Free Edition
+
+### Next
+
+- [ ] First MVP run in the sandbox (kickoff → G1 → parallel features → G2) and fixes for what it reveals
+- [ ] Monitoring app (M5): virtual office and project board, starts automatically, reads files only (no tokens)
+- [ ] CI/CD templates (M4): Azure DevOps, then GitHub Actions
+- [ ] Installer warning when a Claude Code session is open on the project
+
+### Later
+
+- [ ] Per-role service principals with Unity Catalog grants
+- [ ] `--uninstall`
+- [ ] Opt-in agent teams for design review
+- [ ] macOS and Linux installer validation
+- [ ] Repository visibility and a `curl` bootstrap
+
 ## M0 — Foundations
 
 - Framework repo skeleton (layout in design §12), `.gitignore`, license, README.

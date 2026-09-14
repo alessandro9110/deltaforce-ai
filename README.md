@@ -161,7 +161,7 @@ Everything lives inside the project repository.
 | `.deltaforce/framework/` | DeltaForce AI itself (installer, schemas, role catalog) | ignored |
 | `.deltaforce/config.yaml` | Your answers. No secrets | committed |
 | `.deltaforce/conventions.yaml` | Client conventions, DeltaForce defaults until you change them | committed |
-| `.deltaforce/requirements/`, `architecture/`, `backlog/`, `reports/`, `state.yaml`, `events.jsonl` | The team's working documents and progress — request, requirements, design, features, PO reports — created from `/df-kickoff` on | committed |
+| `.deltaforce/requirements/`, `architecture/`, `backlog/`, `reports/`, `state.yaml`, `events.jsonl` | The team's working documents and progress — request, Functional Analysis, Architecture, features, task reports, PO reports, next steps — created from `/df-kickoff` on | committed |
 | `.deltaforce/.databrickscfg` | The Databricks CLI profile (and the token or secret for PAT or service principal) | ignored |
 | `.deltaforce/bin/` | uv and the Databricks CLI | ignored |
 | `.deltaforce/runtime/` | Python, AI Dev Kit MCP server source and its virtual environment | ignored |
@@ -221,6 +221,8 @@ How a project runs:
 5. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them.
 6. **Handover** — when every feature is done, a person opens the pull request to the protected branch and CI/CD deploys to production.
 
+**You can close Claude Code at any time.** Nothing depends on the conversation: the next session starts from `.deltaforce/` — `state.yaml` (phase, next steps, last update), the backlog and the saved task reports — checks unfinished tasks on their branches and continues. `/df-status` shows you the same.
+
 The team asks you only at G1, at G2, and when something blocks or changes what you asked for. Everything the team writes to organize itself — request, requirements, design, backlog, reports, state and events — lives in `.deltaforce/`; outside it there is only the product: `src/`, `resources/`, `tests/`, `databricks.yml`.
 
 ### Guardrails
@@ -229,7 +231,7 @@ Claude Code runs DeltaForce hooks before every action of every agent, also in au
 
 | Area | Blocked |
 | --- | --- |
-| Dev workspace | Writes outside the dev catalog; SQL writes that do not name the catalog; permission, sharing, connection and storage changes |
+| Dev workspace | Creating, changing or deleting Databricks resources (jobs, pipelines, dashboards, apps, endpoints, indexes, Unity Catalog objects…) outside the asset bundle; writes outside the dev catalog; SQL writes that do not name the catalog; permission, sharing, connection and storage changes |
 | Production workspace | Anything but reads: SQL other than `SELECT`/`WITH … SELECT`/`SHOW`/`DESCRIBE`/`EXPLAIN`, code execution, jobs, pipelines, Unity Catalog changes, any Databricks CLI call to production |
 | Deployments | `bundle deploy` and `bundle run` by anyone but the DevOps Engineer or to a target other than dev; `bundle destroy` |
 | Git | Pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`, merges into the dev branch by anyone but the DevOps Engineer |

@@ -57,6 +57,32 @@ def test_invalid_status_and_missing_active_feature(project):
     assert any("active feature F-004" in p for p in problems)
 
 
+def test_next_steps_and_task_reports_are_checked(project):
+    project.state_yaml.write_text(
+        "version: 1\nphase: delivery\ndev_branch: dev\nactive_features: [F-001]\n"
+        "g1: {status: approved, at: 2026-09-14T10:30:00Z, notes: ''}\n"
+        "next_steps:\n  - {owner: po, feature: F-009, action: Review F-009}\n"
+        "last_update: {at: 2026-09-14T16:00:00Z, summary: QA passed}\n"
+        "updated: 2026-09-14T16:00:00Z\n",
+        encoding="utf-8",
+    )
+    feature = project.backlog / "F-001-silver-customer-dedup.md"
+    feature.write_text(
+        feature.read_text(encoding="utf-8").replace(
+            "    branch: null\n", "    branch: null\n    report: .deltaforce/reports/tasks/T-001.2.md\n", 1
+        ),
+        encoding="utf-8",
+    )
+    problems = backlog.validate_project(project)
+    assert any("next step references unknown feature F-009" in p for p in problems)
+    assert any("report .deltaforce/reports/tasks/T-001.2.md of T-001.2 does not exist" in p for p in problems)
+
+    report = project.root / ".deltaforce" / "reports" / "tasks" / "T-001.2.md"
+    report.parent.mkdir(parents=True)
+    report.write_text("# T-001.2\n", encoding="utf-8")
+    assert not any("T-001.2.md" in p for p in backlog.validate_project(project))
+
+
 def test_started_and_completed_must_be_timestamps(project):
     path = project.backlog / "F-001-silver-customer-dedup.md"
     path.write_text(path.read_text(encoding="utf-8").replace("completed: null", "completed: yesterday"), encoding="utf-8")

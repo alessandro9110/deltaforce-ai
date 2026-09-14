@@ -33,8 +33,20 @@ g1:
   status: approved           # pending | approved | changes_requested
   at: 2026-09-14T10:30:00Z   # null while pending
   notes: ""
+next_steps:                  # the to-do list a resumed session and the PO read first
+  - owner: devops-engineer     # po or a role id
+    feature: F-002
+    action: Integrate T-002.1 and T-002.2 into df/F-002 and deploy to dev
+  - owner: po
+    feature: F-001
+    action: Review F-001 (/df-approve F-001 or /df-changes F-001)
+last_update:
+  at: 2026-09-14T15:32:00Z
+  summary: QA passed on F-001; F-002 build tasks ready for integration
 updated: 2026-09-14T15:32:00Z
 ```
+
+Rewrite `next_steps` and `last_update` at every state change. Anyone opening the project — a new session, the PO, the monitoring app — must be able to tell from them what was just done and what comes next, without the conversation.
 
 ## Feature file — `.deltaforce/backlog/F-003-<slug>.md`
 
@@ -51,6 +63,7 @@ tasks:
     role: data-engineer
     status: integrated
     branch: df/F-003/data-engineer-T1
+    report: .deltaforce/reports/tasks/T-003.1.md
   - id: T-003.2
     title: Data quality tests for silver customers
     role: qa-engineer
@@ -118,6 +131,22 @@ bash .deltaforce/bin/df event <type> --role pm [--feature F-003] [--task T-003.1
 | `conventions_changed` | `.deltaforce/conventions.yaml` changes | `{"keys":["bundle.root_path"]}` |
 
 The helper adds the timestamp and validates the event.
+
+## Task reports — `.deltaforce/reports/tasks/T-xxx.n.md`
+
+Specialists' reports exist only in the conversation until the PM saves them. Save every report, verbatim, as soon as it arrives — also `blocked` and `needs-decision` ones — and set the task's `report` field to the file:
+
+```markdown
+# T-003.1 — Deduplicate customers in silver
+
+## 2026-09-14T14:05:00Z — data-engineer — done
+<the report as received>
+
+## 2026-09-14T16:40:00Z — data-engineer — done (fix round)
+<the next report>
+```
+
+One file per task; each delegation round adds a dated section. Consultation reports without a task go to `.deltaforce/reports/tasks/F-xxx-<topic>.md`.
 
 ## PO review report — `.deltaforce/reports/F-xxx-po-review.md`
 

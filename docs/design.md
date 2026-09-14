@@ -15,7 +15,7 @@ It is installed from GitHub with `install.sh` into a **target project repo**, co
 | Agent runtime | Claude Code only |
 | Install scope | **Project only, never global**: skills, MCP server, ai-dev-kit runtime and Claude Code config all live inside the target repo |
 | Team OS | Windows (installer and hooks run under Git Bash); CI runners are Linux |
-| Deployment unit | Databricks Asset Bundles (DABs) |
+| Deployment unit | Databricks Asset Bundles (DABs): **every** Databricks resource is declared in the bundle and deployed by the DevOps Engineer; MCP tools are only for reading, querying and running, and their create/update/delete actions are blocked by hooks |
 | Prod deployment | Only through CI/CD — Azure DevOps now, GitHub Actions later |
 | Language | Agent prompts, templates and repo docs in English |
 | Data architecture | Medallion (bronze/silver/gold) for every discipline: DE, analytics, ML, AI |
@@ -243,11 +243,11 @@ The backlog is designed to be read by a future monitoring app without changes.
   .databrickscfg        # project-local CLI profile (gitignored)
   bin/, runtime/        # uv, Databricks CLI, Python, AI Dev Kit, MCP venv (gitignored)
   conventions.yaml      # client conventions (created by the installer, filled at kickoff)
-  state.yaml            # phase, active features, G1 decision (created at kickoff)
+  state.yaml            # phase, active features, G1 decision, next steps, last update (created at kickoff)
   requirements/         # request.md, functional-analysis.md
   architecture/         # discovery.md, architecture.md, adr/
   backlog/F-003-silver-customer-dedup.md
-  reports/F-003-po-review.md
+  reports/F-003-po-review.md, tasks/T-003.1.md   # PO reviews; specialists' reports saved verbatim
   events.jsonl          # lifecycle events
   audit.jsonl           # tool calls per role
 ```

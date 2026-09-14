@@ -230,7 +230,8 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 - In source code and bundle resources, reference these values only through bundle variables ({bundle_vars}); never write catalog, schema or table names literally.
 - The schemas above are the starting point, not a limit: create the schemas and tables the solution needs inside the dev catalog, keep them consistent with the architecture in `.deltaforce/architecture/` and the medallion layers, and declare them in the bundle with variables.
 - When calling Databricks MCP tools directly (exploration, validation), pass the dev catalog and schemas above explicitly.
-- DeltaForce guardrails (hooks) block writes outside the dev catalog, any non-read activity on production, bundle deploys outside the dev target or by roles other than the DevOps Engineer, pushes to protected branches and history rewrites. A blocked action returns `DeltaForce guardrail: <reason>`: report it, never work around it.
+- Every Databricks resource (jobs, pipelines, schemas, volumes, dashboards, apps, endpoints, indexes, …) is declared in the asset bundle and deployed by the DevOps Engineer; MCP tools are for reading, querying and running only.
+- DeltaForce guardrails (hooks) block resource changes outside the bundle, writes outside the dev catalog, any non-read activity on production, bundle deploys outside the dev target or by roles other than the DevOps Engineer, pushes to protected branches and history rewrites. A blocked action returns `DeltaForce guardrail: <reason>`: report it, never work around it.
 """
 
 

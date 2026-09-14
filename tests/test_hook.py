@@ -116,11 +116,31 @@ def test_dev_writes_stay_in_the_dev_catalog(policy):
     assert decide(policy, DEV_SQL, {"sql_query": "SELECT * FROM samples.nyctaxi.trips"}) is None
     assert "only in the dev catalog" in decide(policy, DEV_SQL, {"sql_query": "INSERT INTO samples.x.y SELECT 1"})
     assert "qualify SQL writes" in decide(policy, DEV_SQL, {"sql_query": "DROP TABLE bronze.trips"})
-    assert "only in the dev catalog" in decide(
-        policy, "mcp__databricks__manage_uc_objects", {"action": "create", "object_type": "schema", "full_name": "other.bronze"}
-    )
     assert decide(policy, "mcp__databricks__manage_uc_objects", {"action": "list", "catalog_name": "samples"}) is None
     assert "need a person" in decide(policy, "mcp__databricks__manage_uc_grants", {"action": "grant", "full_name": "main.bronze"})
+    assert "only in the dev catalog" in decide(
+        policy, "mcp__databricks__manage_volume_files", {"action": "upload", "volume_path": "/Volumes/other/raw/files/a.csv"}
+    )
+    assert decide(policy, "mcp__databricks__manage_volume_files", {"action": "upload", "volume_path": "/Volumes/main/bronze/raw/a.csv"}) is None
+
+
+def test_databricks_resources_only_through_the_bundle(policy):
+    for tool, tool_input in [
+        ("manage_jobs", {"action": "create", "name": "trips"}),
+        ("manage_pipeline", {"action": "create_or_update", "name": "trips"}),
+        ("manage_dashboard", {"action": "create", "display_name": "KPIs"}),
+        ("manage_vs_index", {"action": "create", "index_name": "main.gold.docs_index"}),
+        ("manage_uc_objects", {"action": "create", "object_type": "schema", "full_name": "main.bronze"}),
+        ("manage_app", {"action": "deploy", "name": "kpi-app"}),
+        ("manage_workspace_files", {"action": "upload", "path": "/Workspace/Shared/x.py"}),
+        ("manage_jobs", {"name": "no action given"}),
+        ("delete_tracked_resource", {"resource_id": "123"}),
+    ]:
+        reason = decide(policy, f"mcp__databricks__{tool}", tool_input, role="devops-engineer")
+        assert reason and "asset bundle" in reason, tool
+    assert decide(policy, "mcp__databricks__manage_jobs", {"action": "list"}) is None
+    assert decide(policy, "mcp__databricks__manage_job_runs", {"action": "run_now", "job_id": 1}) is None
+    assert decide(policy, "mcp__databricks__manage_serving_endpoint", {"action": "query", "name": "m"}) is None
 
 
 def test_bundle_rules(policy):
@@ -207,12 +227,14 @@ def test_main_denies_with_json_and_audits(policy, tmp_path):
     assert run_hook("pre", policy_path, allowed).stdout.strip() == ""
     run_hook("post", policy_path, allowed)
     run_hook("subagent-start", policy_path, {"agent_type": "data-analyst", "agent_id": "a1", "session_id": "s1"})
+    run_hook("session-end", policy_path, {"session_id": "s1", "reason": "logout"})
 
     records = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text(encoding="utf-8").splitlines()]
     assert [r["decision"] for r in records] == ["denied", "allowed"]
     assert records[0]["workspace"] == "prod" and records[0]["role"] == "data-analyst"
     activity = [json.loads(line) for line in (tmp_path / "activity.jsonl").read_text(encoding="utf-8").splitlines()]
-    assert [a["event"] for a in activity] == ["tool_used", "agent_started"]
+    assert [a["event"] for a in activity] == ["tool_used", "agent_started", "session_ended"]
+    assert activity[-1]["reason"] == "logout" and activity[-1]["role"] == "pm"
 
 
 def test_missing_policy_fails_closed_on_production(tmp_path):

@@ -32,6 +32,15 @@ READ_ACTIONS = {"get", "list", "describe", "status", "get_best", "query", "searc
 GOVERNANCE_TOOLS = {
     "manage_uc_grants", "manage_uc_security_policies", "manage_uc_sharing", "manage_uc_connections", "manage_uc_storage",
 }
+# Tools that create, change or delete Databricks resources: on dev only their read actions are allowed,
+# because every resource is declared in the asset bundle and deployed by the DevOps Engineer.
+RESOURCE_TOOLS = {
+    "manage_jobs", "manage_pipeline", "manage_dashboard", "manage_genie", "manage_app", "manage_ka", "manage_mas",
+    "manage_metric_views", "manage_serving_endpoint", "manage_vs_endpoint", "manage_vs_index", "manage_uc_objects",
+    "manage_uc_tags", "manage_uc_monitors", "manage_cluster", "manage_sql_warehouse", "manage_workspace",
+    "manage_workspace_files", "manage_lakebase_database", "manage_lakebase_branch", "manage_lakebase_sync",
+}
+DATA_WRITE_TOOLS_WITHOUT_ACTION = {"generate_and_upload_pdf"}
 PUSH_FORBIDDEN_FLAGS = {"-f", "-d", "--delete", "--mirror", "--prune"}
 SHELL_WRAPPERS = {"timeout", "nohup", "time", "command", "env", "nice"}
 
@@ -189,9 +198,18 @@ def _decide_mcp(tool: str, tool_input: dict[str, Any], role: str, policy: dict[s
         return None
 
     action = str(tool_input.get("action", "")).lower()
-    if action and action not in READ_ACTIONS:
-        if name in GOVERNANCE_TOOLS:
-            return "permission, sharing, connection and storage changes need a person: escalate to the PO"
+    if name == "delete_tracked_resource":
+        return "Databricks resources are removed only through the asset bundle: ask the DevOps Engineer"
+    if action in READ_ACTIONS:
+        return None
+    if name in GOVERNANCE_TOOLS:
+        return "permission, sharing, connection and storage changes need a person: escalate to the PO"
+    if name in RESOURCE_TOOLS:
+        return (
+            f"Databricks resources are created, changed and deleted only through the asset bundle "
+            f"('{name}' action '{action or 'default'}'): declare it in resources/*.yml and let the DevOps Engineer deploy"
+        )
+    if action or name in DATA_WRITE_TOOLS_WITHOUT_ACTION:
         outside = sorted(catalog for catalog in input_catalogs(tool_input) if catalog != dev_catalog.lower())
         if outside:
             return f"changes are allowed only in the dev catalog '{dev_catalog}' (found: {', '.join(outside)})"
@@ -475,6 +493,8 @@ def activity(event: dict[str, Any], policy: dict[str, Any], kind: str) -> None:
     if event.get("tool_name"):
         record["tool"] = event["tool_name"]
         record["summary"] = _summary(str(event["tool_name"]), event.get("tool_input") or {}, 200)
+    if event.get("reason"):
+        record["reason"] = event["reason"]
     _append(policy.get("activity_file"), record)
 
 
@@ -512,6 +532,10 @@ def main(argv: list[str]) -> int:
         activity(event, policy, "agent_started")
     elif mode == "subagent-stop":
         activity(event, policy, "agent_stopped")
+    elif mode == "session-start":
+        activity(event, policy, "session_started")
+    elif mode == "session-end":
+        activity(event, policy, "session_ended")
     return 0
 
 

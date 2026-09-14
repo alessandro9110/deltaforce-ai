@@ -25,9 +25,51 @@
         "notes": { "type": "string" }
       }
     },
+    "next_steps": {
+      "description": "What happens next and who does it; the first thing a resumed session and the PO read.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["owner", "action"],
+        "properties": {
+          "owner": { "$ref": "#/$defs/owner" },
+          "action": { "type": "string", "minLength": 1 },
+          "feature": { "type": "string", "pattern": "^F-[0-9]{3,}$" }
+        }
+      }
+    },
+    "last_update": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "summary"],
+          "properties": {
+            "at": { "$ref": "#/$defs/timestamp" },
+            "summary": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
     "updated": { "$ref": "#/$defs/timestamp" }
   },
   "$defs": {
+    "owner": {
+      "enum": [
+        "po",
+        "pm",
+        "solution-architect",
+        "business-analyst",
+        "data-engineer",
+        "data-analyst",
+        "data-scientist",
+        "ai-engineer",
+        "qa-engineer",
+        "devops-engineer"
+      ]
+    },
     "timestamp": {
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"

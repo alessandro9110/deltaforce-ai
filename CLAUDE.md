@@ -48,6 +48,7 @@ Guardrails: `lib/hooks/deltaforce_hook.py` runs on every matched tool call of ev
 
 ## Conventions
 
+- Keep track of what exists and what is left: every change that adds, completes or defers something updates the *Status* checklist at the top of `docs/roadmap.md`, and `README.md` and this file when behaviour or layout change — in the same commit.
 - All repo artifacts — agent prompts, templates, docs, code comments — in English. Discussion with the maintainer happens in Italian.
 - The team works on Windows: `install.sh` must run under Git Bash; hooks are Python run via `uv run` (no bash/PowerShell-only hooks). Account for Windows venv paths (`.venv\Scripts\python.exe`).
 - Templates must never hardcode catalog, schema, table or endpoint names — always DABs variables (`${var.catalog}`, `${var.schema_gold}`, ...). Medallion (bronze/silver/gold) applies to DE, analytics, ML and GenAI.

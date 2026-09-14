@@ -51,6 +51,8 @@ HOOK_EVENTS = (
     ("PostToolUse", "Bash|mcp__databricks.*", "post", 30),
     ("SubagentStart", None, "subagent-start", 15),
     ("SubagentStop", None, "subagent-stop", 15),
+    ("SessionStart", None, "session-start", 15),
+    ("SessionEnd", None, "session-end", 15),
 )
 
 
