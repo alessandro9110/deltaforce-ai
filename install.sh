@@ -183,6 +183,9 @@ main() {
     df_step "Project files"
     df_generate
 
+    df_step "Commit"
+    df_commit_install
+
     df_step "Checks"
     df_run_doctor
 }

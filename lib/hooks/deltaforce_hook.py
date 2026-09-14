@@ -53,6 +53,7 @@ FULL_NAME = re.compile(rf"^({NAME})\.{NAME}\.{NAME}$")
 TWO_PART_NAME = re.compile(rf"^({NAME})\.{NAME}$")
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 SEPARATORS = re.compile(r"\|\||&&|;|\||\n")
+QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 WRITE_HINT = re.compile(r"(>|\bsed\s+-i|\brm\b|\bmv\b|\bcp\b|\btee\b|\btruncate\b|\bdd\b|\bperl\s+-i|Set-Content|Out-File)")
 
 
@@ -156,7 +157,7 @@ def decide_pre(event: dict[str, Any], policy: dict[str, Any]) -> str | None:
     if tool == "Bash":
         return decide_bash(str(tool_input.get("command", "")), role, policy, str(event.get("cwd") or "."))
     if tool in {"Edit", "Write", "NotebookEdit", "Read"}:
-        return _decide_file(tool, tool_input, policy)
+        return _decide_file(tool, tool_input, role, policy)
     return None
 
 
@@ -220,7 +221,27 @@ def _normalized(path: str) -> str:
     return path.replace("\\", "/").lower()
 
 
-def _decide_file(tool: str, tool_input: dict[str, Any], policy: dict[str, Any]) -> str | None:
+def installed_path(path: str, policy: dict[str, Any]) -> str | None:
+    """The installer-owned file or folder a path belongs to, also inside agent worktrees."""
+    path = _normalized(path)
+    if path.startswith("./"):
+        path = path[2:]
+    for managed in policy.get("installer_files", []):
+        managed_norm = _normalized(managed)
+        if path == managed_norm or path.endswith("/" + managed_norm):
+            return managed
+    for prefix in policy.get("installer_dirs", []):
+        prefix_norm = _normalized(prefix)
+        if path.startswith(prefix_norm) or f"/{prefix_norm}" in path:
+            return prefix
+    return None
+
+
+def _installed_reason(managed: str) -> str:
+    return f"{managed} was installed by DeltaForce and agents may not change it: the PO re-runs the installer"
+
+
+def _decide_file(tool: str, tool_input: dict[str, Any], role: str, policy: dict[str, Any]) -> str | None:
     path = _normalized(str(tool_input.get("file_path") or tool_input.get("notebook_path") or ""))
     if not path:
         return None
@@ -229,10 +250,13 @@ def _decide_file(tool: str, tool_input: dict[str, Any], policy: dict[str, Any]) 
         return "the Databricks credentials file is off-limits"
     if tool == "Read":
         return None
-    for managed in policy.get("installer_files", []):
-        managed = _normalized(managed)
-        if path == managed or path.endswith("/" + managed):
-            return f"{managed} is managed by the DeltaForce installer: re-run the installer to change it"
+    managed = installed_path(path, policy)
+    if managed:
+        return _installed_reason(managed)
+    for owned in policy.get("pm_only_files", []):
+        owned_norm = _normalized(owned)
+        if (path == owned_norm or path.endswith("/" + owned_norm)) and role != policy.get("main_role", "pm"):
+            return f"{owned} is changed only by the PM, through /df-conventions"
     return None
 
 
@@ -301,10 +325,15 @@ def _decide_command_files(command: str, policy: dict[str, Any]) -> str | None:
     text = _normalized(command)
     if _normalized(policy["secret_file"]).rsplit("/", 1)[-1] in text:
         return "the Databricks credentials file is off-limits"
-    if WRITE_HINT.search(command):
-        for managed in policy.get("installer_files", []):
-            if _normalized(managed) in text:
-                return f"{managed} is managed by the DeltaForce installer: re-run the installer to change it"
+    # Look for redirections and write commands outside quoted text, so JSON such as "a -> b" is not a write.
+    if WRITE_HINT.search(QUOTED.sub(" ", command)):
+        for managed in [*policy.get("installer_files", []), *policy.get("installer_dirs", [])]:
+            if _normalized(managed).rstrip("/") in text:
+                return _installed_reason(managed)
+        # Whole parent folders that contain installed files, e.g. `rm -rf .claude/skills`.
+        for token in _tokens(command):
+            if _normalized(token).rstrip("/") in {".claude", ".claude/skills", ".deltaforce"}:
+                return _installed_reason(token)
     return None
 
 
@@ -356,6 +385,14 @@ def _decide_databricks(arguments: list[str], env: dict[str, str], role: str, pol
             if target and target != policy.get("dev_target", "dev"):
                 return f"bundles are deployed only to the '{policy.get('dev_target', 'dev')}' target: production goes through CI/CD"
     return None
+
+
+def _git_lines(cwd: str, arguments: list[str]) -> list[str]:
+    try:
+        result = subprocess.run(["git", "-C", cwd, *arguments], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()] if result.returncode == 0 else []
 
 
 def _current_branch(cwd: str) -> str:
@@ -424,6 +461,13 @@ def _decide_git(arguments: list[str], role: str, policy: dict[str, Any], cwd: st
             return f"committing or merging on protected branch '{branch}' is not allowed"
         if verb == "merge" and branch == dev_branch and role != deployer:
             return f"only the {deployer} merges into the dev branch '{dev_branch}'"
+    if verb == "commit":
+        files = _git_lines(cwd, ["diff", "--cached", "--name-only"])
+        if any(arg == "--all" or (arg.startswith("-") and not arg.startswith("--") and "a" in arg[1:]) for arg in rest):
+            files += _git_lines(cwd, ["diff", "--name-only"])
+        for name in files:
+            if installed_path(name, policy):
+                return f"commits may not include files installed by DeltaForce ({name}): the PO re-runs the installer, which commits them"
     return None
 
 

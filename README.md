@@ -150,7 +150,7 @@ These lists are read from your workspace:
 
 With `--advanced` it also asks the enabled roles, the default model, the maximum subagent nesting depth and the AI Dev Kit version.
 
-Finally it shows a summary and asks **Write this configuration?**, then installs everything and runs the readiness checks.
+Finally it shows a summary and asks **Write this configuration?**, then installs everything, offers to **commit the files it installed** on the dev branch (agents are not allowed to change or commit them) and runs the readiness checks.
 
 ## 4. What gets installed and where
 
@@ -237,7 +237,7 @@ Claude Code runs DeltaForce hooks before every action of every agent, also in au
 | Production workspace | Anything but reads: SQL other than `SELECT`/`WITH … SELECT`/`SHOW`/`DESCRIBE`/`EXPLAIN`, code execution, jobs, pipelines, Unity Catalog changes, any Databricks CLI call to production |
 | Deployments | `bundle deploy` and `bundle run` by anyone but the DevOps Engineer or to a target other than dev; `bundle destroy` |
 | Git | Pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`, merges into the dev branch by anyone but the DevOps Engineer |
-| Files | Edits of installer-managed files (`.claude/settings*.json`, `.mcp.json`, `.deltaforce/config.yaml`) and any access to the credentials file |
+| Files | Changes to anything DeltaForce installed — agents and their roles, DeltaForce and Databricks skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, generated bundle variables, `.deltaforce/config.yaml`, the framework, tools and runtime — including commits that contain them; changes to the client conventions by anyone but the PM; any access to the credentials file |
 
 A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in `.deltaforce/audit.jsonl`. Static deny rules in `.claude/settings.json` back up the hooks, and the readiness checks run a self-test of the guardrails.
 

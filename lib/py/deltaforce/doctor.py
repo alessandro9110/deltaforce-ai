@@ -228,6 +228,30 @@ class Doctor:
         self.add("main-agent", "Sessions start as the Project Manager", settings.get("agent") == "pm")
         self.add("df-helper", "Project helper .deltaforce/bin/df", self.paths.df_wrapper.exists())
 
+    def check_integrity(self) -> None:
+        roles = cfg.load_roles()
+        changed = []
+        for role in self.config["team"]["roles"]:
+            path = self.paths.agents / f"{role}.md"
+            if path.exists() and path.read_text(encoding="utf-8") != team.render_agent(role, self.config, roles):
+                changed.append(f".claude/agents/{role}.md")
+        for name in team.skill_template_names():
+            source_dir = team.SKILL_TEMPLATES / name
+            for source in source_dir.rglob("*"):
+                target = self.paths.skills / name / source.relative_to(source_dir)
+                if source.is_file() and target.exists() and target.read_text(encoding="utf-8") != source.read_text(encoding="utf-8"):
+                    changed.append(target.relative_to(self.paths.root).as_posix())
+        detail = "as installed" if not changed else (
+            "changed outside the installer: " + ", ".join(changed[:5]) + " — re-run the installer to restore them"
+        )
+        self.add("integrity", "DeltaForce agents and skills unchanged", not changed, detail)
+
+        paths = [path for path in guardrails.INSTALLED_COMMIT_PATHS if (self.paths.root / path).exists()]
+        ok, output = self.run_command(["git", "-C", self.paths.root, "status", "--porcelain", "--", *paths])
+        committed = ok and not output.strip()
+        detail = "" if committed else "not committed — re-run the installer and accept its commit (agents cannot commit them)"
+        self.add("installed-committed", "DeltaForce files committed", committed, detail, "warn")
+
     def check_project_state(self) -> None:
         problems = backlog.validate_project(self.paths, include_config=False)
         detail = "valid" if not problems else f"{len(problems)} problem(s): {problems[0]}"
@@ -282,6 +306,7 @@ def run(paths: ProjectPaths) -> dict[str, Any]:
         doctor.check_skills()
         doctor.check_generated()
         doctor.check_team()
+        doctor.check_integrity()
         doctor.check_project_state()
         doctor.check_guardrails()
         if workspace_ok:

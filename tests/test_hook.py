@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 import pytest
+from deltaforce import guardrails
 
 from conftest import ROOT
 
@@ -40,10 +41,9 @@ def policy(tmp_path):
                 "get_volume_folder_details", "manage_serving_endpoint", "query_vs_index",
             ],
         },
-        "installer_files": [
-            ".claude/settings.json", ".claude/settings.local.json", ".mcp.json", ".deltaforce/config.yaml",
-            ".deltaforce/runtime/guard-policy.json",
-        ],
+        "installer_files": list(guardrails.INSTALLER_FILES),
+        "installer_dirs": list(guardrails.INSTALLER_DIRS),
+        "pm_only_files": list(guardrails.PM_ONLY_FILES),
         "secret_file": ".deltaforce/.databrickscfg",
         "audit_file": str(tmp_path / "audit.jsonl"),
         "activity_file": str(tmp_path / "activity.jsonl"),
@@ -196,11 +196,63 @@ def test_commit_and_upstream_push_use_the_current_branch(policy, tmp_path):
 def test_protected_files(policy):
     assert "credentials" in decide(policy, "Read", {"file_path": "C:/p/.deltaforce/.databrickscfg"})
     assert "credentials" in decide(policy, "Bash", {"command": "cat .deltaforce/.databrickscfg"})
-    assert "managed by the DeltaForce installer" in decide(policy, "Edit", {"file_path": "C:\\p\\.claude\\settings.local.json"})
-    assert "managed by the DeltaForce installer" in decide(policy, "Bash", {"command": "sed -i s/a/b/ .claude/settings.json"})
+    installed = "installed by DeltaForce"
+    for path in [
+        "C:\\p\\.claude\\settings.local.json",
+        "C:/p/.claude/agents/pm.md",
+        "C:/p/.claude/worktrees/agent-a1/.claude/agents/data-engineer.md",
+        "C:/p/.claude/skills/df-kickoff/SKILL.md",
+        "C:/p/.claude/skills/databricks-core/SKILL.md",
+        "C:/p/.deltaforce/framework/lib/hooks/deltaforce_hook.py",
+        "C:/p/.deltaforce/runtime/guard-policy.json",
+        "C:/p/CLAUDE.md",
+        "C:/p/.gitignore",
+        "C:/p/resources/deltaforce.variables.yml",
+    ]:
+        reason = decide(policy, "Edit", {"file_path": path}, role="pm")
+        assert reason and installed in reason, path
+    assert installed in decide(policy, "Bash", {"command": "sed -i s/a/b/ .claude/settings.json"})
+    assert installed in decide(policy, "Bash", {"command": "rm -rf .claude/agents"})
+    assert installed in decide(policy, "Bash", {"command": "echo x > .deltaforce/framework/lib/hooks/deltaforce_hook.py"})
     assert decide(policy, "Bash", {"command": "cat .claude/settings.json"}) is None
+    assert decide(
+        policy, "Bash", {"command": "bash .deltaforce/bin/df event phase_changed --role pm --data '{\"summary\":\"discovery -> awaiting_g1\"}'"}, role=None
+    ) is None
     assert decide(policy, "Write", {"file_path": "C:/p/src/pipelines/silver/trips.py"}) is None
+    assert decide(policy, "Write", {"file_path": "C:/p/resources/nyctaxi.pipeline.yml"}) is None
+    assert decide(policy, "Edit", {"file_path": "C:/p/.claude/skills/my-own-skill/SKILL.md"}) is None
     assert decide(policy, "Read", {"file_path": "C:/p/CLAUDE.md"}) is None
+
+
+def test_conventions_are_changed_only_by_the_pm(policy):
+    assert decide(policy, "Edit", {"file_path": "C:/p/.deltaforce/conventions.yaml"}, role=None) is None
+    assert "only by the PM" in decide(policy, "Edit", {"file_path": "C:/p/.deltaforce/conventions.yaml"}, role="solution-architect")
+
+
+def test_commits_may_not_include_installed_files(policy, tmp_path):
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", "-b", "dev", str(repo)], check=True)
+
+    def git(*args):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com", *args], check=True, capture_output=True)
+
+    (repo / "CLAUDE.md").write_text("# project\n", encoding="utf-8")
+    git("add", "CLAUDE.md")
+    git("commit", "-q", "-m", "init")
+    (repo / "src").mkdir()
+    (repo / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
+    git("add", "src/a.py")
+    assert decide(policy, "Bash", {"command": "git commit -m feat"}, "data-engineer", str(repo)) is None
+
+    (repo / ".claude" / "agents").mkdir(parents=True)
+    (repo / ".claude" / "agents" / "pm.md").write_text("changed\n", encoding="utf-8")
+    git("add", ".claude/agents/pm.md")
+    assert "installed by DeltaForce" in decide(policy, "Bash", {"command": "git commit -m feat"}, "data-engineer", str(repo))
+
+    git("reset", "-q", "--", ".claude/agents/pm.md")
+    (repo / "CLAUDE.md").write_text("# changed\n", encoding="utf-8")
+    assert decide(policy, "Bash", {"command": "git commit -m feat"}, "pm", str(repo)) is None
+    assert "installed by DeltaForce" in decide(policy, "Bash", {"command": "git commit -am feat"}, "pm", str(repo))
 
 
 def run_hook(mode, policy_path, event):

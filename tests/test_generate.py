@@ -27,6 +27,8 @@ def test_generate_is_idempotent_and_preserves_user_content(example_config, tmp_p
     settings = json.loads(read(paths.claude_settings))
     assert settings["permissions"]["allow"] == ["Bash(ls)", generate.DF_HELPER_PERMISSION]
     assert "Read(**/.deltaforce/.databrickscfg)" in settings["permissions"]["deny"]
+    assert "Edit(**/.claude/agents/**)" in settings["permissions"]["deny"]
+    assert "Edit(**/.claude/skills/df-*/**)" in settings["permissions"]["deny"]
     assert not any(rule.startswith("mcp__databricks-prod__") for rule in settings["permissions"]["deny"])
     assert settings["enabledMcpjsonServers"] == ["other", "databricks"]
     assert settings["worktree"] == {"baseRef": "head"}

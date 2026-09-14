@@ -19,6 +19,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] End-to-end install validated on Windows against Databricks Free Edition
 - [x] PO sees work in progress before G2 in `.deltaforce/review/` (integration worktree); main checkout never leaves dev; agent worktrees cleaned up at feature close
 - [x] Fixes from the first sandbox run: task branch naming, `sys.exit` on serverless, PM checks before answering
+- [x] Installed files are off-limits to agents (edits, write commands, commits); the installer commits them; the doctor checks agents and skills are unchanged; conventions changed only by the PM
 
 ### Next
 

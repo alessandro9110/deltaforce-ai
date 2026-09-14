@@ -96,6 +96,39 @@ df_generate() {
     done
 }
 
+# Commit what the installer produced: agents may not commit installed files, so the installer does.
+# Keep the path list in sync with INSTALLED_COMMIT_PATHS in lib/py/deltaforce/guardrails.py.
+df_commit_install() {
+    local -a candidates=(.gitignore CLAUDE.md .claude/settings.json .claude/agents .claude/skills databricks.yml
+        resources/deltaforce.variables.yml .deltaforce/config.yaml .deltaforce/conventions.yaml)
+    local -a paths=()
+    local path branch
+    for path in "${candidates[@]}"; do
+        [ -e "$DF_TARGET_DIR/$path" ] && paths+=("$path")
+    done
+    if [ -z "$(git -C "$DF_TARGET_DIR" status --porcelain -- "${paths[@]}")" ]; then
+        df_ok "DeltaForce files already committed"
+        return 0
+    fi
+    branch=$(git -C "$DF_TARGET_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    case ",$DF_PROTECTED_BRANCHES," in
+        *",$branch,"*)
+            df_warn "Not committing on protected branch '$branch': switch to '$DF_DEV_BRANCH' and re-run the installer"
+            return 0
+            ;;
+    esac
+    if ! df_confirm "Commit the DeltaForce files on branch '$branch'? Agents cannot change or commit them"; then
+        df_warn "Commit them before /df-kickoff: agents cannot commit files installed by DeltaForce"
+        return 0
+    fi
+    if git -C "$DF_TARGET_DIR" add -- "${paths[@]}" \
+        && git -C "$DF_TARGET_DIR" commit -q -m "chore(deltaforce): install DeltaForce AI" -m "DeltaForce-Role: installer"; then
+        df_ok "Committed the DeltaForce files on '$branch'"
+    else
+        df_warn "Could not commit — set git user.name and user.email, then re-run the installer"
+    fi
+}
+
 df_run_doctor() {
     if df_py doctor --target "$(df_native_path "$DF_TARGET_DIR")"; then
         df_step "DeltaForce is ready"

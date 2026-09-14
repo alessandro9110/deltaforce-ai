@@ -36,14 +36,32 @@ PROD_READ_TOOLS = (
     "get_volume_folder_details", "manage_serving_endpoint", "query_vs_index",
 )
 
+# Everything DeltaForce installs is off-limits to agents: only the installer changes it.
 INSTALLER_FILES = (
     ".claude/settings.json",
     ".claude/settings.local.json",
     ".mcp.json",
     ".deltaforce/config.yaml",
-    ".deltaforce/runtime/guard-policy.json",
+    "CLAUDE.md",
+    ".gitignore",
+    "resources/deltaforce.variables.yml",
+)
+INSTALLER_DIRS = (
+    ".claude/agents/",
+    ".claude/skills/df-",
+    ".claude/skills/databricks-",
+    ".deltaforce/framework/",
+    ".deltaforce/bin/",
+    ".deltaforce/runtime/",
+)
+PM_ONLY_FILES = (".deltaforce/conventions.yaml",)
+# What the installer commits at the end of an install (agents cannot commit installed files).
+INSTALLED_COMMIT_PATHS = (
+    ".gitignore", "CLAUDE.md", ".claude/settings.json", ".claude/agents", ".claude/skills", "databricks.yml",
+    "resources/deltaforce.variables.yml", ".deltaforce/config.yaml", ".deltaforce/conventions.yaml",
 )
 SECRET_FILE = ".deltaforce/.databrickscfg"
+LEGACY_DENY_RULES = ("Edit(**/.deltaforce/runtime/guard-policy.json)",)
 
 # (event, matcher, hook mode, timeout in seconds)
 HOOK_EVENTS = (
@@ -87,6 +105,8 @@ def build_policy(config: Mapping[str, Any], paths: ProjectPaths, roles: Mapping[
             "allowed_tools": list(PROD_READ_TOOLS),
         },
         "installer_files": list(INSTALLER_FILES),
+        "installer_dirs": list(INSTALLER_DIRS),
+        "pm_only_files": list(PM_ONLY_FILES),
         "secret_file": SECRET_FILE,
         "audit_file": _posix(paths.audit),
         "activity_file": _posix(paths.activity),
@@ -94,7 +114,10 @@ def build_policy(config: Mapping[str, Any], paths: ProjectPaths, roles: Mapping[
 
 
 def _file_rules() -> list[str]:
-    return [f"Read(**/{SECRET_FILE})", f"Edit(**/{SECRET_FILE})"] + [f"Edit(**/{name})" for name in INSTALLER_FILES]
+    rules = [f"Read(**/{SECRET_FILE})", f"Edit(**/{SECRET_FILE})"]
+    rules += [f"Edit(**/{name})" for name in INSTALLER_FILES]
+    rules += [f"Edit(**/{prefix}**)" if prefix.endswith("/") else f"Edit(**/{prefix}*/**)" for prefix in INSTALLER_DIRS]
+    return rules
 
 
 def static_deny_rules(config: Mapping[str, Any]) -> list[str]:
@@ -106,7 +129,7 @@ def static_deny_rules(config: Mapping[str, Any]) -> list[str]:
 
 
 def is_managed_deny_rule(rule: str) -> bool:
-    return rule.startswith(f"mcp__{PROD_MCP_SERVER}__") or rule in _file_rules()
+    return rule.startswith(f"mcp__{PROD_MCP_SERVER}__") or rule in _file_rules() or rule in LEGACY_DENY_RULES
 
 
 def _is_deltaforce_group(group: Mapping[str, Any]) -> bool:

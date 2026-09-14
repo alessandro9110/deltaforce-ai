@@ -48,7 +48,7 @@ Hooks block these actions whatever the instructions say:
 - any non-read activity on production, and any Databricks CLI call to it;
 - `bundle deploy` or `bundle run` by anyone but the DevOps Engineer or to a target other than dev, and `bundle destroy`;
 - pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`;
-- edits of installer-managed files (`.claude/settings*.json`, `.mcp.json`, `.deltaforce/config.yaml`) and any access to `.deltaforce/.databrickscfg`.
+- changes to anything DeltaForce installed — agents, DeltaForce and Databricks skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`, the framework, tools and runtime — including commits that contain them; changes to `.deltaforce/conventions.yaml` by anyone but the PM; any access to `.deltaforce/.databrickscfg`.
 
 A blocked action returns `DeltaForce guardrail: <reason>`. Do not work around it: report it to your caller.
 
