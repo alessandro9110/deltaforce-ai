@@ -124,6 +124,13 @@ Type the answer and press Enter. When a question shows `[Enter = value]`, just p
    - **Personal access token** — typed with hidden input.
    - **Service principal** — client ID and client secret (hidden input).
 
+### Production workspace (optional)
+
+1. **Read data from a separate production workspace?** — answer *Yes* when some source data exists only in production.
+2. **Production workspace URL**, **CLI profile name** (default `<dev profile>-prod`) and **authentication method**.
+
+After signing in, the installer also asks for the **production SQL warehouse** used for read queries. On production the team can only read — SQL queries (`SELECT`, `WITH … SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`), model serving and vector search calls, Genie, table statistics — and every access is audited with the role that made it. Everything else is blocked (see [Guardrails](#guardrails)).
+
 The installer then shows the plan and asks **Proceed?**. After that it:
 
 - checks out the dev branch, offering to create it (and to push it when the repository has a remote);
@@ -160,12 +167,14 @@ Everything lives inside the project repository.
 | `.deltaforce/runtime/` | Python, AI Dev Kit MCP server source and its virtual environment | ignored |
 | `.deltaforce/status.json` | Result of the last readiness check | ignored |
 | `.deltaforce/bin/df` | Helper the team uses to validate state and log events | ignored |
+| `.deltaforce/audit.jsonl` | Audit trail: every Databricks call, shell command and blocked action, with the role that made it | ignored |
+| `.deltaforce/runtime/guard-policy.json` | Guardrail rules generated from your configuration | ignored |
 | `.claude/agents/` | The DeltaForce agents for the enabled roles | committed |
 | `.claude/skills/df-*` | Team skills and Product Owner commands | committed |
 | `.claude/skills/databricks-*` | Databricks agent skills for the enabled roles | committed |
 | `.claude/settings.json` | Team settings: sessions start as the PM, MCP server approval, subagent nesting, worktree base | committed |
-| `.claude/settings.local.json` | Points every Databricks command to the project profile | ignored |
-| `.mcp.json` | Registers the `databricks` MCP server for Claude Code (absolute paths on this machine) | ignored |
+| `.claude/settings.local.json` | Points every Databricks command to the project profile and registers the guardrail and audit hooks | ignored |
+| `.mcp.json` | Registers the `databricks` MCP server, and `databricks-prod` when production is configured (absolute paths on this machine) | ignored |
 | `CLAUDE.md` | A *DeltaForce project context* block: workspace, warehouse, catalog, schemas, branches | committed |
 | `databricks.yml` | Databricks Asset Bundle skeleton, created only if missing | committed |
 | `resources/deltaforce.variables.yml` | Bundle variables with the dev values; prod values come from CI/CD | committed |
@@ -214,6 +223,20 @@ How a project runs:
 
 The team asks you only at G1, at G2, and when something blocks or changes what you asked for. Everything the team writes to organize itself — request, requirements, design, backlog, reports, state and events — lives in `.deltaforce/`; outside it there is only the product: `src/`, `resources/`, `tests/`, `databricks.yml`.
 
+### Guardrails
+
+Claude Code runs DeltaForce hooks before every action of every agent, also in auto mode. Whatever an agent is asked to do, these actions are blocked:
+
+| Area | Blocked |
+| --- | --- |
+| Dev workspace | Writes outside the dev catalog; SQL writes that do not name the catalog; permission, sharing, connection and storage changes |
+| Production workspace | Anything but reads: SQL other than `SELECT`/`WITH … SELECT`/`SHOW`/`DESCRIBE`/`EXPLAIN`, code execution, jobs, pipelines, Unity Catalog changes, any Databricks CLI call to production |
+| Deployments | `bundle deploy` and `bundle run` by anyone but the DevOps Engineer or to a target other than dev; `bundle destroy` |
+| Git | Pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`, merges into the dev branch by anyone but the DevOps Engineer |
+| Files | Edits of installer-managed files (`.claude/settings*.json`, `.mcp.json`, `.deltaforce/config.yaml`) and any access to the credentials file |
+
+A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in `.deltaforce/audit.jsonl`. Static deny rules in `.claude/settings.json` back up the hooks, and the readiness checks run a self-test of the guardrails.
+
 ## 7. Update, reconfigure or remove
 
 **Update or change the configuration** — run the install command from [Step 3](#step-3--paste-one-command-and-press-enter) again. It updates `.deltaforce/framework`, offers your current answers as defaults (press Enter to keep them) and refreshes everything.
@@ -237,6 +260,7 @@ To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databri
 | Symptom | Fix |
 | --- | --- |
 | `...\Git\bin\bash.exe ... is not recognized` / `The system cannot find the path specified` | Git for Windows is missing or installed elsewhere: install it, or replace the path with your `bash.exe` |
+| `DeltaForce guardrail: …` in the conversation | An agent tried a blocked action and the reason names the rule. This is expected: the team reports it instead of working around it. If the action is legitimate, a person does it |
 | `Could not download https://github.com/...` | Check access to the DeltaForce repository and sign in to GitHub when Git asks |
 | `The repository path is N characters and Windows long paths are disabled` | Move the project to a shorter path (≤ 140 characters), or have an administrator enable Windows long paths (`LongPathsEnabled`) |
 | `Run the installer from the repository root` | Open the repository's root folder in VS Code, not a subfolder |

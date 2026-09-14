@@ -1,5 +1,7 @@
+import copy
 import json
 
+import pytest
 import yaml
 
 from deltaforce import generate
@@ -23,7 +25,9 @@ def test_generate_is_idempotent_and_preserves_user_content(example_config, tmp_p
     generate.generate_all(example_config, paths)
 
     settings = json.loads(read(paths.claude_settings))
-    assert settings["permissions"] == {"allow": ["Bash(ls)", generate.DF_HELPER_PERMISSION]}
+    assert settings["permissions"]["allow"] == ["Bash(ls)", generate.DF_HELPER_PERMISSION]
+    assert "Read(**/.deltaforce/.databrickscfg)" in settings["permissions"]["deny"]
+    assert not any(rule.startswith("mcp__databricks-prod__") for rule in settings["permissions"]["deny"])
     assert settings["enabledMcpjsonServers"] == ["other", "databricks"]
     assert settings["worktree"] == {"baseRef": "head"}
     assert settings["env"]["CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH"] == "3"
@@ -82,6 +86,65 @@ def test_bundle_is_created_once_and_prod_values_are_never_defaulted(example_conf
     dev = document["targets"]["dev"]["variables"]
     assert dev["catalog"] == "sandbox_dev"
     assert dev["schema_bronze"] == dev["schema_gold"] == "customer_360"
+
+
+@pytest.fixture
+def prod_config(example_config):
+    config = copy.deepcopy(example_config)
+    config["prod"] = {
+        "host": "https://prod.cloud.databricks.com",
+        "profile": "deltaforce-customer-360-prod",
+        "auth": "oauth",
+        "warehouse_id": "prodwh01",
+    }
+    return config
+
+
+def test_production_server_rules_hooks_and_policy(prod_config, tmp_path):
+    paths = ProjectPaths(tmp_path)
+    generate.generate_all(prod_config, paths)
+
+    servers = json.loads(read(paths.mcp_json))["mcpServers"]
+    assert servers["databricks-prod"]["env"]["DATABRICKS_CONFIG_PROFILE"] == "deltaforce-customer-360-prod"
+    settings = json.loads(read(paths.claude_settings))
+    assert settings["enabledMcpjsonServers"] == ["databricks", "databricks-prod"]
+    assert settings["env"]["MCP_TIMEOUT"] == generate.MCP_STARTUP_TIMEOUT_MS
+    deny = settings["permissions"]["deny"]
+    assert "mcp__databricks-prod__execute_code" in deny
+    assert "mcp__databricks-prod__execute_sql" not in deny
+
+    hooks = json.loads(read(paths.claude_settings_local))["hooks"]
+    pre = hooks["PreToolUse"][0]["hooks"][0]
+    assert pre["command"] == paths.venv_python.resolve().as_posix()
+    assert pre["args"][1:] == ["pre", paths.guard_policy.resolve().as_posix()]
+
+    policy = json.loads(read(paths.guard_policy))
+    assert policy["prod"]["enabled"] and policy["prod"]["profile"] == "deltaforce-customer-360-prod"
+    assert "data-analyst" in policy["prod"]["read_roles"]
+    assert "devops-engineer" not in policy["prod"]["read_roles"] and "pm" not in policy["prod"]["read_roles"]
+    assert "Production (read-only)" in read(paths.claude_md)
+
+
+def test_disabling_production_cleans_up_and_keeps_user_hooks(prod_config, tmp_path):
+    paths = ProjectPaths(tmp_path)
+    generate.generate_all(prod_config, paths)
+    local = json.loads(read(paths.claude_settings_local))
+    local["hooks"]["PreToolUse"].append({"matcher": "Bash", "hooks": [{"type": "command", "command": "my-hook"}]})
+    paths.claude_settings_local.write_text(json.dumps(local), encoding="utf-8")
+
+    plain = copy.deepcopy(prod_config)
+    plain["prod"] = None
+    generate.generate_all(plain, paths)
+    generate.generate_all(plain, paths)
+
+    assert "databricks-prod" not in json.loads(read(paths.mcp_json))["mcpServers"]
+    settings = json.loads(read(paths.claude_settings))
+    assert settings["enabledMcpjsonServers"] == ["databricks"]
+    assert not any(rule.startswith("mcp__databricks-prod__") for rule in settings["permissions"]["deny"])
+    pre_groups = json.loads(read(paths.claude_settings_local))["hooks"]["PreToolUse"]
+    assert sum("deltaforce_hook.py" in json.dumps(group) for group in pre_groups) == 1
+    assert any("my-hook" in json.dumps(group) for group in pre_groups)
+    assert json.loads(read(paths.guard_policy))["prod"]["enabled"] is False
 
 
 def test_medallion_schemas_are_distinct():

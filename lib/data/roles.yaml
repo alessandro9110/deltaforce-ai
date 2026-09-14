@@ -2,14 +2,15 @@
 #
 # The installer renders .claude/agents/<role>.md from this catalog plus the body in
 # templates/claude/agents/<role>.md, and installs the union of `skills` for the
-# enabled roles. Keep role ids in sync with schemas/config.schema.json (tests enforce it).
+# enabled roles. Keep role ids in sync with the role enums in schemas/ (tests enforce it).
 #
 #   title           human-readable name
 #   model           default model (config team.models overrides it)
 #   color           agent colour in Claude Code
 #   description     when Claude should delegate to this role
 #   tools           built-in tools the role may use
-#   mcp             Databricks MCP tools (ai-dev-kit server "databricks")
+#   mcp             Databricks MCP tools on the dev workspace (ai-dev-kit server "databricks")
+#   prod_read       true when the role may read the production workspace (server "databricks-prod")
 #   delegates       agent types the role may spawn (disabled roles are dropped)
 #   isolation       "worktree" for roles that change code in parallel
 #   process_skills  DeltaForce skills preloaded into the agent
@@ -40,6 +41,7 @@ roles:
       delivered work matches the design. Use for design, design changes and design reviews.
     tools: [Read, Grep, Glob, Edit, Write, Bash, Skill, WebFetch]
     mcp: [get_current_user, execute_sql, get_table_stats_and_schema, get_volume_folder_details, list_compute, ask_genie]
+    prod_read: true
     delegates: [data-engineer, data-analyst, data-scientist, ai-engineer, Explore]
     process_skills: [df-engineering-standards, df-handoff]
     skills: [databricks-core, databricks-dabs, databricks-unity-catalog, databricks-docs, databricks-metric-views]
@@ -49,11 +51,13 @@ roles:
     model: sonnet
     color: cyan
     description: >-
-      Turns the Product Owner's request into requirements, user stories and testable acceptance criteria,
-      explores available data to ground them, and checks delivered features against the acceptance criteria.
-      Use for requirements, feature breakdown and functional questions.
+      Owns the Functional Analysis: business objectives, expected value, success metrics, requirements and
+      user stories with testable acceptance criteria. Explores available data to ground them and checks
+      delivered features against the acceptance criteria. Use for requirements, feature breakdown and
+      functional questions.
     tools: [Read, Grep, Glob, Edit, Write, Skill]
     mcp: [execute_sql, get_table_stats_and_schema, get_volume_folder_details, ask_genie]
+    prod_read: true
     delegates: [data-analyst, Explore]
     process_skills: [df-handoff]
     skills: [databricks-core, databricks-data-discovery]
@@ -68,6 +72,7 @@ roles:
       current feature.
     tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
     mcp: [execute_sql, execute_sql_multi, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_volume_files, manage_uc_objects, manage_workspace_files, list_compute]
+    prod_read: true
     delegates: [data-engineer]
     isolation: worktree
     process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
@@ -83,6 +88,7 @@ roles:
       tasks and for data checks requested by other roles.
     tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
     mcp: [execute_sql, execute_sql_multi, get_table_stats_and_schema, manage_metric_views, manage_dashboard, manage_genie, ask_genie]
+    prod_read: true
     delegates: []
     isolation: worktree
     process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
@@ -97,6 +103,7 @@ roles:
       Catalog, in its own worktree and task branch. Use for EDA, feature engineering and ML modelling tasks.
     tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
     mcp: [execute_sql, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_volume_files, list_compute]
+    prod_read: true
     delegates: [data-scientist, data-analyst]
     isolation: worktree
     process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
@@ -112,6 +119,7 @@ roles:
       GenAI, agent and AI application tasks.
     tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
     mcp: [execute_sql, execute_code, get_table_stats_and_schema, manage_volume_files, generate_and_upload_pdf, manage_vs_endpoint, manage_vs_index, manage_vs_data, query_vs_index, manage_serving_endpoint, manage_ka, manage_mas, manage_genie, ask_genie, manage_app]
+    prod_read: true
     delegates: [ai-engineer, data-engineer]
     isolation: worktree
     process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
@@ -127,6 +135,7 @@ roles:
       DevOps Engineer has deployed a feature to dev.
     tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
     mcp: [execute_sql, execute_sql_multi, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_job_runs, manage_pipeline_run, query_vs_index, ask_genie]
+    prod_read: true
     delegates: [data-analyst]
     isolation: worktree
     process_skills: [df-testing, df-engineering-standards, df-git-flow, df-handoff]

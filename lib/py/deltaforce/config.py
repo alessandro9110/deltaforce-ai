@@ -52,6 +52,12 @@ def validate(data: Mapping[str, Any]) -> None:
     unknown = set(data["team"]["roles"]) - set(load_roles())
     if unknown:
         raise ConfigError(f"unknown roles: {', '.join(sorted(unknown))}")
+    prod = data.get("prod")
+    if prod:
+        if prod["profile"] == data["databricks"]["profile"]:
+            raise ConfigError("the production profile must differ from the dev profile")
+        if prod["host"].lower() == data["databricks"]["host"].lower():
+            raise ConfigError("the production workspace must be a different workspace from dev")
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -115,6 +121,15 @@ def build_from_env(env: Mapping[str, str]) -> dict[str, Any]:
         raise ConfigError("DF_MAX_SPAWN_DEPTH must be an integer") from exc
 
     host = get("DF_DB_HOST")
+    prod = None
+    if (get("DF_PROD_ENABLED", "false") or "").lower() in {"true", "yes", "1"}:
+        prod_host = get("DF_PROD_HOST")
+        prod = {
+            "host": prod_host.rstrip("/") if prod_host else None,
+            "profile": get("DF_PROD_PROFILE"),
+            "auth": get("DF_PROD_AUTH", "oauth"),
+            "warehouse_id": get("DF_PROD_WAREHOUSE_ID"),
+        }
     return {
         "version": 1,
         "project": {
@@ -132,6 +147,7 @@ def build_from_env(env: Mapping[str, str]) -> dict[str, Any]:
             "compute": compute,
             "cluster_id": get("DF_CLUSTER_ID") if compute == "cluster" else None,
         },
+        "prod": prod,
         "targets": {"dev": {"catalog": get("DF_CATALOG"), "medallion": medallion}},
         "team": {"roles": roles, "models": models, "max_spawn_depth": depth},
         "ai_dev_kit": {
@@ -146,7 +162,13 @@ def export_env(data: Mapping[str, Any]) -> str:
     project, db, team, adk = data["project"], data["databricks"], data["team"], data["ai_dev_kit"]
     dev = data["targets"]["dev"]
     medallion = dev["medallion"]
+    prod = data.get("prod") or {}
     values = {
+        "DF_PROD_ENABLED": "true" if prod else "false",
+        "DF_PROD_HOST": prod.get("host", ""),
+        "DF_PROD_PROFILE": prod.get("profile", ""),
+        "DF_PROD_AUTH": prod.get("auth", ""),
+        "DF_PROD_WAREHOUSE_ID": prod.get("warehouse_id", ""),
         "DF_PROJECT_NAME": project["name"],
         "DF_DEV_BRANCH": project["dev_branch"],
         "DF_PROTECTED_BRANCHES": ",".join(project["protected_branches"]),

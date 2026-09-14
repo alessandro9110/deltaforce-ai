@@ -142,6 +142,9 @@ main() {
     df_step "Databricks workspace"
     df_ask_workspace
 
+    df_step "Production workspace (optional, read-only)"
+    df_ask_prod
+
     df_step "Plan"
     df_print_plan
     if [ "$DF_DRY_RUN" = true ]; then
@@ -161,6 +164,7 @@ main() {
 
     df_step "Dev target"
     df_ask_target
+    df_ask_prod_target
 
     df_step "Team"
     df_ask_team

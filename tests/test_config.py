@@ -82,6 +82,51 @@ def test_export_env_round_trips(example_config):
     assert cfg.build_from_env(env) == example_config
 
 
+def parse_exports(text):
+    env = {}
+    for line in text.splitlines():
+        _, assignment = line.split(" || ", 1)
+        key, value = assignment.split("=", 1)
+        env[key] = shlex.split(value)[0]
+    return env
+
+
+PROD_ANSWERS = {
+    "DF_PROD_ENABLED": "true",
+    "DF_PROD_HOST": "https://dbc-prod.cloud.databricks.com/",
+    "DF_PROD_PROFILE": "deltaforce-customer-360-prod",
+    "DF_PROD_WAREHOUSE_ID": "prodwh01",
+}
+
+
+def test_production_workspace_round_trips():
+    data = cfg.build_from_env(answers(**PROD_ANSWERS))
+    cfg.validate(data)
+    assert data["prod"] == {
+        "host": "https://dbc-prod.cloud.databricks.com",
+        "profile": "deltaforce-customer-360-prod",
+        "auth": "oauth",
+        "warehouse_id": "prodwh01",
+    }
+    env = parse_exports(cfg.export_env(data))
+    env["DF_GIT_PROVIDER"] = data["project"]["git_provider"]
+    assert cfg.build_from_env(env) == data
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"DF_PROD_PROFILE": "deltaforce-customer-360"},
+        {"DF_PROD_HOST": "https://adb-1234567890123456.7.azuredatabricks.net"},
+        {"DF_PROD_WAREHOUSE_ID": ""},
+        {"DF_PROD_PROFILE": "DEFAULT"},
+    ],
+)
+def test_invalid_production_settings_are_rejected(overrides):
+    with pytest.raises(cfg.ConfigError):
+        cfg.validate(cfg.build_from_env(answers(**{**PROD_ANSWERS, **overrides})))
+
+
 def test_skills_union_is_ordered_and_deduplicated():
     skills = cfg.skills_for_roles(["pm", "data-engineer", "devops-engineer"])
     assert skills[0] == "databricks-core"

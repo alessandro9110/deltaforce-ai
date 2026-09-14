@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from . import guardrails
 from .config import load_roles
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
@@ -64,6 +65,8 @@ def render_agent(role: str, config: Mapping[str, Any], roles: Mapping[str, Mappi
     if delegates:
         tools.append(f"Agent({', '.join(delegates)})")
     tools.extend(MCP_TOOL_PREFIX + tool for tool in spec.get("mcp", []))
+    if config.get("prod") and spec.get("prod_read"):
+        tools.extend(f"mcp__{guardrails.PROD_MCP_SERVER}__{tool}" for tool in guardrails.PROD_READ_TOOLS)
 
     frontmatter: dict[str, Any] = {
         "name": role,

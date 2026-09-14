@@ -213,12 +213,62 @@ df_ask_team() {
     df_ok "Roles: ${DF_ROLES//,/, }"
 }
 
+df_ask_prod() {
+    df_choose DF_PROD_ENABLED "Does the team need to read data from a separate production workspace?" \
+        "${DF_PROD_ENABLED:-false}" false \
+        "false|No" \
+        "true|Yes — read-only: SQL queries, model and vector search calls, Genie"
+    if [ "$DF_PROD_ENABLED" != true ]; then
+        DF_PROD_HOST="" DF_PROD_PROFILE="" DF_PROD_AUTH="" DF_PROD_WAREHOUSE_ID=""
+        return 0
+    fi
+    while true; do
+        df_ask_valid DF_PROD_HOST "Production workspace URL" "${DF_PROD_HOST:-}" \
+            '^https://[^/?#[:space:]]+([/?#][^[:space:]]*)?$' "https://<workspace-host>"
+        [[ $DF_PROD_HOST =~ ^(https://[^/?#[:space:]]+) ]] && DF_PROD_HOST=${BASH_REMATCH[1]}
+        [ "${DF_PROD_HOST,,}" != "${DF_DB_HOST,,}" ] && break
+        [ "$DF_INTERACTIVE" = true ] || df_die "The production workspace must be different from the dev workspace"
+        df_warn "Production must be a different workspace from dev"
+        DF_PROD_HOST=""
+    done
+    df_ok "Production workspace: $DF_PROD_HOST"
+    while true; do
+        df_ask_valid DF_PROD_PROFILE "Production CLI profile name" "${DF_PROD_PROFILE:-$DF_DB_PROFILE-prod}" \
+            '^[A-Za-z0-9_-]+$' "letters, digits, '-' and '_'"
+        [ "$DF_PROD_PROFILE" != DEFAULT ] && [ "$DF_PROD_PROFILE" != "$DF_DB_PROFILE" ] && break
+        [ "$DF_INTERACTIVE" = true ] || df_die "The production profile must differ from DEFAULT and from the dev profile"
+        df_warn "Use a name different from DEFAULT and from the dev profile"
+        DF_PROD_PROFILE=""
+    done
+    df_choose DF_PROD_AUTH "Production authentication method" "${DF_PROD_AUTH:-oauth}" false \
+        "oauth|OAuth in the browser (recommended)" \
+        "pat|Personal access token" \
+        "service-principal|Service principal (OAuth client ID and secret)"
+}
+
+df_ask_prod_target() {
+    [ "${DF_PROD_ENABLED:-false}" = true ] || return 0
+    local -a items=()
+    mapfile -t items < <(DF_LIST_PROFILE="$DF_PROD_PROFILE" df_databricks_items warehouses warehouses list)
+    if [ ${#items[@]} -gt 0 ]; then
+        df_choose DF_PROD_WAREHOUSE_ID "Production SQL warehouse for read queries" "${DF_PROD_WAREHOUSE_ID:-}" true "${items[@]}"
+    else
+        df_warn "Could not list production SQL warehouses — enter the ID manually"
+        df_ask DF_PROD_WAREHOUSE_ID "Production SQL warehouse ID" "${DF_PROD_WAREHOUSE_ID:-}"
+    fi
+    [[ $DF_PROD_WAREHOUSE_ID =~ ^[A-Za-z0-9]+$ ]] || df_die "Invalid production SQL warehouse ID: '$DF_PROD_WAREHOUSE_ID'"
+}
+
 df_print_plan() {
     df_msg "Everything below is installed inside $DF_TARGET_DIR — nothing global:"
     df_msg "  • Git branch '$DF_DEV_BRANCH' checked out (created if missing, after asking)"
     df_msg "  • uv $DF_UV_VERSION and Databricks CLI $DF_DATABRICKS_CLI_VERSION → .deltaforce/bin"
     df_msg "  • Python $DF_PYTHON_VERSION and AI Dev Kit MCP server ($DF_ADK_REF) → .deltaforce/runtime"
     df_msg "  • Profile '$DF_DB_PROFILE' ($DF_DB_AUTH) for $DF_DB_HOST → .deltaforce/.databrickscfg"
+    if [ "${DF_PROD_ENABLED:-false}" = true ]; then
+        df_msg "  • Read-only production profile '$DF_PROD_PROFILE' ($DF_PROD_AUTH) for $DF_PROD_HOST"
+    fi
+    df_msg "  • Guardrail and audit hooks → .claude/settings.local.json"
     df_msg "  • Missing dev schemas in the chosen catalog created on Databricks"
     df_msg "  • Databricks agent skills for the enabled roles → .claude/skills"
     df_msg "  • .deltaforce/config.yaml, .mcp.json, .claude/settings*.json, CLAUDE.md block,"
@@ -234,6 +284,11 @@ df_print_summary() {
     fi
     df_msg "Project:    $DF_PROJECT_NAME — dev branch $DF_DEV_BRANCH, protected $DF_PROTECTED_BRANCHES, CI/CD $DF_CICD"
     df_msg "Workspace:  $DF_DB_HOST — profile $DF_DB_PROFILE ($DF_DB_AUTH)"
+    if [ "${DF_PROD_ENABLED:-false}" = true ]; then
+        df_msg "Production: $DF_PROD_HOST — profile $DF_PROD_PROFILE ($DF_PROD_AUTH), warehouse $DF_PROD_WAREHOUSE_ID, read-only"
+    else
+        df_msg "Production: none"
+    fi
     df_msg "Warehouse:  $DF_WAREHOUSE_ID — compute $DF_COMPUTE${DF_CLUSTER_ID:+ ($DF_CLUSTER_ID)}"
     df_msg "Dev target: catalog $DF_CATALOG — $schemas"
     df_msg "Team:       ${DF_ROLES//,/, } — default model $DF_MODEL_DEFAULT, nesting depth $DF_MAX_SPAWN_DEPTH"

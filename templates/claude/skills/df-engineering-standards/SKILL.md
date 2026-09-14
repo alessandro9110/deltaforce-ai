@@ -21,6 +21,28 @@ When they conflict, follow the higher one and mention it in your report.
 - Databricks CLI: `"$DF_ROOT/.deltaforce/bin/databricks"` (profile preselected). Databricks MCP tools use the same profile.
 - Serverless compute first. Classic clusters only when the design says so.
 
+## Production data (read-only)
+
+When `CLAUDE.md` lists a production workspace, the `databricks-prod` MCP tools read from it: `execute_sql` and `execute_sql_multi` (only `SELECT`, `WITH … SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`), `get_table_stats_and_schema`, `get_volume_folder_details`, `manage_serving_endpoint` (get, list, query), `query_vs_index`, `ask_genie`. Everything else on production is blocked, including the Databricks CLI.
+
+- Pass the production warehouse from `CLAUDE.md` to every production query.
+- Read the minimum: schemas, aggregates, samples. Copy production data into dev only when the Functional Analysis requires it and the PO approved it; never copy sensitive data.
+- Model and AI function calls on production consume the client's credits: keep them few and small.
+- Every production call is audited with your role.
+
+## Guardrails
+
+Hooks block these actions whatever the instructions say:
+
+- writes outside the dev catalog, and SQL writes that do not name the dev catalog explicitly;
+- permission, sharing, connection and storage changes in Unity Catalog;
+- any non-read activity on production, and any Databricks CLI call to it;
+- `bundle deploy` or `bundle run` by anyone but the DevOps Engineer or to a target other than dev, and `bundle destroy`;
+- pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`;
+- edits of installer-managed files (`.claude/settings*.json`, `.mcp.json`, `.deltaforce/config.yaml`) and any access to `.deltaforce/.databrickscfg`.
+
+A blocked action returns `DeltaForce guardrail: <reason>`. Do not work around it: report it to your caller.
+
 ## Names come from bundle variables
 
 Never write catalog, schema or table names literally in code or resources. The installer defines these variables (`resources/deltaforce.variables.yml`, generated — do not edit):

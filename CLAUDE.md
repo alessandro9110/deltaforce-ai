@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DeltaForce AI is a **framework**, not an application: an installable Claude Code setup that gives a *target project repo* a team of Databricks-specialized agents (PM, Solution Architect, Business Analyst, Data Engineer, Data Analyst, Data Scientist, AI Engineer, QA Engineer, DevOps Engineer; the human user is the PO). It is installed into target repos with `install.sh` from GitHub.
 
-Current status: **installer, configuration, agents, skills and PO commands implemented; hooks (guardrails, audit) not yet**. The source of truth is:
+Current status: **installer, configuration, agents, skills, PO commands and guardrail/audit hooks implemented; monitoring app not yet**. The source of truth is:
 
 - `docs/design.md` — architecture, process, conventions, open items
 - `docs/roadmap.md` — milestones M0–M6 with exit criteria
@@ -35,6 +35,8 @@ End users never clone this repo by hand: one command in the IDE terminal clones 
 Installer layout: `install.sh` orchestrates; `lib/*.sh` hold the steps (prompts in `common.sh` read `/dev/tty`); `lib/py/dfcli.py` is the Python helper the scripts call through the project-local uv (`df_py`) for config, generation and the doctor; `lib/data/versions.env` pins every downloaded version; `lib/data/roles.yaml` is the single source of truth for roles (model, tools, Databricks MCP tools, delegates, worktree isolation, process and Databricks skills) and its role ids must match the role enums in `schemas/` (tests enforce it).
 
 The team: `deltaforce/team.py` renders `.claude/agents/<role>.md` from `roles.yaml` plus the prompt body in `templates/claude/agents/<role>.md` (placeholders `{{delegates}}`, `{{databricks_skills}}`), and syncs `templates/claude/skills/df-*` into the project. Agent prompts and skills are product code: keep them in English, concise, and consistent with `docs/design.md` (process, gates, git flow, single writer of state). Project state formats are defined by `schemas/{state,feature,event,conventions}.schema.json`; change a format only together with its schema, `df-backlog` and `examples/`. On Windows never delete and recreate a directory in one go (files just written stay locked): sync files instead.
+
+Guardrails: `lib/hooks/deltaforce_hook.py` runs on every matched tool call of every agent, with the MCP venv's Python — keep it standard-library only and fast, and make it fail closed on production. Its rules read `guard-policy.json`, built by `deltaforce/guardrails.py`, which also owns `AI_DEV_KIT_TOOLS`, `PROD_READ_TOOLS`, the static deny rules and the hook registration. Any new rule needs a case in `tests/test_hook.py` (the full suite takes about a minute because hook tests spawn processes and git).
 
 ## Big picture
 

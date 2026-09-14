@@ -16,6 +16,7 @@ databricks:
   warehouse_id: 1234abcd5678efgh
   compute: serverless
   cluster_id: null
+prod: null
 targets:
   dev:
     catalog: sandbox_dev

@@ -2,22 +2,11 @@ import copy
 
 import yaml
 
-from deltaforce import backlog, team
+from deltaforce import backlog, guardrails, team
 from deltaforce import config as cfg
 from deltaforce.paths import ProjectPaths
 
-# Tools registered by the ai-dev-kit MCP server (v0.2.0).
-AI_DEV_KIT_TOOLS = set(
-    "ask_genie delete_tracked_resource execute_code execute_sql execute_sql_multi generate_and_upload_pdf "
-    "generate_lakebase_credential get_current_user get_table_stats_and_schema get_volume_folder_details "
-    "list_compute list_tracked_resources manage_app manage_cluster manage_dashboard manage_genie "
-    "manage_job_runs manage_jobs manage_ka manage_lakebase_branch manage_lakebase_database "
-    "manage_lakebase_sync manage_mas manage_metric_views manage_pipeline manage_pipeline_run "
-    "manage_serving_endpoint manage_sql_warehouse manage_uc_connections manage_uc_grants manage_uc_monitors "
-    "manage_uc_objects manage_uc_security_policies manage_uc_sharing manage_uc_storage manage_uc_tags "
-    "manage_volume_files manage_vs_data manage_vs_endpoint manage_vs_index manage_warehouse manage_workspace "
-    "manage_workspace_files query_vs_index".split()
-)
+AI_DEV_KIT_TOOLS = set(guardrails.AI_DEV_KIT_TOOLS)
 
 
 def split(document):
@@ -53,6 +42,19 @@ def test_pm_frontmatter(example_config):
     assert "devops-engineer" in agent_tool and "Explore" in agent_tool
     assert "mcp__databricks__get_current_user" in frontmatter["tools"]
     assert "`qa-engineer` — QA Engineer" in body
+
+
+def test_production_read_tools_only_for_data_roles(example_config):
+    assert set(guardrails.PROD_READ_TOOLS) <= AI_DEV_KIT_TOOLS
+    config = copy.deepcopy(example_config)
+    config["prod"] = {"host": "https://prod.cloud.databricks.com", "profile": "p-prod", "auth": "oauth", "warehouse_id": "w1"}
+    for role, spec in cfg.load_roles().items():
+        frontmatter, _ = split(team.render_agent(role, config))
+        prod_tools = sorted(t.split("__")[-1] for t in frontmatter["tools"] if t.startswith("mcp__databricks-prod__"))
+        assert prod_tools == (sorted(guardrails.PROD_READ_TOOLS) if spec.get("prod_read") else []), role
+
+    frontmatter, _ = split(team.render_agent("data-analyst", example_config))
+    assert not any(t.startswith("mcp__databricks-prod__") for t in frontmatter["tools"])
 
 
 def test_disabled_roles_are_dropped_and_removed(example_config, tmp_path):

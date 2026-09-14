@@ -43,6 +43,23 @@
         "properties": { "cluster_id": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" } }
       }
     },
+    "prod": {
+      "description": "Separate production workspace the team may read from; null when there is none.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host", "profile", "auth", "warehouse_id"],
+          "properties": {
+            "host": { "type": "string", "pattern": "^https://[^/\\s]+$" },
+            "profile": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$", "not": { "const": "DEFAULT" } },
+            "auth": { "enum": ["oauth", "pat", "service-principal"] },
+            "warehouse_id": { "type": "string", "pattern": "^[A-Za-z0-9]+$" }
+          }
+        }
+      ]
+    },
     "targets": {
       "type": "object",
       "additionalProperties": false,

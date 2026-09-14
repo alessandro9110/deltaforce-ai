@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from . import backlog, team
+from . import backlog, guardrails, team
 from . import config as cfg
 from .generate import CLAUDE_MD_START, GITIGNORE_START, MCP_SERVER_NAME, medallion_schemas
 from .paths import ProjectPaths
@@ -55,7 +55,13 @@ class Doctor:
         return ok
 
     def run_command(
-        self, argv: list[Any], *, cwd: Path | None = None, timeout: int = 120, databricks_env: bool = False
+        self,
+        argv: list[Any],
+        *,
+        cwd: Path | None = None,
+        timeout: int = 120,
+        databricks_env: bool = False,
+        input_text: str | None = None,
     ) -> tuple[bool, str]:
         env = dict(os.environ)
         if databricks_env and self.config:
@@ -73,6 +79,7 @@ class Doctor:
                 cwd=cwd,
                 env=env,
                 timeout=timeout,
+                input=input_text,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return False, str(exc)
@@ -80,9 +87,10 @@ class Doctor:
             return True, result.stdout.strip()
         return False, (result.stderr or result.stdout).strip()
 
-    def databricks(self, *args: str, cwd: Path | None = None) -> tuple[bool, Any]:
+    def databricks(self, *args: str, cwd: Path | None = None, profile: str | None = None) -> tuple[bool, Any]:
+        profile_args = ["-p", profile] if profile else []
         ok, output = self.run_command(
-            [self.paths.databricks_cli, *args, "-o", "json"], cwd=cwd, databricks_env=True
+            [self.paths.databricks_cli, *args, "-o", "json", *profile_args], cwd=cwd, databricks_env=True
         )
         if not ok:
             return False, _first_line(output)
@@ -158,6 +166,15 @@ class Doctor:
             ok, output = self.databricks("schemas", "get", full_name)
             detail = "exists" if ok else f"{output} — re-run the install command to create it"
             self.add(f"schema:{schema}", f"Dev schema '{full_name}'", ok, detail)
+
+        prod = self.config.get("prod")
+        if prod:
+            ok, user = self.databricks("current-user", "me", profile=prod["profile"])
+            detail = user.get("userName", "") if ok and isinstance(user, dict) else str(user)
+            if self.add("prod-auth", f"Production authentication (profile {prod['profile']})", ok, detail):
+                ok, warehouse = self.databricks("warehouses", "get", prod["warehouse_id"], profile=prod["profile"])
+                detail = f"{warehouse.get('name')} ({warehouse.get('state')})" if ok and isinstance(warehouse, dict) else str(warehouse)
+                self.add("prod-warehouse", f"Production SQL warehouse {prod['warehouse_id']}", ok, detail)
         return True
 
     def check_mcp_runtime(self) -> None:
@@ -216,6 +233,37 @@ class Doctor:
         detail = "valid" if not problems else f"{len(problems)} problem(s): {problems[0]}"
         self.add("project-state", "Conventions, state, backlog and events", not problems, detail[:200], "warn")
 
+    def check_guardrails(self) -> None:
+        policy_ok = self.paths.guard_policy.exists()
+        self.add("guard-policy", "Guardrail policy", policy_ok, "" if policy_ok else "missing — re-run the installer")
+        registered = guardrails.hooks_registered(_read_json(self.paths.claude_settings_local))
+        self.add("hooks", "Guardrail and audit hooks registered", registered)
+        if not (policy_ok and registered and self.paths.venv_python.exists()):
+            return
+
+        cases = [
+            ({"tool_name": "Bash", "tool_input": {"command": "databricks bundle deploy -t prod"}, "agent_type": "devops-engineer"}, True),
+            ({"tool_name": "Bash", "tool_input": {"command": "git push --force origin dev"}, "agent_type": "devops-engineer"}, True),
+        ]
+        if self.config.get("prod"):
+            tool = f"mcp__{guardrails.PROD_MCP_SERVER}__execute_sql"
+            cases += [
+                ({"tool_name": tool, "tool_input": {"sql_query": "DROP TABLE a.b.c"}, "agent_type": "data-analyst"}, True),
+                ({"tool_name": tool, "tool_input": {"sql_query": "SELECT 1"}, "agent_type": "data-analyst"}, False),
+            ]
+        failed = []
+        for event, should_deny in cases:
+            event = {**event, "session_id": "deltaforce-doctor", "cwd": str(self.paths.root)}
+            ok, output = self.run_command(
+                [self.paths.venv_python, guardrails.HOOK_SCRIPT, "pre", self.paths.guard_policy],
+                timeout=60,
+                input_text=json.dumps(event),
+            )
+            if (ok and '"deny"' in output) != should_deny:
+                failed.append(event["tool_input"])
+        detail = f"{len(cases)} scenarios behave as expected" if not failed else f"unexpected result for {failed[0]}"
+        self.add("guard-self-test", "Guardrails self-test", not failed, detail)
+
     def check_bundle_validate(self) -> None:
         ok, output = self.databricks("bundle", "validate", "-t", "dev", cwd=self.paths.root)
         self.add("bundle-validate", "databricks bundle validate -t dev", ok, "valid" if ok else str(output), "warn")
@@ -235,6 +283,7 @@ def run(paths: ProjectPaths) -> dict[str, Any]:
         doctor.check_generated()
         doctor.check_team()
         doctor.check_project_state()
+        doctor.check_guardrails()
         if workspace_ok:
             doctor.check_bundle_validate()
 

@@ -43,6 +43,10 @@ class ProjectPaths:
         return self.state / "events.jsonl"
 
     @property
+    def audit(self) -> Path:
+        return self.state / "audit.jsonl"
+
+    @property
     def status(self) -> Path:
         return self.state / "status.json"
 
@@ -69,6 +73,14 @@ class ProjectPaths:
     @property
     def runtime(self) -> Path:
         return self.state / "runtime"
+
+    @property
+    def guard_policy(self) -> Path:
+        return self.runtime / "guard-policy.json"
+
+    @property
+    def activity(self) -> Path:
+        return self.runtime / "activity.jsonl"
 
     @property
     def venv_python(self) -> Path:
