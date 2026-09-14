@@ -350,5 +350,5 @@ PO-facing commands: `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `
 - Nested delegation: whether `SubagentStart` exposes the parent agent, so `events.jsonl` can record the full delegation chain; worktree behaviour when a worktree-isolated subagent spawns another (`baseRef: "head"` should resolve to the parent worktree).
 - `.mcp.json` MCP server usable from worktree-isolated subagents, together with per-role MCP tool allowlists.
 - Whether installed `.claude/skills` are committed (proposed: yes, for reproducibility) and how the `skills:` preload resolves them.
-- `targets.dev.variables` defined in the included `resources/deltaforce.variables.yml` being merged by `bundle validate` (doctor reports it as a warning).
+- ~~`targets.dev.variables` in the included `resources/deltaforce.variables.yml` merged by `bundle validate`~~ — confirmed on a real workspace (2026-09-14).
 - ai-dev-kit MCP server maintenance is best-effort upstream: pin the ref and keep a fallback to the Databricks CLI for critical operations (deploy, run).
