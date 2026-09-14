@@ -1,0 +1,61 @@
+# DeltaForce AI — Roadmap
+
+Each milestone ends with a demo against a real Databricks dev workspace. See [design.md](design.md) for the architecture.
+
+## M0 — Foundations
+
+- Framework repo skeleton (layout in design §12), `.gitignore`, license, README.
+- JSON Schemas: `config.yaml`, feature frontmatter, event line.
+- Template `CLAUDE.md` for target projects.
+
+**Exit**: schemas validated with sample files.
+
+## M1 — Installer MVP (Windows, Git Bash)
+
+- Prerequisite checks with versions; consent-based install via winget; manual fallback.
+- Databricks OAuth profile setup and verification.
+- `databricks aitools install` at project scope with the role skill union.
+- ai-dev-kit MCP server at pinned ref, uv venv, per-machine registration.
+- Template copy with manifest; `--dry-run`, `--doctor`, `--yes`.
+
+**Exit**: fresh Windows machine → `install.sh` → `--doctor` all green → Claude Code sees skills and MCP tools.
+
+## M2 — Core team and guardrails
+
+- Agents: `pm`, `business-analyst`, `solution-architect`, `data-engineer`, `devops-engineer`, `qa-engineer`.
+- Commands: `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-next`.
+- Hooks: guard (role policy, git protection, destructive SQL, hardcoded names), audit, events.
+- Nested delegation with per-role `Agent(...)` allowlists and configurable spawn depth.
+- Git flow: feature branch, worktree task branches, DevOps merge, dev branch push.
+- DABs skeleton with parametric variables and medallion layout.
+
+**Exit**: kickoff → G1 → one data engineering feature bronze → silver → gold deployed and run on dev → QA data tests → G2 approved → merged into dev branch.
+
+## M3 — Full team: analytics, ML, GenAI
+
+- Agents: `data-analyst`, `data-scientist`, `ai-engineer`.
+- ML lifecycle (feature table, MLflow training, UC registration, dev serving) and AI lifecycle (documents, chunking, vector index, agent, MLflow evaluation).
+- QA evaluation gates with configurable thresholds; dashboards / metric views / Genie.
+
+**Exit**: one feature per discipline delivered end-to-end with PO validation.
+
+## M4 — CI/CD
+
+- Azure DevOps pipeline template: validate on PR, deploy prod from `main` with service principal, `BUNDLE_VAR_*` injection.
+- GitHub Actions template with the same contract.
+
+**Exit**: human PR dev → main triggers a prod deploy of the M2 feature in a test workspace.
+
+## M5 — Monitoring app
+
+- Read-only backend over `.deltaforce/` (backlog, events, audit, reports) and git history.
+- Views: phase, current feature, task board per role, event timeline, PO decisions.
+
+**Exit**: live view of an M3 run.
+
+## M6 — Hardening
+
+- Per-role service principals with UC grants (at least DevOps).
+- `--update` with manifest-based merge; `--uninstall`.
+- Opt-in agent teams experiment for Phase 1 design review.
+- macOS/Linux installer support.
