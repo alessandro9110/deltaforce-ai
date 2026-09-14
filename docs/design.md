@@ -85,8 +85,10 @@ tools: Read, Edit, Write, Grep, Glob, Bash, Agent(data-engineer), mcp__databrick
 
 ```mermaid
 flowchart TD
-  K["Phase 0 · Kickoff<br/>PO: what to build + catalog, schema(s), optional table names, dev branch"] --> R[BA: requirements]
+  K["Phase 0 · Kickoff<br/>PO: what to build + catalog, schema(s), optional table names, dev branch"] --> R[BA: requirements and business value]
+  K --> X[SA: technical discovery]
   R --> D[SA: solution design]
+  X --> D
   D --> B[BA + SA + PM: feature breakdown]
   B --> G1{"G1 · PO approves<br/>design + feature list + proposals"}
   G1 -- changes --> D
@@ -104,7 +106,7 @@ flowchart TD
 ```
 
 - **Phase 0 — Kickoff** (`/df-kickoff`): the PO states *what the team must build* and provides the elements: catalog, schema(s), optional table names, dev branch. Stored in `.deltaforce/config.yaml` and `docs/requirements/request.md`.
-- **Phase 1 — Discovery & design**: BA writes requirements; SA designs the full solution (architecture, medallion flows for each discipline, table naming proposal when the PO gave none); BA + SA + PM derive the feature list with dependencies and per-role tasks. **G1**: PO approves once.
+- **Phase 1 — Discovery & design**: in parallel, the BA writes requirements (business objectives, value, success metrics, user stories) and the SA does the technical discovery (data sources, workspace capabilities, architecture options); questions for the PO from both are asked in one round; then the SA designs the full solution (architecture, medallion flows for each discipline, table naming proposal when the PO gave none); BA + SA + PM derive the feature list with dependencies and per-role tasks. **G1**: PO approves once.
 - **Phase 2 — Delivery**: the goal is to complete features — one, or several in parallel when they do not depend on each other (up to three active). Per feature: parallel development → integration and dev deploy by DevOps (from the integration branch) → QA → PM feature report → **G2**: PO validates that feature. A feature starts only when its dependencies are done; the team keeps working on other active features while the PO reviews.
 - **Escalation** at any time, and only then: blocker, ambiguity, or a change compared to the request.
 - **Phase 3 — Handover**: dev branch pushed and CI/CD definitions ready; a human opens the PR to `main`; CI/CD deploys prod.
