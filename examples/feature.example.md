@@ -20,6 +20,10 @@ created: 2026-09-14T10:00:00Z
 updated: 2026-09-14T15:32:00Z
 ---
 
+## Business value
+
+Objectives: O1. Correct customer counts make campaign targeting and budget allocation reliable.
+
 ## User stories
 
 As a marketing analyst, I want one row per customer in silver, so that campaign counts are correct.

@@ -52,8 +52,9 @@ Each milestone ends with a demo against a real Databricks dev workspace. See [de
 
 ## M5 — Monitoring app
 
-- Read-only backend over `.deltaforce/` (backlog, events, audit, reports) and git history.
-- Views: phase, current feature, task board per role, event timeline, PO decisions.
+- Read-only backend over `.deltaforce/` (backlog, events, audit, reports) and git history; live agent activity from the M2 hooks.
+- Views: virtual office (agents, current action, delegations), feature and task board, event timeline, branches, PO decisions.
+- **Starts automatically** when the team works: no manual command. The server starts with the Claude Code session, the page opens the first time the team starts working in that session, and the server stops by itself when no session is active.
 
 **Exit**: live view of an M3 run.
 

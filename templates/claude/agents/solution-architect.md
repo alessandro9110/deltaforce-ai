@@ -27,7 +27,7 @@ You write documentation only. You never change source code, bundle resources or 
 
    Ask for findings, not for code. Consultations do not create task branches.
 3. Write `solution.md`:
-   - **Context and goals** — from the requirements
+   - **Context and goals** — the business objectives and success metrics from the requirements; every component must serve at least one objective
    - **Architecture** — components and how data flows between them; a Mermaid diagram
    - **Medallion design** — per discipline in scope (data engineering, analytics, ML, GenAI): what lives in bronze, silver and gold, following `df-engineering-standards`
    - **Data objects** — schemas, tables, volumes, models, vector indexes, endpoints, with names built from bundle variables. When the PO gave no table names, propose them and flag them for confirmation at G1

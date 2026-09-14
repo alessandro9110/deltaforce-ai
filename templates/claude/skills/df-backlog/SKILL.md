@@ -61,6 +61,10 @@ created: 2026-09-14T10:00:00Z
 updated: 2026-09-14T15:32:00Z
 ---
 
+## Business value
+
+Objectives: O1, O3 (see docs/requirements/requirements.md). One or two sentences on what this feature brings to the client.
+
 ## User stories
 
 ## Acceptance criteria
@@ -118,6 +122,8 @@ The helper adds the timestamp and validates the event.
 # F-003 — Silver customer deduplication
 
 ## What was built
+## Business value delivered
+Objectives served, and how the result moves the success metrics (or how it will be measured).
 ## Databricks objects created or changed
 ## Test evidence
 | Acceptance criterion | Test | Result | Evidence |

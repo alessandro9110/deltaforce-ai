@@ -38,7 +38,7 @@ The PO is the human user. The PM is the main Claude Code session (`"agent": "pm"
 |---|---|---|---|
 | **PM** (`pm`) | Intake, planning, feature sequencing, backlog owner, PO reports and escalations | Read everything, write backlog/state/reports, delegate | Write source code, change Databricks resources |
 | **Solution Architect** (`solution-architect`) | End-to-end solution design, medallion flows, table naming proposal, ADRs, bundle layout, design conformance review | Read UC metadata, write `docs/architecture/` | Write source code, deploy |
-| **Business Analyst** (`business-analyst`) | Requirements, user stories, acceptance criteria, functional support to team and PM | Read-only data discovery, write `docs/requirements/` | Write source code, deploy |
+| **Business Analyst** (`business-analyst`) | Business objectives, expected value and success metrics; requirements and user stories traced to objectives; acceptance criteria; functional support to team and PM | Read-only data discovery, write `docs/requirements/` | Write source code, deploy |
 | **Data Engineer** (`data-engineer`) | Ingestion, bronze → silver → gold pipelines, jobs | Write `src/pipelines`, run SQL/code on dev, `bundle validate` | Deploy |
 | **Data Analyst** (`data-analyst`) | Gold marts, metric views, AI/BI dashboards, Genie spaces; supports QA on data tests | Query dev, write dashboards/metric views | Deploy |
 | **Data Scientist** (`data-scientist`) | EDA, feature engineering, training, MLflow experiments, UC model registration | Run code on dev, MLflow | Deploy |

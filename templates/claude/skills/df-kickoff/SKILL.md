@@ -22,7 +22,7 @@ You are the PM. Talk to the PO in their language; write files in English.
 
 1. If `$ARGUMENTS` is not empty, that is the request. Otherwise ask: *What should the team build?* and let the PO answer freely.
 2. Ask only what is still missing to start, in one round of at most four questions (use AskUserQuestion when there are clear options):
-   - the business goal and who will use the result;
+   - the business goal and the expected benefit for the client — why build it now, what improves (revenue, cost, time, risk, decisions) and how success will be measured — and who will use the result;
    - the data sources — already in Databricks (catalogs, schemas, tables, volumes), files to upload, external systems;
    - the expected outputs — tables, dashboards, ML models, GenAI assistants or agents, apps;
    - constraints — deadlines, sensitive data, performance, cost.
@@ -52,7 +52,9 @@ Update `.deltaforce/conventions.yaml`: set `source` (`defaults`, `po` or `derive
    > <the request, verbatim>
 
    ## Summary
-   ## Goal and users
+   ## Business goal and expected value
+   ## How success is measured
+   ## Users
    ## Data sources
    ## Expected outputs
    ## Constraints
