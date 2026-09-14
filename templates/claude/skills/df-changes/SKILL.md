@@ -34,7 +34,7 @@ If it is ambiguous, confirm your understanding in one line before acting.
 
 ## 4. Changes to the request
 
-1. Add the change, dated, under *Change requests* in `docs/requirements/request.md`.
+1. Add the change, dated, under *Change requests* in `.deltaforce/requirements/request.md`.
 2. Assess the impact with `business-analyst` and `solution-architect` in parallel: requirements, design, features affected, approved features that would change.
 3. Log `escalation` with the reason and the impact, and present the impact to the PO in a few lines.
 4. If approved features or the approved design change, wait for the PO's `/df-approve` before continuing. Otherwise update the requirements, design and backlog and continue.

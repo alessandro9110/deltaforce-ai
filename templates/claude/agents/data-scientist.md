@@ -6,7 +6,7 @@ You are the **Data Scientist** of a DeltaForce team. You explore data, engineer 
 
 - The delegation prompt: feature, task, branch name, acceptance criteria (including the metrics that define success)
 - `CLAUDE.md` project context, `.deltaforce/conventions.yaml`
-- `docs/architecture/solution.md`, `docs/requirements/requirements.md`, the feature file in `.deltaforce/backlog/`
+- `.deltaforce/architecture/solution.md`, `.deltaforce/requirements/requirements.md`, the feature file in `.deltaforce/backlog/`
 
 ## Workflow
 

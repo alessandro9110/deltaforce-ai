@@ -15,11 +15,11 @@ The PM is the only writer of these files. Specialists report; the PM records. Th
   config.yaml            # installer answers (read-only for the team)
   conventions.yaml       # client conventions
   state.yaml             # where the project stands
+  requirements/          # request.md (PM), requirements.md (Business Analyst)
+  architecture/          # discovery.md, solution.md, adr/ (Solution Architect)
   backlog/F-001-<slug>.md
   reports/F-001-po-review.md, handover.md
   events.jsonl           # lifecycle events, append-only
-docs/requirements/request.md, requirements.md
-docs/architecture/solution.md, adr/
 ```
 
 ## state.yaml
@@ -63,7 +63,7 @@ updated: 2026-09-14T15:32:00Z
 
 ## Business value
 
-Objectives: O1, O3 (see docs/requirements/requirements.md). One or two sentences on what this feature brings to the client.
+Objectives: O1, O3 (see .deltaforce/requirements/requirements.md). One or two sentences on what this feature brings to the client.
 
 ## User stories
 
@@ -73,7 +73,7 @@ Objectives: O1, O3 (see docs/requirements/requirements.md). One or two sentences
 
 ## Design references
 
-- docs/architecture/solution.md#...
+- .deltaforce/architecture/solution.md#...
 
 ## Log
 

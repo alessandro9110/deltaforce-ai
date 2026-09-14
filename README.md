@@ -154,7 +154,7 @@ Everything lives inside the project repository.
 | `.deltaforce/framework/` | DeltaForce AI itself (installer, schemas, role catalog) | ignored |
 | `.deltaforce/config.yaml` | Your answers. No secrets | committed |
 | `.deltaforce/conventions.yaml` | Client conventions, DeltaForce defaults until you change them | committed |
-| `.deltaforce/state.yaml`, `backlog/`, `reports/`, `events.jsonl` | Project progress, created from `/df-kickoff` on | committed |
+| `.deltaforce/requirements/`, `architecture/`, `backlog/`, `reports/`, `state.yaml`, `events.jsonl` | The team's working documents and progress — request, requirements, design, features, PO reports — created from `/df-kickoff` on | committed |
 | `.deltaforce/.databrickscfg` | The Databricks CLI profile (and the token or secret for PAT or service principal) | ignored |
 | `.deltaforce/bin/` | uv and the Databricks CLI | ignored |
 | `.deltaforce/runtime/` | Python, AI Dev Kit MCP server source and its virtual environment | ignored |
@@ -212,11 +212,15 @@ How a project runs:
 5. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them.
 6. **Handover** — when every feature is done, a person opens the pull request to the protected branch and CI/CD deploys to production.
 
-The team asks you only at G1, at G2, and when something blocks or changes what you asked for. Project progress lives in `.deltaforce/` (state, backlog, events, reports) and `docs/`.
+The team asks you only at G1, at G2, and when something blocks or changes what you asked for. Everything the team writes to organize itself — request, requirements, design, backlog, reports, state and events — lives in `.deltaforce/`; outside it there is only the product: `src/`, `resources/`, `tests/`, `databricks.yml`.
 
 ## 7. Update, reconfigure or remove
 
 **Update or change the configuration** — run the install command from [Step 3](#step-3--paste-one-command-and-press-enter) again. It updates `.deltaforce/framework`, offers your current answers as defaults (press Enter to keep them) and refreshes everything.
+
+> Run it with Claude Code **closed**: it rebuilds the MCP server environment and replaces the agents and skills, which would disrupt a working session.
+
+The installer never touches the team's work: requirements, design, backlog, reports, state, code, tests, bundle resources (except the generated `resources/deltaforce.variables.yml`), `databricks.yml` and `.deltaforce/conventions.yaml` once they exist, and data on Databricks. It replaces only DeltaForce's own files: agents, `df-*` and `databricks-*` skills, and its managed blocks and keys in `CLAUDE.md`, `.gitignore`, `.mcp.json` and the Claude settings.
 
 **Another team member** — after cloning the project (which already contains `.deltaforce/config.yaml`), open it in VS Code and run the same install command: it downloads the framework and tools, signs them in with their own account and regenerates the machine-specific files.
 

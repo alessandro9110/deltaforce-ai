@@ -37,8 +37,8 @@ The PO is the human user. The PM is the main Claude Code session (`"agent": "pm"
 | Role (id) | Responsibilities | May | May not |
 |---|---|---|---|
 | **PM** (`pm`) | Intake, planning, feature sequencing, backlog owner, PO reports and escalations | Read everything, write backlog/state/reports, delegate | Write source code, change Databricks resources |
-| **Solution Architect** (`solution-architect`) | End-to-end solution design, medallion flows, table naming proposal, ADRs, bundle layout, design conformance review | Read UC metadata, write `docs/architecture/` | Write source code, deploy |
-| **Business Analyst** (`business-analyst`) | Business objectives, expected value and success metrics; requirements and user stories traced to objectives; acceptance criteria; functional support to team and PM | Read-only data discovery, write `docs/requirements/` | Write source code, deploy |
+| **Solution Architect** (`solution-architect`) | End-to-end solution design, medallion flows, table naming proposal, ADRs, bundle layout, design conformance review | Read UC metadata, write `.deltaforce/architecture/` | Write source code, deploy |
+| **Business Analyst** (`business-analyst`) | Business objectives, expected value and success metrics; requirements and user stories traced to objectives; acceptance criteria; functional support to team and PM | Read-only data discovery, write `.deltaforce/requirements/` | Write source code, deploy |
 | **Data Engineer** (`data-engineer`) | Ingestion, bronze → silver → gold pipelines, jobs | Write `src/pipelines`, run SQL/code on dev, `bundle validate` | Deploy |
 | **Data Analyst** (`data-analyst`) | Gold marts, metric views, AI/BI dashboards, Genie spaces; supports QA on data tests | Query dev, write dashboards/metric views | Deploy |
 | **Data Scientist** (`data-scientist`) | EDA, feature engineering, training, MLflow experiments, UC model registration | Run code on dev, MLflow | Deploy |
@@ -105,7 +105,7 @@ flowchart TD
   N -- no --> H["Phase 3 · human opens PR dev → main<br/>CI/CD deploys prod"]
 ```
 
-- **Phase 0 — Kickoff** (`/df-kickoff`): the PO states *what the team must build* and provides the elements: catalog, schema(s), optional table names, dev branch. Stored in `.deltaforce/config.yaml` and `docs/requirements/request.md`.
+- **Phase 0 — Kickoff** (`/df-kickoff`): the PO states *what the team must build* and provides the elements: catalog, schema(s), optional table names, dev branch. Stored in `.deltaforce/config.yaml` and `.deltaforce/requirements/request.md`.
 - **Phase 1 — Discovery & design**: in parallel, the BA writes requirements (business objectives, value, success metrics, user stories) and the SA does the technical discovery (data sources, workspace capabilities, architecture options); questions for the PO from both are asked in one round; then the SA designs the full solution (architecture, medallion flows for each discipline, table naming proposal when the PO gave none); BA + SA + PM derive the feature list with dependencies and per-role tasks. **G1**: PO approves once.
 - **Phase 2 — Delivery**: the goal is to complete features — one, or several in parallel when they do not depend on each other (up to three active). Per feature: parallel development → integration and dev deploy by DevOps (from the integration branch) → QA → PM feature report → **G2**: PO validates that feature. A feature starts only when its dependencies are done; the team keeps working on other active features while the PO reviews.
 - **Escalation** at any time, and only then: blocker, ambiguity, or a change compared to the request.
@@ -190,7 +190,7 @@ Agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) run teammates as independ
 - Config values become DABs variables: `catalog`, `schema_bronze`, `schema_silver`, `schema_gold`, and one variable per table.
 - Medallion layout is configurable: `single_schema` (layer prefix on table names, default when the PO gives one schema) or `multi_schema` (one schema per layer).
 - Table names: PO-provided, or proposed by the SA and approved at G1. Either way they are stored in config and generated into `resources/variables.yml`.
-- **The dev catalog is the boundary, the installer's schemas are the starting point.** The team is free to create further schemas and tables inside the dev catalog when the solution needs them, as long as they are consistent with what is being built: they follow the medallion layers, are described in `docs/architecture/`, and are declared as bundle resources with variables (never created by hand). New objects coherent with the approved design need no PO escalation; objects that change the request do.
+- **The dev catalog is the boundary, the installer's schemas are the starting point.** The team is free to create further schemas and tables inside the dev catalog when the solution needs them, as long as they are consistent with what is being built: they follow the medallion layers, are described in `.deltaforce/architecture/`, and are declared as bundle resources with variables (never created by hand). New objects coherent with the approved design need no PO escalation; objects that change the request do.
 - Dev target uses `mode: development`; prod target uses `mode: production` with values injected by CI/CD (`BUNDLE_VAR_<name>`) and a service principal.
 - No literal catalog/schema/table names in source: enforced by a hook on edits under `src/` and by QA review.
 
@@ -225,10 +225,7 @@ tests/
 cicd/
   azure-devops/
   github/               # later
-docs/
-  requirements/
-  architecture/adr/
-.deltaforce/            # config, state, backlog, events, audit, reports
+.deltaforce/            # team documents and state: config, conventions, requirements, architecture, backlog, reports, events
 .claude/                # agents, skills, hooks, settings.json
 CLAUDE.md
 ```
@@ -245,6 +242,8 @@ The backlog is designed to be read by a future monitoring app without changes.
   bin/, runtime/        # uv, Databricks CLI, Python, AI Dev Kit, MCP venv (gitignored)
   conventions.yaml      # client conventions (created by the installer, filled at kickoff)
   state.yaml            # phase, active features, G1 decision (created at kickoff)
+  requirements/         # request.md, requirements.md
+  architecture/         # discovery.md, solution.md, adr/
   backlog/F-003-silver-customer-dedup.md
   reports/F-003-po-review.md
   events.jsonl          # lifecycle events

@@ -9,7 +9,7 @@ user-invocable: false
 ## Precedence
 
 1. `.deltaforce/conventions.yaml` — client conventions (deploy path, naming, tags, code style, custom rules)
-2. `docs/architecture/solution.md` and ADRs — the approved design
+2. `.deltaforce/architecture/solution.md` and ADRs — the approved design
 3. These standards
 
 When they conflict, follow the higher one and mention it in your report.
@@ -102,7 +102,7 @@ tests/
   integration/
   evaluation/
 cicd/
-docs/requirements/  docs/architecture/
+.deltaforce/          # team documents and state: requirements, architecture, backlog, reports — not product code
 ```
 
 ## Naming defaults

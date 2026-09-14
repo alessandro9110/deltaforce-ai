@@ -43,7 +43,7 @@ Update `.deltaforce/conventions.yaml`: set `source` (`defaults`, `po` or `derive
 
 ## 4. Record
 
-1. Write `docs/requirements/request.md`:
+1. Write `.deltaforce/requirements/request.md`:
 
    ```markdown
    # Request
@@ -68,7 +68,7 @@ Update `.deltaforce/conventions.yaml`: set `source` (`defaults`, `po` or `derive
 
 2. Write `.deltaforce/state.yaml` with `phase: discovery`, the dev branch, `active_features: []`, `g1: {status: pending, at: null, notes: ""}` and the current UTC time (format in `df-backlog`).
 3. Log `kickoff_completed` (data: conventions source) and `phase_changed` (to `discovery`) with `bash .deltaforce/bin/df event ...`, then `bash .deltaforce/bin/df validate`.
-4. Commit on the dev branch everything the installer and the kickoff produced — specialists work in git worktrees, which contain only committed files: `.gitignore`, `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`, `.claude/skills/`, `databricks.yml`, `resources/`, `.deltaforce/config.yaml`, `.deltaforce/conventions.yaml`, `.deltaforce/state.yaml`, `.deltaforce/events.jsonl`, `docs/requirements/`. Message `docs(kickoff): record request and conventions` with the trailers `DeltaForce-Role: pm` and `DeltaForce-Task: kickoff`. Never add files that `.gitignore` excludes.
+4. Commit on the dev branch everything the installer and the kickoff produced — specialists work in git worktrees, which contain only committed files: `.gitignore`, `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`, `.claude/skills/`, `databricks.yml`, `resources/`, `.deltaforce/config.yaml`, `.deltaforce/conventions.yaml`, `.deltaforce/state.yaml`, `.deltaforce/events.jsonl`, `.deltaforce/requirements/`. Message `docs(kickoff): record request and conventions` with the trailers `DeltaForce-Role: pm` and `DeltaForce-Task: kickoff`. Never add files that `.gitignore` excludes.
 
 ## 5. Start discovery
 
