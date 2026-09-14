@@ -1,0 +1,16 @@
+# Client conventions for this DeltaForce project.
+# Values left null or empty use the DeltaForce defaults (df-engineering-standards).
+# Change them at /df-kickoff or any time with /df-conventions.
+version: 1
+source: defaults            # defaults | po | derived
+source_reference: null      # repository or document the conventions were derived from
+bundle:
+  root_path: null           # e.g. /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}; null = Databricks default
+  prod_run_as: null         # service principal application ID for production, injected by CI/CD
+naming:
+  resource_prefix: null     # jobs and pipelines; default "[${bundle.name}] "
+  table_case: snake_case
+tags: {}                    # mandatory tags on jobs, pipelines and endpoints, e.g. cost_center: "1234"
+code:
+  style: files              # files | notebooks
+custom: []                  # other client rules, one sentence each

@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from . import backlog, team
 from . import config as cfg
 from .generate import CLAUDE_MD_START, GITIGNORE_START, MCP_SERVER_NAME, medallion_schemas
 from .paths import ProjectPaths
@@ -195,6 +196,26 @@ class Doctor:
         ok = self.paths.bundle.exists() and self.paths.bundle_variables.exists()
         self.add("bundle-files", "databricks.yml and bundle variables", ok)
 
+    def check_team(self) -> None:
+        roles = self.config["team"]["roles"]
+        missing = [role for role in roles if not (self.paths.agents / f"{role}.md").exists()]
+        detail = f"{len(roles)} agents" if not missing else "missing: " + ", ".join(missing)
+        self.add("agents", "DeltaForce agents", not missing, detail)
+
+        expected = team.skill_template_names()
+        missing = [name for name in expected if not (self.paths.skills / name / "SKILL.md").exists()]
+        detail = f"{len(expected)} skills" if not missing else "missing: " + ", ".join(missing)
+        self.add("team-skills", "DeltaForce skills and PO commands", not missing, detail)
+
+        settings = _read_json(self.paths.claude_settings)
+        self.add("main-agent", "Sessions start as the Project Manager", settings.get("agent") == "pm")
+        self.add("df-helper", "Project helper .deltaforce/bin/df", self.paths.df_wrapper.exists())
+
+    def check_project_state(self) -> None:
+        problems = backlog.validate_project(self.paths, include_config=False)
+        detail = "valid" if not problems else f"{len(problems)} problem(s): {problems[0]}"
+        self.add("project-state", "Conventions, state, backlog and events", not problems, detail[:200], "warn")
+
     def check_bundle_validate(self) -> None:
         ok, output = self.databricks("bundle", "validate", "-t", "dev", cwd=self.paths.root)
         self.add("bundle-validate", "databricks bundle validate -t dev", ok, "valid" if ok else str(output), "warn")
@@ -212,6 +233,8 @@ def run(paths: ProjectPaths) -> dict[str, Any]:
         doctor.check_mcp_runtime()
         doctor.check_skills()
         doctor.check_generated()
+        doctor.check_team()
+        doctor.check_project_state()
         if workspace_ok:
             doctor.check_bundle_validate()
 

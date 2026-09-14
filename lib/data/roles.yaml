@@ -1,35 +1,146 @@
-# DeltaForce roles: the single source of truth for role ids, default models and
-# the Databricks agent skills each role needs. The installer installs the union
-# of skills for the enabled roles. Keep role ids in sync with
-# schemas/config.schema.json (tests enforce it).
+# DeltaForce roles: the single source of truth for every role.
+#
+# The installer renders .claude/agents/<role>.md from this catalog plus the body in
+# templates/claude/agents/<role>.md, and installs the union of `skills` for the
+# enabled roles. Keep role ids in sync with schemas/config.schema.json (tests enforce it).
+#
+#   title           human-readable name
+#   model           default model (config team.models overrides it)
+#   color           agent colour in Claude Code
+#   description     when Claude should delegate to this role
+#   tools           built-in tools the role may use
+#   mcp             Databricks MCP tools (ai-dev-kit server "databricks")
+#   delegates       agent types the role may spawn (disabled roles are dropped)
+#   isolation       "worktree" for roles that change code in parallel
+#   process_skills  DeltaForce skills preloaded into the agent
+#   skills          Databricks agent skills installed for the role and listed in its prompt
 
 roles:
   pm:
     title: Project Manager
     model: opus
+    color: purple
+    description: >-
+      DeltaForce Project Manager and main session of the project. Talks with the Product Owner, runs kickoff,
+      discovery, delivery and the PO gates, sequences features, delegates to the specialist agents and is the
+      only writer of the backlog and project state.
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill, AskUserQuestion, WebFetch]
+    mcp: [get_current_user]
+    delegates: [business-analyst, solution-architect, data-engineer, data-analyst, data-scientist, ai-engineer, qa-engineer, devops-engineer, Explore]
+    process_skills: [df-backlog, df-handoff, df-git-flow]
     skills: [databricks-core]
+
   solution-architect:
     title: Solution Architect
     model: opus
+    color: blue
+    description: >-
+      Designs the end-to-end Databricks solution before features are built: architecture, medallion flows for
+      data engineering, analytics, ML and GenAI, schemas and tables, bundle layout and ADRs. Also reviews that
+      delivered work matches the design. Use for design, design changes and design reviews.
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill, WebFetch]
+    mcp: [get_current_user, execute_sql, get_table_stats_and_schema, get_volume_folder_details, list_compute, ask_genie]
+    delegates: [data-engineer, data-analyst, data-scientist, ai-engineer, Explore]
+    process_skills: [df-engineering-standards, df-handoff]
     skills: [databricks-core, databricks-dabs, databricks-unity-catalog, databricks-docs, databricks-metric-views]
+
   business-analyst:
     title: Business Analyst
+    model: sonnet
+    color: cyan
+    description: >-
+      Turns the Product Owner's request into requirements, user stories and testable acceptance criteria,
+      explores available data to ground them, and checks delivered features against the acceptance criteria.
+      Use for requirements, feature breakdown and functional questions.
+    tools: [Read, Grep, Glob, Edit, Write, Skill]
+    mcp: [execute_sql, get_table_stats_and_schema, get_volume_folder_details, ask_genie]
+    delegates: [data-analyst, Explore]
+    process_skills: [df-handoff]
     skills: [databricks-core, databricks-data-discovery]
+
   data-engineer:
     title: Data Engineer
+    model: sonnet
+    color: orange
+    description: >-
+      Builds ingestion and bronze, silver and gold pipelines, jobs and the related bundle resources on
+      Databricks, in its own worktree and task branch. Use for data pipeline and data modelling tasks of the
+      current feature.
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
+    mcp: [execute_sql, execute_sql_multi, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_volume_files, manage_uc_objects, manage_workspace_files, list_compute]
+    delegates: [data-engineer]
+    isolation: worktree
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
     skills: [databricks-core, databricks-pipelines, databricks-jobs, databricks-dabs, databricks-lakeflow-connect, databricks-spark-structured-streaming]
+
   data-analyst:
     title: Data Analyst
+    model: sonnet
+    color: green
+    description: >-
+      Builds gold marts, metric views, AI/BI dashboards and Genie spaces, and supports QA with data profiling
+      and reconciliation queries. Works in its own worktree and task branch. Use for analytics and reporting
+      tasks and for data checks requested by other roles.
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
+    mcp: [execute_sql, execute_sql_multi, get_table_stats_and_schema, manage_metric_views, manage_dashboard, manage_genie, ask_genie]
+    delegates: []
+    isolation: worktree
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
     skills: [databricks-core, databricks-dbsql, databricks-aibi-dashboards, databricks-metric-views, databricks-data-discovery]
+
   data-scientist:
     title: Data Scientist
+    model: sonnet
+    color: yellow
+    description: >-
+      Explores data, engineers features and trains, evaluates and registers ML models with MLflow and Unity
+      Catalog, in its own worktree and task branch. Use for EDA, feature engineering and ML modelling tasks.
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
+    mcp: [execute_sql, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_volume_files, list_compute]
+    delegates: [data-scientist, data-analyst]
+    isolation: worktree
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
     skills: [databricks-core, databricks-ml-training, databricks-synthetic-data-gen, databricks-python-sdk]
+
   ai-engineer:
     title: AI Engineer
+    model: sonnet
+    color: pink
+    description: >-
+      Builds GenAI solutions on Databricks: document processing, vector search and RAG, agents, AI functions,
+      evaluation with MLflow, model serving and Databricks apps, in its own worktree and task branch. Use for
+      GenAI, agent and AI application tasks.
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
+    mcp: [execute_sql, execute_code, get_table_stats_and_schema, manage_volume_files, generate_and_upload_pdf, manage_vs_endpoint, manage_vs_index, manage_vs_data, query_vs_index, manage_serving_endpoint, manage_ka, manage_mas, manage_genie, ask_genie, manage_app]
+    delegates: [ai-engineer, data-engineer]
+    isolation: worktree
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
     skills: [databricks-core, databricks-agent-bricks, databricks-vector-search, databricks-model-serving, databricks-mlflow-evaluation, databricks-ai-functions, databricks-apps-python]
+
   qa-engineer:
     title: QA Engineer
+    model: sonnet
+    color: red
+    description: >-
+      Verifies a deployed feature on dev: data quality, integration and end-to-end tests, ML and GenAI
+      evaluation thresholds, and acceptance criteria. Writes tests only, never production code. Use after the
+      DevOps Engineer has deployed a feature to dev.
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
+    mcp: [execute_sql, execute_sql_multi, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_job_runs, manage_pipeline_run, query_vs_index, ask_genie]
+    delegates: [data-analyst]
+    isolation: worktree
+    process_skills: [df-testing, df-engineering-standards, df-git-flow, df-handoff]
     skills: [databricks-core, databricks-dbsql, databricks-mlflow-evaluation, databricks-synthetic-data-gen]
+
   devops-engineer:
     title: DevOps Engineer
+    description: >-
+      The only role that integrates and deploys: merges task branches into the feature branch, validates,
+      deploys and runs the bundle on the dev target, merges approved features into the dev branch and owns
+      CI/CD definitions. Never deploys to prod. Use for integration, dev deployment, runs and CI/CD work.
+    model: sonnet
+    tools: [Read, Grep, Glob, Edit, Write, Bash, Skill]
+    mcp: [get_current_user, list_tracked_resources, manage_jobs, manage_job_runs, manage_pipeline, manage_pipeline_run, manage_workspace_files]
+    delegates: []
+    process_skills: [df-git-flow, df-engineering-standards, df-handoff]
     skills: [databricks-core, databricks-dabs, databricks-jobs, databricks-pipelines]

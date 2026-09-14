@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alessandro9110/deltaforce-ai/blob/main/schemas/state.schema.json",
+  "title": "DeltaForce project state",
+  "description": "Contents of .deltaforce/state.yaml, written by the PM.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "phase", "dev_branch", "active_features", "g1", "updated"],
+  "properties": {
+    "version": { "const": 1 },
+    "phase": { "enum": ["discovery", "awaiting_g1", "delivery", "handover", "done"] },
+    "dev_branch": { "type": "string", "pattern": "^[^\\s]+$" },
+    "active_features": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^F-[0-9]{3,}$" },
+      "uniqueItems": true
+    },
+    "g1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "at", "notes"],
+      "properties": {
+        "status": { "enum": ["pending", "approved", "changes_requested"] },
+        "at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+        "notes": { "type": "string" }
+      }
+    },
+    "updated": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}

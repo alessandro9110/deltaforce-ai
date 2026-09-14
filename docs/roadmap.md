@@ -33,6 +33,8 @@ Each milestone ends with a demo against a real Databricks dev workspace. See [de
 
 **Exit**: kickoff → G1 → one data engineering feature bronze → silver → gold deployed and run on dev → QA data tests → G2 approved → merged into dev branch.
 
+**Status (2026-09-14)**: all nine agents, the five process skills and the PO commands (`/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions`) are implemented and installed by the installer, with schemas and `df validate` / `df event`. Parallel delivery of independent features uses a local integration branch. Pending: hooks (guardrails, audit) and the end-to-end run in the sandbox.
+
 ## M3 — Full team: analytics, ML, GenAI
 
 - Agents: `data-analyst`, `data-scientist`, `ai-engineer`.

@@ -1,20 +1,23 @@
-"""Helper CLI called by install.sh through the project-local uv and Python."""
+"""Helper CLI called by install.sh and, through .deltaforce/bin/df, by the PM and the DevOps Engineer."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from deltaforce import backlog, databricks_io, doctor, generate  # noqa: E402
 from deltaforce import config as cfg  # noqa: E402
-from deltaforce import databricks_io, doctor, generate  # noqa: E402
 from deltaforce.paths import ProjectPaths  # noqa: E402
 
 
 def _paths(args: argparse.Namespace) -> ProjectPaths:
+    if not args.target:
+        raise cfg.ConfigError("--target is required for this command")
     return ProjectPaths(Path(args.target).resolve())
 
 
@@ -75,33 +78,62 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if report["ready"] else 1
 
 
+def cmd_event(args: argparse.Namespace) -> int:
+    try:
+        data = json.loads(args.data) if args.data else {}
+    except json.JSONDecodeError as exc:
+        raise cfg.ConfigError(f"--data is not valid JSON: {exc.msg}") from exc
+    if not isinstance(data, dict):
+        raise cfg.ConfigError("--data must be a JSON object")
+    event = backlog.append_event(_paths(args), args.type, args.role, args.feature, args.task, data)
+    print(json.dumps(event, ensure_ascii=False))
+    return 0
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    problems = backlog.validate_project(_paths(args))
+    for problem in problems:
+        print(f"✗ {problem}")
+    if not problems:
+        print("✓ config, conventions, state, backlog and events are valid")
+    return 1 if problems else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(encoding="utf-8")
 
-    parser = argparse.ArgumentParser(prog="dfcli", description=__doc__)
+    parser = argparse.ArgumentParser(prog="df", description=__doc__)
+    parser.add_argument("--target", help="target repository root")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    def add(name: str, func, needs_target: bool = True) -> argparse.ArgumentParser:
-        command = sub.add_parser(name)
+    def add(name: str, func, help_text: str) -> argparse.ArgumentParser:
+        command = sub.add_parser(name, help=help_text)
         command.set_defaults(func=func)
-        if needs_target:
-            command.add_argument("--target", required=True, help="target repository root")
+        # Accepted after the subcommand too; SUPPRESS keeps the global value when omitted.
+        command.add_argument("--target", default=argparse.SUPPRESS, help="target repository root")
         return command
 
-    add("write-config", cmd_write_config)
-    add("export-env", cmd_export_env)
-    add("skills", cmd_skills)
-    add("roles", cmd_roles, needs_target=False)
-    add("list", cmd_list, needs_target=False).add_argument(
+    add("write-config", cmd_write_config, "write .deltaforce/config.yaml from DF_* variables")
+    add("export-env", cmd_export_env, "print DF_* assignments from the configuration")
+    add("skills", cmd_skills, "print the Databricks skills of the enabled roles")
+    add("roles", cmd_roles, "print the role catalog")
+    add("list", cmd_list, "turn Databricks CLI JSON into menu lines").add_argument(
         "--kind", required=True, choices=sorted(databricks_io.LISTINGS)
     )
-    sp = add("write-sp-profile", cmd_write_sp_profile, needs_target=False)
+    sp = add("write-sp-profile", cmd_write_sp_profile, "write a service principal CLI profile")
     sp.add_argument("--file", required=True)
     sp.add_argument("--profile", required=True)
     sp.add_argument("--host", required=True)
-    add("generate", cmd_generate)
-    add("doctor", cmd_doctor)
+    add("generate", cmd_generate, "generate project files from the configuration")
+    add("doctor", cmd_doctor, "run the readiness checks")
+    event = add("event", cmd_event, "append a lifecycle event to .deltaforce/events.jsonl")
+    event.add_argument("type", choices=backlog.event_types())
+    event.add_argument("--role", required=True)
+    event.add_argument("--feature")
+    event.add_argument("--task")
+    event.add_argument("--data", help="JSON object")
+    add("validate", cmd_validate, "validate config, conventions, state, backlog and events")
 
     args = parser.parse_args(argv)
     try:

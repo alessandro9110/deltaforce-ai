@@ -23,7 +23,7 @@ def test_generate_is_idempotent_and_preserves_user_content(example_config, tmp_p
     generate.generate_all(example_config, paths)
 
     settings = json.loads(read(paths.claude_settings))
-    assert settings["permissions"] == {"allow": ["Bash(ls)"]}
+    assert settings["permissions"] == {"allow": ["Bash(ls)", generate.DF_HELPER_PERMISSION]}
     assert settings["enabledMcpjsonServers"] == ["other", "databricks"]
     assert settings["worktree"] == {"baseRef": "head"}
     assert settings["env"]["CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH"] == "3"
@@ -49,7 +49,24 @@ def test_mcp_server_and_local_settings_share_the_project_profile(example_config,
     assert server["args"] == [paths.mcp_entry.resolve().as_posix()]
     assert server["env"]["DATABRICKS_CONFIG_PROFILE"] == "deltaforce-customer-360"
     assert server["env"]["DATABRICKS_CONFIG_FILE"].endswith(".deltaforce/.databrickscfg")
-    assert json.loads(read(paths.claude_settings_local))["env"] == server["env"]
+    local_env = json.loads(read(paths.claude_settings_local))["env"]
+    assert server["env"].items() <= local_env.items()
+    assert local_env["DF_ROOT"] == tmp_path.resolve().as_posix()
+
+    settings = json.loads(read(paths.claude_settings))
+    assert settings["agent"] == "pm"
+    assert generate.DF_HELPER_PERMISSION in settings["permissions"]["allow"]
+
+
+def test_df_wrapper_is_lf_and_targets_the_project(example_config, tmp_path):
+    paths = ProjectPaths(tmp_path)
+    generate.generate_all(example_config, paths)
+    raw = paths.df_wrapper.read_bytes()
+    assert b"\r\n" not in raw
+    script = raw.decode("utf-8")
+    assert script.startswith("#!/usr/bin/env bash\n")
+    assert "lib/py/dfcli.py" in script
+    assert f"--target {tmp_path.resolve().as_posix()}" in script or f"--target '{tmp_path.resolve().as_posix()}'" in script
 
 
 def test_bundle_is_created_once_and_prod_values_are_never_defaulted(example_config, tmp_path):

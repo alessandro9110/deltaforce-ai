@@ -1,0 +1,9 @@
+version: 1
+phase: delivery
+dev_branch: dev
+active_features: [F-001]
+g1:
+  status: approved
+  at: 2026-09-14T10:30:00Z
+  notes: ""
+updated: 2026-09-14T15:32:00Z

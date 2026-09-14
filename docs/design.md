@@ -22,7 +22,7 @@ It is installed from GitHub with `install.sh` into a **target project repo**, co
 | Parameters | Every environment-specific value (catalog, schemas, table names, endpoints) is a variable |
 | Git | Never push to `main`. Work lands in a dev branch. The PR to `main` is opened by a human |
 | PO involvement | Approves design + feature list once (G1), validates **every** feature (G2), and is consulted on blockers or changes to the request |
-| Feature cadence | One feature at a time; parallelism only inside a feature |
+| Feature cadence | Independent features run in parallel (up to three active); a feature starts when its dependencies are done; the PO validates every feature |
 | Backlog | Markdown files in the repo, machine-readable (future monitoring app) |
 
 ## 3. Two repositories
@@ -32,7 +32,7 @@ It is installed from GitHub with `install.sh` into a **target project repo**, co
 
 ## 4. Team
 
-The PO is the human user. The PM is the main Claude Code session (`claude --agent pm`); every other role is a subagent in `.claude/agents/`.
+The PO is the human user. The PM is the main Claude Code session (`"agent": "pm"` in the project's `.claude/settings.json`, so every session — terminal or VS Code — starts as the PM); every other role is a subagent in `.claude/agents/`. Agents are rendered by the installer from `lib/data/roles.yaml` (frontmatter) and `templates/claude/agents/<role>.md` (prompt).
 
 | Role (id) | Responsibilities | May | May not |
 |---|---|---|---|
@@ -90,7 +90,7 @@ flowchart TD
   D --> B[BA + SA + PM: feature breakdown]
   B --> G1{"G1 · PO approves<br/>design + feature list + proposals"}
   G1 -- changes --> D
-  G1 -- approved --> P[PM: plan tasks of next feature]
+  G1 -- approved --> P["PM: start every feature whose dependencies are done (parallel)"]
   P --> W["Developers in parallel<br/>(worktrees, task branches)"]
   W --> I["DevOps: merge, validate, deploy + run on dev"]
   I --> Q["QA: data / integration / evaluation tests"]
@@ -105,7 +105,7 @@ flowchart TD
 
 - **Phase 0 — Kickoff** (`/df-kickoff`): the PO states *what the team must build* and provides the elements: catalog, schema(s), optional table names, dev branch. Stored in `.deltaforce/config.yaml` and `docs/requirements/request.md`.
 - **Phase 1 — Discovery & design**: BA writes requirements; SA designs the full solution (architecture, medallion flows for each discipline, table naming proposal when the PO gave none); BA + SA + PM derive the feature list with dependencies and per-role tasks. **G1**: PO approves once.
-- **Phase 2 — Delivery**, one feature at a time: parallel development → integration and dev deploy by DevOps → QA → PM feature report → **G2**: PO validates. No other feature starts before G2.
+- **Phase 2 — Delivery**: the goal is to complete features — one, or several in parallel when they do not depend on each other (up to three active). Per feature: parallel development → integration and dev deploy by DevOps (from the integration branch) → QA → PM feature report → **G2**: PO validates that feature. A feature starts only when its dependencies are done; the team keeps working on other active features while the PO reviews.
 - **Escalation** at any time, and only then: blocker, ambiguity, or a change compared to the request.
 - **Phase 3 — Handover**: dev branch pushed and CI/CD definitions ready; a human opens the PR to `main`; CI/CD deploys prod.
 
@@ -118,7 +118,7 @@ flowchart TD
 
 **Decision: subagents as the backbone; agent teams evaluated and kept out of the MVP.**
 
-- PM runs as the main session with `claude --agent pm`, so hooks see `agent_type: pm` too.
+- PM runs as the main session through the `agent` setting, so hooks see `agent_type: pm` too. Its prompt replaces the default Claude Code system prompt.
 - Specialist roles are subagents.
 - Subagents are stateless between calls; collaboration happens through repo artifacts (requirements, architecture, backlog) plus the delegation prompt written by the PM.
 
@@ -162,10 +162,11 @@ Agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) run teammates as independ
 ## 7. Git and branching
 
 - The PO provides the **dev branch** (e.g. `dev` or `dev/customer-360`). The main checkout sits on it. `main` is only for prod / CI/CD triggers.
-- Per feature, DevOps creates `df/F-003` from the dev branch and the PM checks it out before delegating.
-- Developer subagents use `isolation: worktree`. Project settings set `worktree.baseRef: "head"`, because the default (`"fresh"`) branches from the remote default branch (`main`).
-- Task branches: `df/F-003/<role>-T<n>`, pushed to the remote for traceability.
-- DevOps merges task branches into `df/F-003`, deploys it to dev, and after G2 merges `df/F-003` into the dev branch and pushes. The dev branch only contains PO-validated features.
+- The main checkout stays on the dev branch. The PM creates each feature branch `df/F-003` from the dev branch without checking it out, so several features can be active at once.
+- Builder subagents use `isolation: worktree`. Project settings set `worktree.baseRef: "head"` (the default `"fresh"` branches from the remote default branch, `main`); each specialist then creates its task branch with an explicit start point: `git switch -c df/F-003/<role>-T<n> df/F-003`.
+- Task branches are pushed to the remote for traceability.
+- **Integration branch**: the dev target holds one bundle deployment, so deploying feature branches one after another would remove each other's resources. The DevOps Engineer rebuilds a local `df/integration` = dev branch + every active, integrated feature, and deploys that. It is never pushed.
+- DevOps merges task branches into their feature branch, and after G2 merges the feature into the dev branch, pushes, and rebuilds the integration branch. The dev branch only contains PO-validated features.
 - Commit trailers: `DeltaForce-Role: <role>` and `DeltaForce-Task: F-003/T-003.1`.
 - Guard hook blocks: push to `main`/`master` (configurable protected list), force push, `reset --hard` on the dev branch, remote deletion of the dev branch.
 
@@ -239,7 +240,8 @@ The backlog is designed to be read by a future monitoring app without changes.
   status.json           # doctor result gating /df-kickoff (gitignored)
   .databrickscfg        # project-local CLI profile (gitignored)
   bin/, runtime/        # uv, Databricks CLI, Python, AI Dev Kit, MCP venv (gitignored)
-  state.yaml            # current phase, current feature, dev branch
+  conventions.yaml      # client conventions (created by the installer, filled at kickoff)
+  state.yaml            # phase, active features, G1 decision (created at kickoff)
   backlog/F-003-silver-customer-dedup.md
   reports/F-003-po-review.md
   events.jsonl          # lifecycle events
@@ -320,28 +322,43 @@ Steps (implemented in `install.sh` + `lib/`):
 
 The installer is idempotent: re-runs reuse downloaded tools, the AI Dev Kit checkout at the same ref, and regenerate managed files without touching user content outside managed blocks.
 
-## 12. Framework repository layout (planned)
+## 12. Framework repository layout
 
 ```
 deltaforce-ai/
   install.sh
-  lib/                  # installer modules: prereqs, auth, templates, skills, mcp, doctor
+  lib/
+    *.sh                # installer steps
+    data/roles.yaml     # role catalog: models, tools, MCP tools, delegates, skills
+    data/versions.env   # pinned downloads
+    py/dfcli.py         # helper CLI (installer, and .deltaforce/bin/df for the team)
+    py/deltaforce/      # config, generate, team, backlog, doctor
   templates/
-    .claude/
-      agents/           # pm.md, solution-architect.md, ... devops-engineer.md
-      skills/           # df-kickoff, df-status, df-approve, df-changes, df-next
-      hooks/            # guard.py, audit.py, events.py, lint_names.py
-      settings.json
-    CLAUDE.md.tmpl
-    databricks.yml.tmpl
-    resources/ src/ tests/ cicd/ docs/   # skeletons
-    .deltaforce/config.yaml.tmpl
-  schemas/              # JSON Schemas: config, feature, event
+    claude/agents/      # prompt body per role; frontmatter comes from roles.yaml
+    claude/skills/      # df-* skills copied into the project
+    deltaforce/conventions.yaml
+  schemas/              # config, conventions, state, feature, event
+  examples/             # valid sample files used by tests
   docs/                 # design.md, roadmap.md
-  tests/                # installer tests, hook unit tests
+  tests/
 ```
 
-PO-facing commands: `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-next`.
+DeltaForce skills:
+
+| Skill | Kind | Purpose |
+| --- | --- | --- |
+| `df-kickoff` | PO command | Readiness gate, request, tables, client conventions, start discovery |
+| `df-status` | PO command | Read-only project status |
+| `df-approve` | PO command | Approve G1 or a feature at G2 |
+| `df-changes` | PO command | Changes at G1, at G2, or to the request |
+| `df-conventions` | PO command | Show or change client conventions |
+| `df-engineering-standards` | preloaded | Medallion, bundle variables, layout, naming, quality, conventions precedence |
+| `df-backlog` | preloaded | State, feature, event and report formats; `df event` / `df validate` |
+| `df-git-flow` | preloaded | Dev, feature, task and integration branches; commits; forbidden operations |
+| `df-handoff` | preloaded | Delegation prompt and report formats, nested delegation, escalation |
+| `df-testing` | preloaded | Data quality, integration, ML and GenAI evaluation, evidence |
+
+Hooks (guardrails, audit) are not implemented yet.
 
 ## 13. Open items to validate during build
 

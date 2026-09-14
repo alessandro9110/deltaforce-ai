@@ -16,6 +16,8 @@ FRAMEWORK_DIR = Path(__file__).resolve().parents[3]
 class ProjectPaths:
     root: Path
 
+    # ─── .deltaforce ───────────────────────────────────────────
+
     @property
     def state(self) -> Path:
         return self.root / ".deltaforce"
@@ -23,6 +25,22 @@ class ProjectPaths:
     @property
     def config(self) -> Path:
         return self.state / "config.yaml"
+
+    @property
+    def conventions(self) -> Path:
+        return self.state / "conventions.yaml"
+
+    @property
+    def state_yaml(self) -> Path:
+        return self.state / "state.yaml"
+
+    @property
+    def backlog(self) -> Path:
+        return self.state / "backlog"
+
+    @property
+    def events(self) -> Path:
+        return self.state / "events.jsonl"
 
     @property
     def status(self) -> Path:
@@ -45,6 +63,10 @@ class ProjectPaths:
         return self.bin / f"databricks{EXE}"
 
     @property
+    def df_wrapper(self) -> Path:
+        return self.bin / "df"
+
+    @property
     def runtime(self) -> Path:
         return self.state / "runtime"
 
@@ -56,6 +78,12 @@ class ProjectPaths:
     @property
     def mcp_entry(self) -> Path:
         return self.runtime / "ai-dev-kit" / "databricks-mcp-server" / "run_server.py"
+
+    # ─── Claude Code ───────────────────────────────────────────
+
+    @property
+    def agents(self) -> Path:
+        return self.root / ".claude" / "agents"
 
     @property
     def skills(self) -> Path:
@@ -76,6 +104,8 @@ class ProjectPaths:
     @property
     def claude_md(self) -> Path:
         return self.root / "CLAUDE.md"
+
+    # ─── repository ────────────────────────────────────────────
 
     @property
     def gitignore(self) -> Path:

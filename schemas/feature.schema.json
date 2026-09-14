@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alessandro9110/deltaforce-ai/blob/main/schemas/feature.schema.json",
+  "title": "DeltaForce feature",
+  "description": "YAML frontmatter of a feature file in .deltaforce/backlog/, written by the PM.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "status", "depends_on", "branch", "tasks", "po_decision", "created", "updated"],
+  "properties": {
+    "id": { "$ref": "#/$defs/feature_id" },
+    "title": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["todo", "in_progress", "integrating", "in_test", "awaiting_po", "done", "blocked"] },
+    "depends_on": { "type": "array", "items": { "$ref": "#/$defs/feature_id" }, "uniqueItems": true },
+    "branch": { "type": ["string", "null"] },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "role", "status", "branch"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^T-[0-9]{3,}\\.[0-9]+$" },
+          "title": { "type": "string", "minLength": 1 },
+          "role": { "$ref": "#/$defs/role" },
+          "status": { "enum": ["todo", "in_progress", "ready_for_integration", "integrated", "done", "blocked"] },
+          "branch": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "po_decision": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decision", "at", "notes"],
+          "properties": {
+            "decision": { "enum": ["approved", "changes_requested"] },
+            "at": { "$ref": "#/$defs/timestamp" },
+            "notes": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "created": { "$ref": "#/$defs/timestamp" },
+    "updated": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "feature_id": { "type": "string", "pattern": "^F-[0-9]{3,}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "role": {
+      "enum": [
+        "pm",
+        "solution-architect",
+        "business-analyst",
+        "data-engineer",
+        "data-analyst",
+        "data-scientist",
+        "ai-engineer",
+        "qa-engineer",
+        "devops-engineer"
+      ]
+    }
+  }
+}

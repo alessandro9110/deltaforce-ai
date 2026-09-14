@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alessandro9110/deltaforce-ai/blob/main/schemas/conventions.schema.json",
+  "title": "DeltaForce client conventions",
+  "description": "Contents of .deltaforce/conventions.yaml. Known sections are validated; new top-level sections are allowed for client-specific rules.",
+  "type": "object",
+  "required": ["version", "source"],
+  "properties": {
+    "version": { "const": 1 },
+    "source": { "enum": ["defaults", "po", "derived"] },
+    "source_reference": { "type": ["string", "null"] },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root_path": { "type": ["string", "null"] },
+        "prod_run_as": { "type": ["string", "null"] }
+      }
+    },
+    "naming": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resource_prefix": { "type": ["string", "null"] },
+        "table_case": { "enum": ["snake_case", "camelCase", "PascalCase", "UPPER_CASE"] }
+      }
+    },
+    "tags": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "code": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": { "enum": ["files", "notebooks"] }
+      }
+    },
+    "custom": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "if": { "properties": { "source": { "const": "derived" } }, "required": ["source"] },
+  "then": { "required": ["source_reference"], "properties": { "source_reference": { "type": "string", "minLength": 1 } } }
+}
