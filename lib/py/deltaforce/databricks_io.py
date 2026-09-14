@@ -14,9 +14,16 @@ def _clean(text: str) -> str:
     return " ".join(str(text).replace("|", "/").split())
 
 
+COMMENT_MAX = 60
+
+
 def _with_comment(item: dict[str, Any]) -> str:
-    comment = item.get("comment")
-    return f"{item['name']} — {comment}" if comment else item["name"]
+    comment = " ".join(str(item.get("comment") or "").split())
+    if not comment:
+        return item["name"]
+    if len(comment) > COMMENT_MAX:
+        comment = comment[: COMMENT_MAX - 1].rstrip() + "…"
+    return f"{item['name']} — {comment}"
 
 
 # kind -> (value field, label builder, wrapper keys the CLI may nest the list under)
