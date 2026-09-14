@@ -44,15 +44,29 @@ df_install_ai_dev_kit() {
 }
 
 df_install_skills() {
-    local skills output dest="$DF_TARGET_DIR/.claude/skills" staging="$DF_RUNTIME_DIR/tmp/skills-$$"
+    local skills skill output staging attempt installed dest="$DF_TARGET_DIR/.claude/skills"
     skills=$(df_py skills --target "$(df_native_path "$DF_TARGET_DIR")") || df_die "Could not resolve skills for the enabled roles"
-    mkdir -p "$dest" "$staging"
+    mkdir -p "$dest"
+    rm -rf "$dest"/.databricks-*.tmp 2>/dev/null || true
+
     # --path writes plain skill folders (no symlinks, no global state), which is what Windows needs.
-    # It replaces folders by renaming, which fails when an editor or Claude Code watches .claude/skills,
-    # so write into a private staging folder and copy the files over.
-    output=$("$DF_DATABRICKS" aitools install --path "$(df_native_path "$staging")" --skills "$skills" 2>&1) \
-        || { printf '%s\n' "$output" >&2; rm -rf "$staging"; df_die "databricks aitools install failed"; }
-    cp -R "$staging"/. "$dest"/ || df_die "Could not copy the Databricks skills into .claude/skills"
-    rm -rf "$staging" "$dest"/.databricks-*.tmp 2>/dev/null || true
+    # aitools moves each freshly written folder into place with a rename, which Windows intermittently
+    # refuses (Access is denied) while antivirus or indexers scan the new files. Install one skill at a
+    # time with retries, in a temporary folder outside the project, then copy the files over.
+    staging=$(mktemp -d)
+    for skill in ${skills//,/ }; do
+        installed=false
+        for attempt in 1 2 3 4 5; do
+            if output=$("$DF_DATABRICKS" aitools install --path "$(df_native_path "$staging")" --skills "$skill" 2>&1); then
+                installed=true
+                break
+            fi
+            rm -rf "${staging:?}/$skill" "$staging"/."$skill"-*.tmp 2>/dev/null || true
+            sleep "$attempt"
+        done
+        $installed || { printf '%s\n' "$output" >&2; rm -rf "$staging"; df_die "databricks aitools install failed for $skill"; }
+    done
+    cp -R "$staging"/. "$dest"/ || { rm -rf "$staging"; df_die "Could not copy the Databricks skills into .claude/skills"; }
+    rm -rf "$staging"
     df_ok "${skills//,/, } → .claude/skills"
 }
