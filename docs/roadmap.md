@@ -24,6 +24,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [ ] Monitoring app (M5): virtual office and project board, starts automatically, reads files only (no tokens)
 - [ ] CI/CD templates (M4): Azure DevOps, then GitHub Actions
 - [ ] Installer warning when a Claude Code session is open on the project
+- [ ] Let the PO see work in progress before G2 without merging it into the dev branch (proposal under discussion: a visible integration worktree)
 
 ### Later
 

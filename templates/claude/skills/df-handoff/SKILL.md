@@ -27,7 +27,7 @@ One or two sentences on the outcome.
 1. ...
 
 ## Branch
-Start point df/F-xxx, task branch df/F-xxx/<role>-T<n>   (build tasks only)
+Start point df/F-xxx, task branch df/F-xxx-<role>-T<n>   (build tasks only)
 
 ## Constraints
 Dev target only, bundle variables for names, anything else specific.

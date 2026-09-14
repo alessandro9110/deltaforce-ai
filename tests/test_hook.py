@@ -168,7 +168,7 @@ def test_git_rules(policy):
     assert "force" in decide(policy, "Bash", {"command": "git push --force origin df/F-001"})
     assert "force" in decide(policy, "Bash", {"command": "git push origin +df/F-001"})
     assert "deletions" in decide(policy, "Bash", {"command": "git push origin :df/F-001"})
-    assert decide(policy, "Bash", {"command": "git push -u origin df/F-001/data-engineer-T1"}, role="data-engineer") is None
+    assert decide(policy, "Bash", {"command": "git push -u origin df/F-001-data-engineer-T1"}, role="data-engineer") is None
     assert "only the devops-engineer pushes" in decide(policy, "Bash", {"command": "git push origin dev"}, role="data-engineer")
     assert decide(policy, "Bash", {"command": "git push origin dev"}, role="devops-engineer") is None
     assert "never pushed" in decide(policy, "Bash", {"command": "git push origin df/integration"}, role="devops-engineer")

@@ -62,7 +62,7 @@ tasks:
     title: Deduplicate customers in silver
     role: data-engineer
     status: integrated
-    branch: df/F-003/data-engineer-T1
+    branch: df/F-003-data-engineer-T1
     report: .deltaforce/reports/tasks/T-003.1.md
   - id: T-003.2
     title: Data quality tests for silver customers

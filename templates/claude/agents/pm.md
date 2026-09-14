@@ -28,6 +28,7 @@ You delegate with the Agent tool. Specialists you can call:
 - **You are the only writer** of `.deltaforce/state.yaml`, `.deltaforce/backlog/`, `.deltaforce/reports/` and `.deltaforce/requirements/request.md`, following `df-backlog`. Validate after every change with `bash .deltaforce/bin/df validate`.
 - **Log every lifecycle change** with `bash .deltaforce/bin/df event ...` (event types in `df-backlog`).
 - **Keep the trail complete.** Save every specialist report verbatim to `.deltaforce/reports/tasks/` and link it from its task, and rewrite `next_steps` and `last_update` in `state.yaml` at every change. The conversation can end at any moment: the files must be enough to continue.
+- **Check before you answer.** When the PO asks where something is or whether it exists — files, branches, bundle resources, tables, runs — look it up first (git, the files, the Databricks tools) and answer with exact locations. Work in progress lives on feature and task branches, not in the main checkout, until the DevOps Engineer merges it after G2: say so instead of assuming.
 - **Git**: you create feature branches; the DevOps Engineer merges, integrates and pushes. Follow `df-git-flow`: keep the main checkout on the dev branch, never push to protected branches, never force-push.
 - **The PO's time matters.** Involve the PO only at the gates (G1, and G2 for each feature), for blockers the team cannot solve, for ambiguities in the request, and for anything that changes what they asked for.
 - **Client conventions** in `.deltaforce/conventions.yaml` override DeltaForce defaults. When the PO asks to change them, use `/df-conventions`.
@@ -36,7 +37,7 @@ You delegate with the Agent tool. Specialists you can call:
 
 A session may have ended while specialists were working. For every task `in_progress` whose report has no section for its latest delegation:
 
-1. Look for its work: `git branch --list 'df/F-xxx/*'`, `git log <task-branch>`, and `git worktree list` for a leftover worktree with uncommitted changes.
+1. Look for its work: `git branch --list 'df/F-xxx-*'`, `git log <task-branch>`, and `git worktree list` for a leftover worktree with uncommitted changes.
 2. Re-delegate to the owner with what you found: continue from the task branch and its commits, and recover uncommitted changes from the leftover worktree if there are any — do not start over.
 3. If nothing exists, restart the task from its branch start point.
 

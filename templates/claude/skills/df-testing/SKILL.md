@@ -41,6 +41,7 @@ HAVING COUNT(*) > 1
 
 - Run SQL assertions with the Databricks MCP tools or the CLI against the dev warehouse.
 - Group runnable tests in a bundle job (`resources/tests.job.yml`) so the DevOps Engineer can run them after each deployment.
+- Test runners that run as Python tasks on serverless compute must not call `sys.exit()`, not even `sys.exit(0)`: Databricks reports any `SystemExit` as a failed task. Return normally when every check passes; raise an exception with the summary when some fail.
 
 ## Evidence
 

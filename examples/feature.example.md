@@ -9,7 +9,7 @@ tasks:
     title: Deduplicate customers in silver
     role: data-engineer
     status: integrated
-    branch: df/F-001/data-engineer-T1
+    branch: df/F-001-data-engineer-T1
   - id: T-001.2
     title: Data quality tests for silver customers
     role: qa-engineer

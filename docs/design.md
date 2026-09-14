@@ -167,7 +167,7 @@ Agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) run teammates as independ
 
 - The PO provides the **dev branch** (e.g. `dev` or `dev/customer-360`). The main checkout sits on it. `main` is only for prod / CI/CD triggers.
 - The main checkout stays on the dev branch. The PM creates each feature branch `df/F-003` from the dev branch without checking it out, so several features can be active at once.
-- Builder subagents use `isolation: worktree`. Project settings set `worktree.baseRef: "head"` (the default `"fresh"` branches from the remote default branch, `main`); each specialist then creates its task branch with an explicit start point: `git switch -c df/F-003/<role>-T<n> df/F-003`.
+- Builder subagents use `isolation: worktree`. Project settings set `worktree.baseRef: "head"` (the default `"fresh"` branches from the remote default branch, `main`); each specialist then creates its task branch with an explicit start point: `git switch -c df/F-003-<role>-T<n> df/F-003`.
 - Task branches are pushed to the remote for traceability.
 - Worktrees contain only committed files. The kickoff commits the installer output (agents, skills, settings, bundle files, config) together with the request, and gate commits keep docs and backlog on the dev branch. Delegation prompts give requirements, design, backlog and conventions as absolute paths in the main checkout, since the PM updates them there during delivery.
 - **Integration branch**: the dev target holds one bundle deployment, so deploying feature branches one after another would remove each other's resources. The DevOps Engineer rebuilds a local `df/integration` = dev branch + every active, integrated feature, and deploys that. It is never pushed.
@@ -265,7 +265,7 @@ tasks:
   - id: T-003.1
     role: data-engineer
     status: integrated
-    branch: df/F-003/data-engineer-T1
+    branch: df/F-003-data-engineer-T1
   - id: T-003.2
     role: qa-engineer
     status: in_progress

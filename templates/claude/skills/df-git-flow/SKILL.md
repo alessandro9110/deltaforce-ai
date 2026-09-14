@@ -14,7 +14,7 @@ Values come from `.deltaforce/config.yaml`: `project.dev_branch` and `project.pr
 | --- | --- | --- | --- |
 | `<dev_branch>` | PO / installer | — | Everything the PO approved. The main checkout stays on it |
 | `df/F-xxx` | PM | `<dev_branch>` | One feature |
-| `df/F-xxx/<role>-T<n>` | the specialist | `df/F-xxx` | One task, e.g. `df/F-003/data-engineer-T1` |
+| `df/F-xxx-<role>-T<n>` | the specialist | `df/F-xxx` | One task, e.g. `df/F-003-data-engineer-T1` |
 | `df/integration` | DevOps Engineer | `<dev_branch>` + active features | What is deployed on the dev target. Local only, never pushed |
 | protected branches | people | — | Production. The team never pushes to them; a person opens the pull request |
 
@@ -25,12 +25,12 @@ Several features can be active at the same time when they do not depend on each 
 Specialists that change code run in their own git worktree. The first command of every task:
 
 ```bash
-git switch -c df/F-xxx/<role>-T<n> df/F-xxx
+git switch -c df/F-xxx-<role>-T<n> df/F-xxx
 ```
 
-The explicit start point matters: the worktree starts from whatever the main checkout has checked out, not from the feature.
+The explicit start point matters: the worktree starts from whatever the main checkout has checked out, not from the feature. Use `-`, not `/`, after the feature id: git cannot create `df/F-003/...` while the branch `df/F-003` exists.
 
-Sub-agents of a specialist create `df/F-xxx/<role>-T<n>-<m>` from the parent's task branch; the parent merges them into its task branch before reporting.
+Sub-agents of a specialist create `df/F-xxx-<role>-T<n>-<m>` from the parent's task branch; the parent merges them into its task branch before reporting.
 
 ## Commits
 
