@@ -17,6 +17,8 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] Guardrail and audit hooks; read-only access to a separate production workspace; Databricks resources only through the asset bundle
 - [x] Tracking for the board and for resuming work: feature start/completion times, saved task reports, `next_steps` and `last_update`, session and agent activity
 - [x] End-to-end install validated on Windows against Databricks Free Edition
+- [x] PO sees work in progress before G2 in `.deltaforce/review/` (integration worktree); main checkout never leaves dev; agent worktrees cleaned up at feature close
+- [x] Fixes from the first sandbox run: task branch naming, `sys.exit` on serverless, PM checks before answering
 
 ### Next
 
@@ -24,8 +26,6 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [ ] Monitoring app (M5): virtual office and project board, starts automatically, reads files only (no tokens)
 - [ ] CI/CD templates (M4): Azure DevOps, then GitHub Actions
 - [ ] Installer warning when a Claude Code session is open on the project
-- [ ] Let the PO see work in progress before G2 without merging it into the dev branch (proposal under discussion: a visible integration worktree)
-
 ### Later
 
 - [ ] Per-role service principals with Unity Catalog grants

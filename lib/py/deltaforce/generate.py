@@ -24,6 +24,7 @@ GITIGNORE_END = "# deltaforce:end"
 
 GITIGNORE_ENTRIES = (
     ".deltaforce/framework/",
+    ".deltaforce/review/",
     ".deltaforce/bin/",
     ".deltaforce/runtime/",
     ".deltaforce/.databrickscfg",

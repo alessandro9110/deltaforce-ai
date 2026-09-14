@@ -221,6 +221,8 @@ How a project runs:
 5. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them.
 6. **Handover** — when every feature is done, a person opens the pull request to the protected branch and CI/CD deploys to production.
 
+**See the work in progress.** Until you approve a feature at G2, its code is not in your project folder: the dev branch only holds approved work. The code currently deployed on dev — bundle resources, pipelines, tests of every active feature — is in `.deltaforce/review/`. Add that folder to your VS Code workspace once (**File → Add Folder to Workspace…**) and it stays up to date after every deployment.
+
 **You can close Claude Code at any time.** Nothing depends on the conversation: the next session starts from `.deltaforce/` — `state.yaml` (phase, next steps, last update), the backlog and the saved task reports — checks unfinished tasks on their branches and continues. `/df-status` shows you the same.
 
 The team asks you only at G1, at G2, and when something blocks or changes what you asked for. Everything the team writes to organize itself — request, requirements, design, backlog, reports, state and events — lives in `.deltaforce/`; outside it there is only the product: `src/`, `resources/`, `tests/`, `databricks.yml`.

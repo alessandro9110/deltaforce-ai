@@ -15,10 +15,12 @@ Values come from `.deltaforce/config.yaml`: `project.dev_branch` and `project.pr
 | `<dev_branch>` | PO / installer | — | Everything the PO approved. The main checkout stays on it |
 | `df/F-xxx` | PM | `<dev_branch>` | One feature |
 | `df/F-xxx-<role>-T<n>` | the specialist | `df/F-xxx` | One task, e.g. `df/F-003-data-engineer-T1` |
-| `df/integration` | DevOps Engineer | `<dev_branch>` + active features | What is deployed on the dev target. Local only, never pushed |
+| `df/integration` | DevOps Engineer | `<dev_branch>` + active features | What is deployed on the dev target. Checked out in the review worktree `.deltaforce/review/`, which the PO opens to see work in progress. Local only, never pushed |
 | protected branches | people | — | Production. The team never pushes to them; a person opens the pull request |
 
 Several features can be active at the same time when they do not depend on each other.
+
+The main checkout never leaves `<dev_branch>`. Integration happens in `.deltaforce/review/` (a git worktree, gitignored). Claude Code names each agent worktree `.claude/worktrees/agent-…` with a `worktree-agent-…` branch; the DevOps Engineer removes the unused ones when a feature is closed.
 
 ## Task branches in worktrees
 
