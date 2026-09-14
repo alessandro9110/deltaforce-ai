@@ -138,7 +138,7 @@ These lists are read from your workspace:
 4. **Medallion layout**:
    - **One schema** — bronze, silver and gold tables in the same schema, with `bronze_`, `silver_`, `gold_` name prefixes.
    - **One schema per layer** — three schemas.
-5. **Schema name(s)** — if a schema does not exist, the installer asks whether to create it.
+5. **Schema name(s)** — schemas that do not exist are created by the installer. They are the team's starting point: during the project the team can add the schemas and tables the solution needs inside the dev catalog.
 
 With `--advanced` it also asks the enabled roles, the default model, the maximum subagent nesting depth and the AI Dev Kit version.
 

@@ -103,8 +103,8 @@ df_run_doctor() {
         local script=.deltaforce/framework/install.sh
         [ "$DF_FRAMEWORK_DIR" = "$DF_TARGET_DIR/.deltaforce/framework" ] || script="$DF_FRAMEWORK_DIR/install.sh"
         df_step "Not ready yet"
-        df_msg "Fix the errors above. Re-running the install command re-checks everything and offers"
-        df_msg "to create missing schemas. To only re-check, from the project folder:"
+        df_msg "Fix the errors above. Re-running the install command re-checks everything and creates"
+        df_msg "missing schemas. To only re-check, from the project folder:"
         if [ "$DF_OS" = windows ]; then
             df_msg "  PowerShell: & \"\$env:ProgramFiles\\Git\\bin\\bash.exe\" -c 'bash $script --doctor'"
             df_msg "  Git Bash:   bash $script --doctor"

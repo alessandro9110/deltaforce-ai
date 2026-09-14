@@ -165,7 +165,7 @@ df_ask_target() {
     df_ensure_schemas
 }
 
-# Offer to create missing dev schemas; the catalog must already exist.
+# Create missing dev schemas; the catalog must already exist.
 df_ensure_schemas() {
     local -a schemas=()
     local schema full output
@@ -178,14 +178,10 @@ df_ensure_schemas() {
         full="$DF_CATALOG.$schema"
         if df_databricks_exists schemas get "$full"; then
             df_ok "Schema '$full'"
-        elif [ "$DF_INTERACTIVE" = true ] && df_confirm "Schema '$full' does not exist. Create it now?"; then
-            if output=$("$DF_DATABRICKS" schemas create "$schema" "$DF_CATALOG" -p "$DF_DB_PROFILE" -o json 2>&1); then
-                df_ok "Created schema '$full'"
-            else
-                df_warn "Could not create '$full': $(printf '%s\n' "$output" | grep -m 1 -i '^error' || printf '%s\n' "$output" | head -n 1)"
-            fi
+        elif output=$("$DF_DATABRICKS" schemas create "$schema" "$DF_CATALOG" -p "$DF_DB_PROFILE" -o json 2>&1); then
+            df_ok "Created schema '$full'"
         else
-            df_warn "Schema '$full' is missing — create it before /df-kickoff"
+            df_warn "Could not create '$full' ($(printf '%s\n' "$output" | grep -m 1 -i '^error' || printf '%s\n' "$output" | head -n 1)) — ask for CREATE SCHEMA on '$DF_CATALOG' or choose an existing schema"
         fi
     done
 }
@@ -223,7 +219,7 @@ df_print_plan() {
     df_msg "  • uv $DF_UV_VERSION and Databricks CLI $DF_DATABRICKS_CLI_VERSION → .deltaforce/bin"
     df_msg "  • Python $DF_PYTHON_VERSION and AI Dev Kit MCP server ($DF_ADK_REF) → .deltaforce/runtime"
     df_msg "  • Profile '$DF_DB_PROFILE' ($DF_DB_AUTH) for $DF_DB_HOST → .deltaforce/.databrickscfg"
-    df_msg "  • Missing dev schemas in the chosen catalog created on Databricks (after asking)"
+    df_msg "  • Missing dev schemas in the chosen catalog created on Databricks"
     df_msg "  • Databricks agent skills for the enabled roles → .claude/skills"
     df_msg "  • .deltaforce/config.yaml, .mcp.json, .claude/settings*.json, CLAUDE.md block,"
     df_msg "    bundle variables and a .gitignore block"

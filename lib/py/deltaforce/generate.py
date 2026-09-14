@@ -163,6 +163,7 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 | Protected branches | {protected} — never push to them |
 
 - In source code and bundle resources, reference these values only through bundle variables ({bundle_vars}); never write catalog, schema or table names literally.
+- The schemas above are the starting point, not a limit: create the schemas and tables the solution needs inside the dev catalog, keep them consistent with the architecture in `docs/architecture/` and the medallion layers, and declare them in the bundle with variables.
 - When calling Databricks MCP tools directly (exploration, validation), pass the dev catalog and schemas above explicitly.
 """
 
