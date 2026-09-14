@@ -91,8 +91,10 @@ df_ask_workspace() {
         '^https://[^/?#[:space:]]+([/?#][^[:space:]]*)?$' "https://<workspace-host>"
     [[ $DF_DB_HOST =~ ^(https://[^/?#[:space:]]+) ]] && DF_DB_HOST=${BASH_REMATCH[1]}
     df_ok "Workspace: $DF_DB_HOST"
+    local default_profile="deltaforce-$DF_PROJECT_NAME"
+    case "$DF_PROJECT_NAME" in deltaforce*) default_profile=$DF_PROJECT_NAME ;; esac
     while true; do
-        df_ask_valid DF_DB_PROFILE "Databricks CLI profile name" "${DF_DB_PROFILE:-deltaforce-$DF_PROJECT_NAME}" \
+        df_ask_valid DF_DB_PROFILE "Databricks CLI profile name" "${DF_DB_PROFILE:-$default_profile}" \
             '^[A-Za-z0-9_-]+$' "letters, digits, '-' and '_'"
         [ "$DF_DB_PROFILE" != DEFAULT ] && break
         [ "$DF_INTERACTIVE" = true ] || df_die "The profile name DEFAULT is reserved"
