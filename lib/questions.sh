@@ -134,12 +134,20 @@ df_ask_target() {
     fi
 
     mapfile -t items < <(df_databricks_items catalogs catalogs list)
-    if [ ${#items[@]} -gt 0 ]; then
-        df_choose DF_CATALOG "Dev catalog (number, or type a catalog name)" "${DF_CATALOG:-}" true "${items[@]}"
-    else
-        df_ask DF_CATALOG "Dev catalog" "${DF_CATALOG:-}"
-    fi
-    [[ $DF_CATALOG =~ ^[A-Za-z0-9_-]+$ ]] || df_die "Invalid catalog name: '$DF_CATALOG'"
+    while true; do
+        if [ ${#items[@]} -gt 0 ]; then
+            df_choose DF_CATALOG "Dev catalog (number, or type a catalog name)" "${DF_CATALOG:-}" true "${items[@]}"
+        else
+            df_ask DF_CATALOG "Dev catalog" "${DF_CATALOG:-}"
+        fi
+        if [[ $DF_CATALOG =~ ^[A-Za-z0-9_-]+$ ]] && df_databricks_exists catalogs get "$DF_CATALOG"; then
+            df_ok "Catalog '$DF_CATALOG'"
+            break
+        fi
+        [ "$DF_INTERACTIVE" = true ] || df_die "Catalog '$DF_CATALOG' does not exist or is not accessible"
+        df_warn "Catalog '$DF_CATALOG' does not exist or you cannot access it — choose another one"
+        DF_CATALOG=""
+    done
 
     df_choose DF_MEDALLION_LAYOUT "Medallion layout" "${DF_MEDALLION_LAYOUT:-single_schema}" false \
         "single_schema|One schema; table names prefixed bronze_, silver_, gold_" \
@@ -154,6 +162,32 @@ df_ask_target() {
         df_ask_valid DF_SCHEMA_GOLD "Gold schema" "${DF_SCHEMA_GOLD:-}" "$schema_re" "$schema_hint"
         DF_SCHEMA=""
     fi
+    df_ensure_schemas
+}
+
+# Offer to create missing dev schemas; the catalog must already exist.
+df_ensure_schemas() {
+    local -a schemas=()
+    local schema full output
+    if [ "$DF_MEDALLION_LAYOUT" = single_schema ]; then
+        schemas=("$DF_SCHEMA")
+    else
+        schemas=("$DF_SCHEMA_BRONZE" "$DF_SCHEMA_SILVER" "$DF_SCHEMA_GOLD")
+    fi
+    for schema in $(printf '%s\n' "${schemas[@]}" | awk '!seen[$0]++'); do
+        full="$DF_CATALOG.$schema"
+        if df_databricks_exists schemas get "$full"; then
+            df_ok "Schema '$full'"
+        elif [ "$DF_INTERACTIVE" = true ] && df_confirm "Schema '$full' does not exist. Create it now?"; then
+            if output=$("$DF_DATABRICKS" schemas create "$schema" "$DF_CATALOG" -p "$DF_DB_PROFILE" -o json 2>&1); then
+                df_ok "Created schema '$full'"
+            else
+                df_warn "Could not create '$full': $(printf '%s\n' "$output" | grep -m 1 -i '^error' || printf '%s\n' "$output" | head -n 1)"
+            fi
+        else
+            df_warn "Schema '$full' is missing — create it before /df-kickoff"
+        fi
+    done
 }
 
 df_ask_team() {
@@ -189,6 +223,7 @@ df_print_plan() {
     df_msg "  • uv $DF_UV_VERSION and Databricks CLI $DF_DATABRICKS_CLI_VERSION → .deltaforce/bin"
     df_msg "  • Python $DF_PYTHON_VERSION and AI Dev Kit MCP server ($DF_ADK_REF) → .deltaforce/runtime"
     df_msg "  • Profile '$DF_DB_PROFILE' ($DF_DB_AUTH) for $DF_DB_HOST → .deltaforce/.databrickscfg"
+    df_msg "  • Missing dev schemas in the chosen catalog created on Databricks (after asking)"
     df_msg "  • Databricks agent skills for the enabled roles → .claude/skills"
     df_msg "  • .deltaforce/config.yaml, .mcp.json, .claude/settings*.json, CLAUDE.md block,"
     df_msg "    bundle variables and a .gitignore block"

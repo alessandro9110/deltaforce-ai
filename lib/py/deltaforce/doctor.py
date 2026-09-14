@@ -155,7 +155,8 @@ class Doctor:
         for schema in medallion_schemas(dev):
             full_name = f"{dev['catalog']}.{schema}"
             ok, output = self.databricks("schemas", "get", full_name)
-            self.add(f"schema:{schema}", f"Dev schema '{full_name}'", ok, "exists" if ok else str(output))
+            detail = "exists" if ok else f"{output} — re-run the install command to create it"
+            self.add(f"schema:{schema}", f"Dev schema '{full_name}'", ok, detail)
         return True
 
     def check_mcp_runtime(self) -> None:

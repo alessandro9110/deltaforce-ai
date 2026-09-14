@@ -37,7 +37,7 @@ On Databricks:
 | --- | --- |
 | Access to a workspace | Sign-in through the browser (OAuth), a personal access token or a service principal |
 | A SQL warehouse you can use | Chosen from a list during installation |
-| An existing dev **catalog** and **schema(s)** | The installer checks they exist; it does not create them |
+| An existing dev **catalog** | The installer can create the dev schema(s) in it if you have the `CREATE SCHEMA` privilege |
 
 Where the project should live:
 
@@ -134,11 +134,11 @@ These lists are read from your workspace:
 
 1. **SQL warehouse**.
 2. **Compute** for notebooks and Python code — serverless (recommended) or an existing cluster.
-3. **Dev catalog** — from the list, or type its name.
+3. **Dev catalog** — from the list, or type its name. It must exist.
 4. **Medallion layout**:
    - **One schema** — bronze, silver and gold tables in the same schema, with `bronze_`, `silver_`, `gold_` name prefixes.
    - **One schema per layer** — three schemas.
-5. **Schema name(s)**.
+5. **Schema name(s)** — if a schema does not exist, the installer asks whether to create it.
 
 With `--advanced` it also asks the enabled roles, the default model, the maximum subagent nesting depth and the AI Dev Kit version.
 

@@ -100,9 +100,17 @@ df_run_doctor() {
         df_step "DeltaForce is ready"
         df_msg "Open Claude Code in this repository and run /df-kickoff."
     else
+        local script=.deltaforce/framework/install.sh
+        [ "$DF_FRAMEWORK_DIR" = "$DF_TARGET_DIR/.deltaforce/framework" ] || script="$DF_FRAMEWORK_DIR/install.sh"
         df_step "Not ready yet"
-        df_msg "Fix the errors above, then re-check with:"
-        df_msg "  bash \"$DF_FRAMEWORK_DIR/install.sh\" --doctor"
+        df_msg "Fix the errors above. Re-running the install command re-checks everything and offers"
+        df_msg "to create missing schemas. To only re-check, from the project folder:"
+        if [ "$DF_OS" = windows ]; then
+            df_msg "  PowerShell: & \"\$env:ProgramFiles\\Git\\bin\\bash.exe\" -c 'bash $script --doctor'"
+            df_msg "  Git Bash:   bash $script --doctor"
+        else
+            df_msg "  bash $script --doctor"
+        fi
         return 1
     fi
 }

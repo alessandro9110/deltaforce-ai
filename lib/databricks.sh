@@ -6,6 +6,10 @@ df_profile_works() {
     "$DF_DATABRICKS" current-user me -p "$DF_DB_PROFILE" -o json >/dev/null 2>&1
 }
 
+df_databricks_exists() {
+    "$DF_DATABRICKS" "$@" -p "$DF_DB_PROFILE" -o json >/dev/null 2>&1
+}
+
 # df_databricks_items KIND CLI-ARGS... — "value|label" lines for menus; empty on failure
 df_databricks_items() {
     local kind=$1
