@@ -32,6 +32,8 @@ df_install_ai_dev_kit() {
     fi
 
     df_msg "Building the MCP server environment..."
+    # The monitor runs with this environment's interpreter, and Windows refuses to replace a running executable.
+    df_py monitor --stop --target "$(df_native_path "$DF_TARGET_DIR")" >/dev/null 2>&1 || true
     "$DF_UV" venv --quiet --allow-existing --python "$DF_PYTHON_VERSION" "$(df_native_path "$venv")" \
         || df_die "Could not create the MCP server virtual environment"
     python=$(df_venv_python)

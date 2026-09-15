@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import signal
 import subprocess
 import time
 import urllib.request
@@ -164,6 +165,31 @@ def start_in_background(root: Path, python: Path) -> str | None:
         update_state(root, spawned_at=time.time())
         _spawn(root, python)
     return None
+
+
+def stop(root: Path, wait: float = 5.0) -> bool:
+    """Stop the project's running monitor. The installer does it before rebuilding the environment the
+    monitor runs with: on Windows a running interpreter cannot be replaced."""
+    port = read_state(root).get("port")
+    pid = None
+    if isinstance(port, int):
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=0.6) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            if data.get("app") == APP_ID and same_root(data.get("root", ""), root):
+                pid = data.get("pid")
+        except (OSError, ValueError):
+            pass
+    if isinstance(pid, int):
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        deadline = time.monotonic() + wait
+        while time.monotonic() < deadline and ping(port, root):
+            time.sleep(0.2)
+    update_state(root, port=None, pid=None, url=None, started=None)
+    return isinstance(pid, int)
 
 
 def open_browser(url: str) -> bool:

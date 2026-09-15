@@ -232,9 +232,27 @@ def test_broken_files_are_reported_without_breaking_the_view(project):
     assert len(snap["features"]) == 4
 
 
+def test_header_describes_the_project_and_what_is_being_done(project):
+    (project / ".deltaforce" / "requirements" / "request.md").write_text(
+        "# Request\n\n## In the PO's words\n> build taxi KPIs\n\n## Summary\n\n"
+        "An MVP on the `samples` catalog, with output in the dev catalog:\n\n"
+        "1. **Taxi medallion** from `samples.nyctaxi.trips`:\n   - bronze: raw copy;\n"
+        "2. **AI/BI dashboard** on the daily KPIs.\n\n## Constraints\n\nNone.\n",
+        encoding="utf-8",
+    )
+    snap = model.snapshot(project, NOW)
+    assert snap["project"]["description"] == "An MVP on the samples catalog, with output in the dev catalog: Taxi medallion; AI/BI dashboard."
+    assert snap["overview"] == "Building F-002 Gold KPIs; waiting for your review: F-004 Monthly revenue. 1 of 4 features done."
+
+    (project / ".deltaforce" / "requirements" / "request.md").write_text("# Request\n\n## In the PO's words\n\n> " + "word " * 120, encoding="utf-8")
+    description = model.snapshot(project, NOW)["project"]["description"]
+    assert description.startswith("word word") and description.endswith("…") and len(description) <= model.DESCRIPTION_LIMIT + 1
+
+
 def test_empty_project_before_kickoff(tmp_path):
     snap = model.snapshot(tmp_path, NOW)
     assert snap["started"] is False and snap["features"] == [] and snap["documents"] == []
+    assert snap["overview"].startswith("Not started yet") and snap["project"]["description"] is None
     assert snap["team"][0]["id"] == "pm" and snap["session"]["open"] is False
 
 
@@ -393,6 +411,26 @@ def test_background_start_does_not_spawn_twice(tmp_path, monkeypatch):
     launcher.update_state(tmp_path, spawned_at=1.0)  # long ago
     launcher.start_in_background(tmp_path, tmp_path / "python")
     assert len(spawned) == 2
+
+
+def test_stop_ends_the_running_monitor(project, monkeypatch):
+    httpd = server.MonitorServer(("127.0.0.1", 0), server.make_handler(project))
+    port = httpd.server_address[1]
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    launcher.update_state(project, port=port, pid=123, opened_sessions=["s1"])
+    killed = []
+
+    def fake_kill(pid, sig):  # the server runs inside the test process: never kill it for real
+        killed.append(pid)
+        httpd.shutdown()
+        httpd.server_close()
+
+    monkeypatch.setattr(launcher.os, "kill", fake_kill)
+    assert launcher.stop(project) is True
+    assert killed == [os.getpid()]  # the pid the monitor reports, not the one in the state file
+    state = launcher.read_state(project)
+    assert "port" not in state and state["opened_sessions"] == ["s1"]
+    assert launcher.stop(project) is False
 
 
 def test_ports_are_stable_per_project(tmp_path):

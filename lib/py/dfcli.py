@@ -118,6 +118,9 @@ def cmd_monitor(args: argparse.Namespace) -> int:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from monitor import launcher
 
+    if args.stop:
+        print("monitor stopped" if launcher.stop(paths.root) else "monitor not running")
+        return 0
     if not paths.venv_python.exists():
         raise cfg.ConfigError("the DeltaForce runtime is missing — re-run the installer")
     url = launcher.start(paths.root, paths.venv_python)
@@ -167,9 +170,9 @@ def main(argv: list[str] | None = None) -> int:
         "events", help='JSON array, e.g. [{"type": "task_status_changed", "role": "pm", "feature": "F-001", "task": "T-001.1", "data": {}}]'
     )
     add("validate", cmd_validate, "validate config, conventions, state, backlog and events")
-    add("monitor", cmd_monitor, "start the monitor and open it in the browser").add_argument(
-        "--no-open", action="store_true", help="print the address without opening the browser"
-    )
+    monitor = add("monitor", cmd_monitor, "start the monitor and open it in the browser")
+    monitor.add_argument("--no-open", action="store_true", help="print the address without opening the browser")
+    monitor.add_argument("--stop", action="store_true", help="stop the running monitor")
 
     args = parser.parse_args(argv)
     try:

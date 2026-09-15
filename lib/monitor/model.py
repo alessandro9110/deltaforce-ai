@@ -55,6 +55,12 @@ FEATURE_FILE = re.compile(r"^(F-\d{3,})")
 WORKTREE_PREFIX = re.compile(r"^.*?/\.claude/worktrees/[^/]+/")
 ACTION = re.compile(r'"action"\s*:\s*"([\w-]+)"')
 CD_PREFIX = re.compile(r"""^(?:cd\s+(?:"[^"]*"|'[^']*'|\S+)\s*(?:&&|;)\s*)+""")
+MARKDOWN_LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
+MARKDOWN_EMPHASIS = re.compile(r"\*\*|__|`")
+BOLD = re.compile(r"\*\*(.+?)\*\*")
+LIST_ITEM = re.compile(r"^(?:\d+[.)]|[-*+])\s+(.*)$")
+DESCRIPTION_LIMIT = 360
+DESCRIPTION_SECTIONS = ("summary", "business goal and expected value", "goal and users", "in the po's words")
 COMMANDS = (
     (re.compile(r"\bbundle\s+deploy\b"), "Deploying the bundle to dev"),
     (re.compile(r"\bbundle\s+run\b"), "Running a bundle job on dev"),
@@ -810,6 +816,92 @@ def read_document(root: Path, relative: str) -> dict[str, Any] | None:
     return {"path": text, "title": _doc_title(path), "text": content, "modified": _iso(modified)}
 
 
+# ─── project summary ────────────────────────────────────────────
+
+
+def _plain(text: str) -> str:
+    return " ".join(MARKDOWN_EMPHASIS.sub("", MARKDOWN_LINK.sub(r"\1", text)).split())
+
+
+def _describe_section(lines: list[str]) -> str:
+    """The opening paragraph of a request section, followed by its top-level list items in short."""
+    paragraph: list[str] = []
+    items: list[str] = []
+    for line in lines:
+        text = line.strip().lstrip(">").strip()
+        item = LIST_ITEM.match(line)  # only top-level items: indented lines do not match
+        if item:
+            bold = BOLD.search(item.group(1))
+            items.append(_plain(bold.group(1) if bold else item.group(1)).rstrip(".:;"))
+        elif text and not items and not line.startswith((" ", "\t")):
+            paragraph.append(text)
+        elif not text and paragraph and not items:
+            continue
+    opening = _plain(" ".join(paragraph))
+    if not items:
+        return opening
+    listed = "; ".join(items)
+    if not opening:
+        return listed + "."
+    return f"{opening} {listed}." if opening.endswith(":") else f"{opening.rstrip('.')}: {listed}."
+
+
+def project_description(root: Path) -> str | None:
+    """A short description of the project, from the request recorded at kickoff."""
+    try:
+        text = (root / ".deltaforce" / "requirements" / "request.md").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    sections: dict[str, list[str]] = {}
+    current = None
+    for line in text.replace("\r\n", "\n").split("\n"):
+        if line.startswith("## "):
+            current = line[3:].strip().lower()
+            sections[current] = []
+        elif current is not None:
+            sections[current].append(line)
+    for key in DESCRIPTION_SECTIONS:
+        description = _describe_section(sections.get(key, []))
+        if description:
+            if len(description) > DESCRIPTION_LIMIT:
+                description = description[:DESCRIPTION_LIMIT].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+            return description
+    return None
+
+
+def _overview(state: dict[str, Any], features: list[dict[str, Any]]) -> str:
+    """What the team is doing, in one sentence."""
+    if not state:
+        return "Not started yet: run /df-kickoff in Claude Code."
+    phase = state.get("phase")
+    names = lambda items: ", ".join(f"{item['id']} {item['title']}" for item in items)  # noqa: E731
+    if phase == "discovery":
+        text = "Analysing the request and designing the solution."
+    elif phase == "awaiting_g1":
+        text = "The design and the feature list are ready for your approval (G1)."
+    elif phase == "handover":
+        text = "Every feature is delivered: handover to production through CI/CD."
+    elif phase == "done":
+        text = "Project delivered."
+    else:
+        building = [item for item in features if item["column"] == "doing"]
+        review = [
+            item for item in features
+            if item["column"] == "po" and (item["po_decision"] or {}).get("decision") != "approved"
+        ]
+        parts = []
+        if building:
+            parts.append(f"building {names(building)}")
+        if review:
+            parts.append(f"waiting for your review: {names(review)}")
+        text = "; ".join(parts) or "choosing the next features to build"
+        text = text[0].upper() + text[1:] + "."
+    if features:
+        done = sum(item["status"] == "done" for item in features)
+        text += f" {done} of {len(features)} features done."
+    return text
+
+
 # ─── snapshot ───────────────────────────────────────────────────
 
 
@@ -882,13 +974,20 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
         for step in state.get("next_steps") or [] if isinstance(step, dict)
     ]
 
+    conventions = _load_yaml(base / "conventions.yaml", problems)
+    conventions = conventions if isinstance(conventions, dict) else {}
+    kind = (conventions.get("project") or {}).get("kind") if isinstance(conventions.get("project"), dict) else None
+
     return {
         "project": {
             "name": project.get("name") or root.name,
+            "description": project_description(root),
+            "kind": kind,
             "dev_branch": project.get("dev_branch"),
             "workspace": databricks.get("host"),
             "catalog": dev.get("catalog"),
         },
+        "overview": _overview(state, features),
         "started": bool(state),
         "phase": state.get("phase"),
         "phase_label": PHASES.get(str(state.get("phase")), "Not started"),
