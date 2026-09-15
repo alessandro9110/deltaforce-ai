@@ -39,6 +39,41 @@ df_preflight() {
     [ -z "$DF_ENV_CONFLICTS" ] || df_warn "Ignoring ${DF_ENV_CONFLICTS//,/, } from the environment for this install"
 }
 
+# Processes running from this project's runtime: the Databricks MCP server and the hooks of an open Claude Code
+# session. The monitor does not count — the installer stops it by itself before rebuilding the environment.
+df_runtime_processes() {
+    [ -d "$DF_RUNTIME_DIR" ] || return 0
+    if [ "$DF_OS" = windows ]; then
+        DF_RUNTIME_MATCH=$(df_native_path "$DF_RUNTIME_DIR") MSYS2_ARG_CONV_EXCL='*' \
+            powershell.exe -NoProfile -NonInteractive -Command \
+            '$r = $env:DF_RUNTIME_MATCH.Replace("\", "/").ToLower(); Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine.Replace("\", "/").ToLower().Contains($r) -and $_.CommandLine -notmatch "monitor.server\.py" } | ForEach-Object { $_.ProcessId }' \
+            2>/dev/null | tr -d '\r' | grep -E '^[0-9]+$' || true
+    else
+        ps -eo pid=,args= 2>/dev/null | grep -F -- "$DF_RUNTIME_DIR" | grep -v -e 'monitor/server.py' -e 'grep ' | awk '{ print $1 }' || true
+    fi
+}
+
+# Updating with Claude Code open fails half-way on Windows (running executables cannot be replaced) and swaps
+# agents and skills under a working session: ask to close it first.
+df_check_claude_closed() {
+    local pids answer
+    pids=$(df_runtime_processes)
+    [ -n "$pids" ] || return 0
+    df_warn "Claude Code seems to be open on this project: its Databricks MCP server or DeltaForce hooks are running."
+    df_msg "  The installer rebuilds that environment and replaces agents and skills: close Claude Code first."
+    [ "$DF_INTERACTIVE" = true ] || df_die "Close Claude Code on this project, then run the installer again"
+    while [ -n "$pids" ]; do
+        df_ask answer "Press Enter when Claude Code is closed, or type 'continue' to go on anyway" ""
+        if [ "$answer" = continue ]; then
+            df_warn "Continuing with Claude Code open: rebuilding the MCP server environment may fail"
+            return 0
+        fi
+        pids=$(df_runtime_processes)
+        [ -z "$pids" ] || df_warn "Still running — close every Claude Code session on this project, including the VS Code extension"
+    done
+    df_ok "Claude Code is closed"
+}
+
 # Python, uv and pip break once a file path exceeds 260 characters unless Windows long
 # paths are enabled; the deepest files under .deltaforce/runtime add ~110 characters.
 df_check_windows_path_length() {
@@ -79,7 +114,7 @@ df_write_config() {
     export DF_PROJECT_NAME DF_DEV_BRANCH DF_PROTECTED_BRANCHES DF_GIT_PROVIDER DF_CICD \
         DF_DB_HOST DF_DB_PROFILE DF_DB_AUTH DF_WAREHOUSE_ID DF_COMPUTE DF_CLUSTER_ID \
         DF_PROD_ENABLED DF_PROD_HOST DF_PROD_PROFILE DF_PROD_AUTH DF_PROD_WAREHOUSE_ID \
-        DF_CATALOG DF_MEDALLION_LAYOUT DF_SCHEMA DF_SCHEMA_BRONZE DF_SCHEMA_SILVER DF_SCHEMA_GOLD \
+        DF_BUNDLE_TARGET DF_CATALOG DF_MEDALLION_LAYOUT DF_SCHEMA DF_SCHEMA_BRONZE DF_SCHEMA_SILVER DF_SCHEMA_GOLD \
         DF_ROLES DF_MODEL_DEFAULT DF_MAX_SPAWN_DEPTH DF_ADK_REPO DF_ADK_REF
     df_py write-config --target "$(df_native_path "$DF_TARGET_DIR")" \
         || df_die "The configuration is invalid — see the errors above"

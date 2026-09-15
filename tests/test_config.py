@@ -1,3 +1,4 @@
+import copy
 import json
 import shlex
 
@@ -125,6 +126,23 @@ def test_production_workspace_round_trips():
 def test_invalid_production_settings_are_rejected(overrides):
     with pytest.raises(cfg.ConfigError):
         cfg.validate(cfg.build_from_env(answers(**{**PROD_ANSWERS, **overrides})))
+
+
+def test_bundle_target_defaults_to_dev_and_round_trips():
+    assert cfg.dev_bundle_target(cfg.build_from_env(answers())) == "dev"
+    custom = cfg.build_from_env(answers(DF_BUNDLE_TARGET="development"))
+    cfg.validate(custom)
+    assert cfg.dev_bundle_target(custom) == "development"
+    env = parse_exports(cfg.export_env(custom))
+    env["DF_GIT_PROVIDER"] = custom["project"]["git_provider"]
+    assert cfg.build_from_env(env) == custom
+
+    legacy = copy.deepcopy(custom)
+    del legacy["targets"]["dev"]["bundle_target"]  # configurations written before the setting existed
+    cfg.validate(legacy)
+    assert cfg.dev_bundle_target(legacy) == "dev"
+    with pytest.raises(cfg.ConfigError):
+        cfg.validate(cfg.build_from_env(answers(DF_BUNDLE_TARGET="dev target")))
 
 
 def test_skills_union_is_ordered_and_deduplicated():

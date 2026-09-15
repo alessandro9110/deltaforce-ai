@@ -72,6 +72,14 @@ def cmd_generate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bundle_targets(args: argparse.Namespace) -> int:
+    for name, spec in generate.existing_bundle_targets(_paths(args)).items():
+        details = [f"mode {spec['mode']}" if spec.get("mode") else "", "default" if spec.get("default") else ""]
+        details = [item for item in details if item]
+        print(f"{name}|{name}{' (' + ', '.join(details) + ')' if details else ''}")
+    return 0
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     report = doctor.run(_paths(args))
     doctor.print_report(report)
@@ -159,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--profile", required=True)
     sp.add_argument("--host", required=True)
     add("generate", cmd_generate, "generate project files from the configuration")
+    add("bundle-targets", cmd_bundle_targets, "print the targets of the project's own bundle as menu lines")
     add("doctor", cmd_doctor, "run the readiness checks")
     event = add("event", cmd_event, "append a lifecycle event to .deltaforce/events.jsonl")
     event.add_argument("type", choices=backlog.event_types())

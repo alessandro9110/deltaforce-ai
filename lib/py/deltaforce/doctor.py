@@ -281,7 +281,14 @@ class Doctor:
             ({"tool_name": "Bash", "tool_input": {"command": "databricks bundle deploy -t prod"}, "agent_type": "devops-engineer"}, True),
             ({"tool_name": "Bash", "tool_input": {"command": "git push --force origin dev"}, "agent_type": "devops-engineer"}, True),
             # The project CLI must stay usable, redirections included.
-            ({"tool_name": "Bash", "tool_input": {"command": '"$DF_ROOT/.deltaforce/bin/databricks" bundle validate -t dev 2>&1'}, "agent_type": "devops-engineer"}, False),
+            (
+                {
+                    "tool_name": "Bash",
+                    "tool_input": {"command": f'"$DF_ROOT/.deltaforce/bin/databricks" bundle deploy -t {cfg.dev_bundle_target(self.config)} 2>&1'},
+                    "agent_type": "devops-engineer",
+                },
+                False,
+            ),
         ]
         if self.config.get("prod"):
             tool = f"mcp__{guardrails.PROD_MCP_SERVER}__execute_sql"
@@ -303,8 +310,9 @@ class Doctor:
         self.add("guard-self-test", "Guardrails self-test", not failed, detail)
 
     def check_bundle_validate(self) -> None:
-        ok, output = self.databricks("bundle", "validate", "-t", "dev", cwd=self.paths.root)
-        self.add("bundle-validate", "databricks bundle validate -t dev", ok, "valid" if ok else str(output), "warn")
+        target = cfg.dev_bundle_target(self.config)
+        ok, output = self.databricks("bundle", "validate", "-t", target, cwd=self.paths.root)
+        self.add("bundle-validate", f"databricks bundle validate -t {target}", ok, "valid" if ok else str(output), "warn")
 
 
 def run(paths: ProjectPaths) -> dict[str, Any]:

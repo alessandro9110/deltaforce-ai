@@ -157,6 +157,19 @@ def test_disabling_production_cleans_up_and_keeps_user_hooks(prod_config, tmp_pa
     assert json.loads(read(paths.guard_policy))["prod"]["enabled"] is False
 
 
+def test_the_bundle_target_name_is_used_everywhere(example_config, tmp_path):
+    config = copy.deepcopy(example_config)
+    config["targets"]["dev"]["bundle_target"] = "development"
+    paths = ProjectPaths(tmp_path)
+    generate.generate_all(config, paths)
+
+    assert list(yaml.safe_load(read(paths.bundle))["targets"]) == ["development", "prod"]
+    assert list(yaml.safe_load(read(paths.bundle_variables))["targets"]) == ["development"]
+    assert "always pass `-t development`" in read(paths.claude_md)
+    assert json.loads(read(paths.guard_policy))["dev_target"] == "development"
+    assert list(generate.existing_bundle_targets(paths)) == ["development", "prod"]
+
+
 def test_existing_bundle_variables_are_not_redefined(example_config, tmp_path):
     paths = ProjectPaths(tmp_path)
     paths.bundle.write_text("bundle:\n  name: sales\ninclude:\n  - resources/*.yml\n  - conf/*.yml\nvariables:\n  catalog:\n    description: own\n", encoding="utf-8")

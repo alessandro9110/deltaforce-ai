@@ -60,6 +60,11 @@ def validate(data: Mapping[str, Any]) -> None:
             raise ConfigError("the production workspace must be a different workspace from dev")
 
 
+def dev_bundle_target(data: Mapping[str, Any]) -> str:
+    """The bundle target the team deploys to: `dev` unless the project's bundle names it differently."""
+    return str(data["targets"]["dev"].get("bundle_target") or "dev")
+
+
 def load_config(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise ConfigError(f"{path} not found — run the installer first")
@@ -148,7 +153,7 @@ def build_from_env(env: Mapping[str, str]) -> dict[str, Any]:
             "cluster_id": get("DF_CLUSTER_ID") if compute == "cluster" else None,
         },
         "prod": prod,
-        "targets": {"dev": {"catalog": get("DF_CATALOG"), "medallion": medallion}},
+        "targets": {"dev": {"bundle_target": get("DF_BUNDLE_TARGET", "dev"), "catalog": get("DF_CATALOG"), "medallion": medallion}},
         "team": {"roles": roles, "models": models, "max_spawn_depth": depth},
         "ai_dev_kit": {
             "repo": get("DF_ADK_REPO", versions["DF_ADK_DEFAULT_REPO"]),
@@ -179,6 +184,7 @@ def export_env(data: Mapping[str, Any]) -> str:
         "DF_WAREHOUSE_ID": db["warehouse_id"],
         "DF_COMPUTE": db["compute"],
         "DF_CLUSTER_ID": db.get("cluster_id") or "",
+        "DF_BUNDLE_TARGET": dev_bundle_target(data),
         "DF_CATALOG": dev["catalog"],
         "DF_MEDALLION_LAYOUT": medallion["layout"],
         "DF_SCHEMA": medallion.get("schema", ""),

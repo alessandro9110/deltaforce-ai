@@ -117,6 +117,11 @@
       "additionalProperties": false,
       "required": ["catalog", "medallion"],
       "properties": {
+        "bundle_target": {
+          "description": "Name of the Databricks Asset Bundle target the team deploys to; dev when omitted",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
         "catalog": { "$ref": "#/$defs/uc_name" },
         "medallion": {
           "type": "object",

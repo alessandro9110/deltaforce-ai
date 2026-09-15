@@ -36,8 +36,8 @@ Updated with every change that adds or completes something. Last update: 2026-09
 
 - [x] Sandbox MVP complete (2026-09-15): four features — NYC taxi bronze/silver, gold KPIs, AI/BI dashboard, TPC-H revenue — delivered through G1 and four G2, 34 tests passed, handover written; 37 handoffs, 2 steps back, 7 deploys (1 blocked by a guardrail bug, fixed)
 - [ ] Next run on the latest version: check `/clear` at clean points, `df events`, no polling, backlog and test views and the status line commands live; measure tokens against the MVP run
-- [ ] Installer warns before rebuilding when Claude Code or another process uses the project runtime
-- [ ] Configurable dev target name: guardrails and generated files assume a bundle target called `dev`
+- [x] Installer asks to close Claude Code when its MCP server or hooks run from the project runtime (and stops the monitor by itself)
+- [x] Configurable bundle target name (`targets.dev.bundle_target`, default `dev`, chosen from the project's own bundle when it has no `dev` target) for guardrails, generated files, `CLAUDE.md`, agents and doctor
 - [ ] Validate on a real existing project (its own bundle variables, target names and conventions)
 
 ### Next — phase 2: complete the cycle to production

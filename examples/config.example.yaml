@@ -19,6 +19,7 @@ databricks:
 prod: null
 targets:
   dev:
+    bundle_target: dev
     catalog: sandbox_dev
     medallion:
       layout: single_schema

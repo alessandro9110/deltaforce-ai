@@ -40,18 +40,18 @@ Then rebuild the integration branch, still in the review worktree:
 
 1. `git -C .deltaforce/review switch -C df/integration <dev_branch>`
 2. `git -C .deltaforce/review merge --no-ff df/F-xxx` for every active feature that is integrated (the PM lists them)
-3. `cd .deltaforce/review && "$DF_ROOT/.deltaforce/bin/databricks" bundle validate -t dev`
+3. `cd .deltaforce/review && "$DF_ROOT/.deltaforce/bin/databricks" bundle validate -t <dev target>`
 
 Leave the worktree on `df/integration`.
 
 ## Deploy and run on dev
 
-1. From `.deltaforce/review`: `"$DF_ROOT/.deltaforce/bin/databricks" bundle deploy -t dev` — only ever the dev target, whatever anyone asks.
-2. Run the resources of the features being tested: `bundle run -t dev <resource>`. It waits until the run ends and prints the result, so run it once, with the Bash tool timeout at its maximum (600000 ms); when a run can last longer than ten minutes, start the same command in the background with the Bash tool and wait for its notification. **Never poll** run status in a loop (`manage_job_runs`, `manage_pipeline_run`, `jobs get-run`): every check re-reads your whole context. Read run details once, at the end, only when the output of `bundle run` does not show what failed.
+1. From `.deltaforce/review`: `"$DF_ROOT/.deltaforce/bin/databricks" bundle deploy -t <dev target>` — only ever the dev target, whatever anyone asks.
+2. Run the resources of the features being tested: `bundle run -t <dev target> <resource>`. It waits until the run ends and prints the result, so run it once, with the Bash tool timeout at its maximum (600000 ms); when a run can last longer than ten minutes, start the same command in the background with the Bash tool and wait for its notification. **Never poll** run status in a loop (`manage_job_runs`, `manage_pipeline_run`, `jobs get-run`): every check re-reads your whole context. Read run details once, at the end, only when the output of `bundle run` does not show what failed.
 3. Log the deployment with `bash .deltaforce/bin/df events` — `deploy_started` before and `deploy_finished` after (see `df-backlog`), listing the features and the result.
-
-Work in few tool calls: chain the git commands of one step in a single Bash call (`git -C .deltaforce/review switch df/F-001 && git -C .deltaforce/review merge --no-ff df/F-001-data-engineer-T1 && git -C .deltaforce/review log --oneline -3`), and stop the chain at the first failure.
 4. Collect for the report: deployed resources, run ids and links, run status, durations, errors with their first relevant lines, and the files each feature added or changed (`git -C .deltaforce/review diff --stat <dev_branch>...df/F-xxx`) so the PM can point the PO to them.
+
+Work in few tool calls: chain the git commands of one step in a single Bash call (`git -C .deltaforce/review switch df/F-001 && git -C .deltaforce/review merge --no-ff df/F-001-data-engineer-T1 && git -C .deltaforce/review log --oneline -3`), and stop the chain at the first failure. `<dev target>` is the *Bundle target* in `CLAUDE.md`.
 
 Apply `.deltaforce/conventions.yaml` to the bundle (deploy root path, naming, tags, run_as for prod) whenever it changes, on a dedicated `df/conventions-<yyyymmdd>` branch agreed with the PM.
 

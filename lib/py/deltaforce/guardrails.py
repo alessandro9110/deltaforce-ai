@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from .config import dev_bundle_target
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
 HOOK_SCRIPT = FRAMEWORK_DIR / "lib" / "hooks" / "deltaforce_hook.py"
@@ -94,7 +95,7 @@ def build_policy(config: Mapping[str, Any], paths: ProjectPaths, roles: Mapping[
         "version": 1,
         "dev_server": DEV_MCP_SERVER,
         "dev_catalog": config["targets"]["dev"]["catalog"],
-        "dev_target": "dev",
+        "dev_target": dev_bundle_target(config),
         "dev_branch": config["project"]["dev_branch"],
         "protected_branches": list(config["project"]["protected_branches"]),
         "integration_branch": INTEGRATION_BRANCH,

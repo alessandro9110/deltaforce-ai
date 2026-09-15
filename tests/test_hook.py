@@ -152,6 +152,12 @@ def test_bundle_rules(policy):
     assert "destroy" in decide(policy, "Bash", {"command": "databricks bundle destroy -t dev"}, role="devops-engineer")
 
 
+def test_the_bundle_target_name_comes_from_the_policy(policy):
+    policy["dev_target"] = "development"
+    assert decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t development"}, role="devops-engineer") is None
+    assert "only to the 'development' target" in decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t dev"}, role="devops-engineer")
+
+
 def test_cli_may_not_target_production(policy):
     assert "may not target production" in decide(policy, "Bash", {"command": "databricks catalogs list -p sandbox-prod"})
     assert "may not target production" in decide(

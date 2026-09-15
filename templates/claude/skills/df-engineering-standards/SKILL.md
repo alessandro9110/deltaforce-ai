@@ -16,7 +16,7 @@ When they conflict, follow the higher one and mention it in your report.
 
 ## Environment
 
-- The dev target, catalog and schemas are in the *DeltaForce project context* block of `CLAUDE.md` and in `.deltaforce/config.yaml`.
+- The dev target, catalog and schemas are in the *DeltaForce project context* block of `CLAUDE.md` and in `.deltaforce/config.yaml`. The bundle target is usually `dev` but the project may name it differently: wherever these instructions say `-t <dev target>`, use the *Bundle target* from `CLAUDE.md`.
 - **The dev catalog is the boundary.** Inside it the team may create the schemas, tables, volumes and models the solution needs, as long as they are consistent with the design and the medallion layers. Never write outside it.
 - Databricks CLI: `"$DF_ROOT/.deltaforce/bin/databricks"` (profile preselected), never another Databricks CLI installed on the machine — not even when a command is blocked: report the block instead. Databricks MCP tools use the same profile.
 - Serverless compute first. Classic clusters only when the design says so.

@@ -11,7 +11,7 @@ from typing import Any
 import yaml
 
 from . import guardrails, team
-from .config import LAYERS, ConfigError, load_roles, load_versions
+from .config import LAYERS, ConfigError, dev_bundle_target, load_roles, load_versions
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
 MCP_SERVER_NAME = "databricks"
@@ -220,6 +220,7 @@ def render_project_context(config: Mapping[str, Any]) -> str:
     compute = "serverless" if db["compute"] == "serverless" else f"cluster `{db['cluster_id']}`"
     protected = ", ".join(f"`{branch}`" for branch in project["protected_branches"])
     bundle_vars = ", ".join(f"`${{var.{name}}}`" for name in ("catalog", "warehouse_id", *variables))
+    target = dev_bundle_target(config)
 
     prod = config.get("prod")
     prod_row = (
@@ -240,6 +241,7 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 | Databricks CLI | `"$DF_ROOT/.deltaforce/bin/databricks"` — profile `{db['profile']}` is preselected through the environment |
 | Team | Sessions start as the PM; PO commands `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions` |
 | Client conventions | `.deltaforce/conventions.yaml` |{prod_row}
+| Bundle target | `{target}` — the only target the team validates, deploys and runs: always pass `-t {target}` |
 | SQL warehouse | `{db['warehouse_id']}` |
 | Compute | {compute} |
 | Dev catalog | `{dev['catalog']}` |
@@ -251,7 +253,7 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 - The schemas above are the starting point, not a limit: create the schemas and tables the solution needs inside the dev catalog, keep them consistent with the architecture in `.deltaforce/architecture/` and the medallion layers, and declare them in the bundle with variables.
 - When calling Databricks MCP tools directly (exploration, validation), pass the dev catalog and schemas above explicitly.
 - Every Databricks resource (jobs, pipelines, schemas, volumes, dashboards, apps, endpoints, indexes, …) is declared in the asset bundle and deployed by the DevOps Engineer; MCP tools are for reading, querying and running only.
-- DeltaForce guardrails (hooks) block resource changes outside the bundle, writes outside the dev catalog, any non-read activity on production, bundle deploys outside the dev target or by roles other than the DevOps Engineer, pushes to protected branches and history rewrites. A blocked action returns `DeltaForce guardrail: <reason>`: report it, never work around it.
+- DeltaForce guardrails (hooks) block resource changes outside the bundle, writes outside the dev catalog, any non-read activity on production, bundle deploys outside the `{target}` target or by roles other than the DevOps Engineer, pushes to protected branches and history rewrites. A blocked action returns `DeltaForce guardrail: <reason>`: report it, never work around it.
 """
 
 
@@ -271,6 +273,7 @@ def write_gitignore(_: Mapping[str, Any], paths: ProjectPaths) -> Path:
 def write_bundle(config: Mapping[str, Any], paths: ProjectPaths) -> list[Path]:
     project, db = config["project"], config["databricks"]
     dev = config["targets"]["dev"]
+    target = dev_bundle_target(config)
     written = []
 
     if not paths.bundle.exists():
@@ -278,7 +281,7 @@ def write_bundle(config: Mapping[str, Any], paths: ProjectPaths) -> list[Path]:
             "bundle": {"name": project["name"]},
             "include": ["resources/*.yml"],
             "targets": {
-                "dev": {"mode": "development", "default": True, "workspace": {"host": db["host"]}},
+                target: {"mode": "development", "default": True, "workspace": {"host": db["host"]}},
                 "prod": {"mode": "production"},
             },
         }
@@ -309,7 +312,7 @@ def write_bundle(config: Mapping[str, Any], paths: ProjectPaths) -> list[Path]:
             for name, text in descriptions.items()
             if name not in existing
         },
-        "targets": {"dev": {"variables": {name: value for name, value in dev_values.items() if name not in existing}}},
+        "targets": {target: {"variables": {name: value for name, value in dev_values.items() if name not in existing}}},
     }
     header = GENERATED_HEADER
     skipped = [name for name in descriptions if name in existing]
@@ -320,22 +323,22 @@ def write_bundle(config: Mapping[str, Any], paths: ProjectPaths) -> list[Path]:
     return written
 
 
-def existing_bundle_variables(paths: ProjectPaths) -> set[str]:
-    """Variables defined by the project's own bundle files (databricks.yml and its includes), not by DeltaForce."""
+def _project_bundle_documents(paths: ProjectPaths) -> list[dict[str, Any]]:
+    """The project's own bundle files — databricks.yml and its includes — without the file DeltaForce generates."""
     if not paths.bundle.exists():
-        return set()
+        return []
     try:
         bundle = yaml.safe_load(paths.bundle.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
-        return set()
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return []
     if not isinstance(bundle, dict):
-        return set()
+        return []
     files = [paths.bundle]
     for pattern in bundle.get("include") or []:
         if isinstance(pattern, str):
             files += sorted(paths.root.glob(pattern))
     generated = paths.bundle_variables.resolve()
-    names: set[str] = set()
+    documents = []
     for path in files:
         if not path.is_file() or path.resolve() == generated:
             continue
@@ -343,9 +346,29 @@ def existing_bundle_variables(paths: ProjectPaths) -> set[str]:
             document = yaml.safe_load(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, yaml.YAMLError):
             continue
-        if isinstance(document, dict) and isinstance(document.get("variables"), dict):
-            names.update(str(name) for name in document["variables"])
-    return names
+        if isinstance(document, dict):
+            documents.append(document)
+    return documents
+
+
+def existing_bundle_variables(paths: ProjectPaths) -> set[str]:
+    """Variables defined by the project's own bundle files, not by DeltaForce."""
+    return {
+        str(name)
+        for document in _project_bundle_documents(paths)
+        if isinstance(document.get("variables"), dict)
+        for name in document["variables"]
+    }
+
+
+def existing_bundle_targets(paths: ProjectPaths) -> dict[str, dict[str, Any]]:
+    """Targets declared by the project's own bundle files, in order, with their settings."""
+    targets: dict[str, dict[str, Any]] = {}
+    for document in _project_bundle_documents(paths):
+        if isinstance(document.get("targets"), dict):
+            for name, spec in document["targets"].items():
+                targets.setdefault(str(name), spec if isinstance(spec, dict) else {})
+    return targets
 
 
 def generate_all(config: Mapping[str, Any], paths: ProjectPaths) -> list[str]:

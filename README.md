@@ -167,7 +167,7 @@ test -d $d || git clone -q --depth 1 $u $d
 bash $d/install.sh
 ```
 
-**Next steps:** answer the questions in the terminal — when a question shows `[Enter = value]`, Enter keeps that value. The first run takes a few minutes. Command Prompt cannot take multi-line commands (its prompt has no `PS` in front): switch the terminal to PowerShell or Git Bash. The repository is private: the first time, Git may ask you to sign in to GitHub.
+**Next steps:** answer the questions in the terminal — when a question shows `[Enter = value]`, Enter keeps that value. If Claude Code is open on the project, the installer asks you to close it first. The first run takes a few minutes. Command Prompt cannot take multi-line commands (its prompt has no `PS` in front): switch the terminal to PowerShell or Git Bash. The repository is private: the first time, Git may ask you to sign in to GitHub.
 
 <details>
 <summary><strong>Installer options</strong> (click to expand)</summary>
@@ -196,7 +196,7 @@ Add them after `install.sh`, e.g. `bash .deltaforce/framework/install.sh --dry-r
 
 After **Proceed?** the installer checks out the dev branch (offering to create and push it), downloads the tools and signs you in. Then, from lists read from your workspace:
 
-**Dev target** — SQL warehouse; compute (serverless recommended, or a cluster); dev catalog (must exist); medallion layout — one schema with `bronze_`/`silver_`/`gold_` prefixes, or one schema per layer; schema names (created if missing). They are the starting point: the team adds the schemas and tables the solution needs inside the dev catalog.
+**Dev target** — the bundle target the team deploys to (`dev`; asked only when the project's own bundle names its development target differently); SQL warehouse; compute (serverless recommended, or a cluster); dev catalog (must exist); medallion layout — one schema with `bronze_`/`silver_`/`gold_` prefixes, or one schema per layer; schema names (created if missing). They are the starting point: the team adds the schemas and tables the solution needs inside the dev catalog.
 
 Answers from a previous installation are offered as defaults. Finally the installer writes the configuration, installs everything, offers to **commit the files it installed** (agents cannot change or commit them) and runs the readiness checks.
 
@@ -330,7 +330,7 @@ A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in
 
 ## Update, reconfigure or remove
 
-**Update** — with Claude Code **closed**, run the install command again. It updates `.deltaforce/framework`, offers your answers as defaults and refreshes everything. The team's work — documents, backlog, reports, state, code, tests, bundle resources, data — is never touched.
+**Update** — with Claude Code **closed** (the installer checks and asks), run the install command again. It updates `.deltaforce/framework`, offers your answers as defaults and refreshes everything. The team's work — documents, backlog, reports, state, code, tests, bundle resources, data — is never touched.
 
 ```powershell
 & "$env:ProgramFiles\Git\bin\bash.exe" -c 'git -C .deltaforce/framework pull && bash .deltaforce/framework/install.sh'

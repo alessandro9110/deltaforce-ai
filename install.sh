@@ -128,6 +128,7 @@ main() {
 
     df_step "Preflight"
     df_preflight
+    [ "$DF_DRY_RUN" = true ] || df_check_claude_closed
     df_load_existing_config
 
     if [ "$DF_INTERACTIVE" = true ]; then

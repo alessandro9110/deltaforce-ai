@@ -110,6 +110,26 @@ df_ask_workspace() {
 df_ask_target() {
     local -a items=()
 
+    # The bundle target the team deploys to: dev, unless the project's own bundle has no target of that name.
+    local -a targets=()
+    local names
+    mapfile -t targets < <(df_py bundle-targets --target "$(df_native_path "$DF_TARGET_DIR")" 2>/dev/null)
+    names=$(printf '%s\n' "${targets[@]}" | cut -d'|' -f1)
+    if [ -n "${DF_BUNDLE_TARGET:-}" ] && { [ ${#targets[@]} -eq 0 ] || grep -qx -- "$DF_BUNDLE_TARGET" <<<"$names"; } \
+        && [ "$DF_ADVANCED" != true ]; then
+        :  # from the existing configuration
+    elif [ ${#targets[@]} -gt 0 ] && ! grep -qx dev <<<"$names"; then
+        df_choose DF_BUNDLE_TARGET "Bundle target the team deploys to — the project's bundle has no 'dev' target" \
+            "$(printf '%s\n' "${targets[@]}" | grep -m 1 'mode development' | cut -d'|' -f1)" true "${targets[@]}"
+    elif [ "$DF_ADVANCED" = true ]; then
+        df_ask_valid DF_BUNDLE_TARGET "Bundle target the team deploys to" "${DF_BUNDLE_TARGET:-dev}" \
+            '^[A-Za-z0-9_-]+$' "a bundle target name"
+    else
+        DF_BUNDLE_TARGET=dev
+    fi
+    [[ $DF_BUNDLE_TARGET =~ ^[A-Za-z0-9_-]+$ ]] || df_die "Invalid bundle target: '$DF_BUNDLE_TARGET'"
+    df_ok "Bundle target '$DF_BUNDLE_TARGET'"
+
     mapfile -t items < <(df_databricks_items warehouses warehouses list)
     if [ ${#items[@]} -gt 0 ]; then
         df_choose DF_WAREHOUSE_ID "SQL warehouse" "${DF_WAREHOUSE_ID:-}" true "${items[@]}"
@@ -290,7 +310,7 @@ df_print_summary() {
         df_msg "Production: none"
     fi
     df_msg "Warehouse:  $DF_WAREHOUSE_ID — compute $DF_COMPUTE${DF_CLUSTER_ID:+ ($DF_CLUSTER_ID)}"
-    df_msg "Dev target: catalog $DF_CATALOG — $schemas"
+    df_msg "Dev target: bundle target $DF_BUNDLE_TARGET — catalog $DF_CATALOG — $schemas"
     df_msg "Team:       ${DF_ROLES//,/, } — default model $DF_MODEL_DEFAULT, nesting depth $DF_MAX_SPAWN_DEPTH"
     df_msg "AI Dev Kit: $DF_ADK_REF"
 }
