@@ -67,7 +67,7 @@ roles:
 
   qa-engineer:
     title: QA Engineer
-    mcp: [execute_sql, execute_sql_multi, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_job_runs, manage_pipeline_run, query_vs_index, ask_genie]
+    mcp: [execute_sql, execute_sql_multi, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_job_runs, manage_pipeline_run, manage_dashboard, query_vs_index, ask_genie]
     prod_read: true
     delegates: [data-analyst]
     skills: [databricks-core, databricks-dbsql, databricks-mlflow-evaluation, databricks-synthetic-data-gen]

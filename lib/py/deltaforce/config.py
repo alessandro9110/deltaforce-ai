@@ -88,6 +88,14 @@ def validate(data: Mapping[str, Any]) -> None:
             raise ConfigError("the production profile must differ from the dev profile")
         if prod["host"].lower() == data["databricks"]["host"].lower():
             raise ConfigError("the production workspace must be a different workspace from dev")
+    target, names, targets = dev_bundle_target(data), set(), set()
+    for env in data.get("environments") or []:
+        if env["bundle_target"] == target:
+            raise ConfigError(f"environment '{env['name']}' cannot use the dev bundle target '{target}'")
+        if env["name"] in names or env["bundle_target"] in targets:
+            raise ConfigError(f"environment '{env['name']}': environment names and bundle targets must be unique")
+        names.add(env["name"])
+        targets.add(env["bundle_target"])
 
 
 def dev_bundle_target(data: Mapping[str, Any]) -> str:
@@ -121,6 +129,23 @@ def skills_for_roles(roles: list[str]) -> list[str]:
 
 def _csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def parse_environments(value: str | None) -> list[dict[str, Any]]:
+    """DF_ENVIRONMENTS — `name|bundle_target|catalog[,catalog]` entries separated by `;` — as config entries."""
+    environments = []
+    for entry in (value or "").split(";"):
+        if not entry.strip():
+            continue
+        parts = [part.strip() for part in entry.split("|")]
+        if len(parts) != 3:
+            raise ConfigError(f"DF_ENVIRONMENTS entry '{entry}' must be name|bundle_target|catalog[,catalog]")
+        environments.append({"name": parts[0], "bundle_target": parts[1], "catalogs": _csv(parts[2])})
+    return environments
+
+
+def format_environments(environments: list[Mapping[str, Any]] | None) -> str:
+    return ";".join(f"{env['name']}|{env['bundle_target']}|{','.join(env['catalogs'])}" for env in environments or [])
 
 
 def build_from_env(env: Mapping[str, str]) -> dict[str, Any]:
@@ -184,6 +209,7 @@ def build_from_env(env: Mapping[str, str]) -> dict[str, Any]:
         },
         "prod": prod,
         "targets": {"dev": {"bundle_target": get("DF_BUNDLE_TARGET", "dev"), "catalog": get("DF_CATALOG"), "medallion": medallion}},
+        "environments": parse_environments(get("DF_ENVIRONMENTS")),
         "team": {"roles": roles, "models": models, "max_spawn_depth": depth},
         "ai_dev_kit": {
             "repo": get("DF_ADK_REPO", versions["DF_ADK_DEFAULT_REPO"]),
@@ -215,6 +241,7 @@ def export_env(data: Mapping[str, Any]) -> str:
         "DF_COMPUTE": db["compute"],
         "DF_CLUSTER_ID": db.get("cluster_id") or "",
         "DF_BUNDLE_TARGET": dev_bundle_target(data),
+        "DF_ENVIRONMENTS": format_environments(data.get("environments")),
         "DF_CATALOG": dev["catalog"],
         "DF_MEDALLION_LAYOUT": medallion["layout"],
         "DF_SCHEMA": medallion.get("schema", ""),

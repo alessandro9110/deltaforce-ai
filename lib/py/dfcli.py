@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from deltaforce import backlog, databricks_io, doctor, generate  # noqa: E402
+from deltaforce import backlog, databricks_io, doctor, environments, generate  # noqa: E402
 from deltaforce import config as cfg  # noqa: E402
 from deltaforce.paths import ProjectPaths  # noqa: E402
 
@@ -112,8 +112,23 @@ def cmd_events(args: argparse.Namespace) -> int:
     return cmd_validate(args)
 
 
+def cmd_environments(args: argparse.Namespace) -> int:
+    declared = environments.declared(_paths(args))
+    if declared is None:
+        raise cfg.ConfigError(".deltaforce/conventions.yaml is invalid — run: bash .deltaforce/bin/df validate")
+    candidates, notes = environments.deploy_candidates(declared, args.bundle_target)
+    for env in candidates:
+        print(f"deploy|{env['name']}|{env['bundle_target']}|{','.join(env['catalogs'])}")
+    for name, note in notes:
+        print(f"note|{name}|{note}")
+    return 0
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
-    problems = backlog.validate_project(_paths(args))
+    paths = _paths(args)
+    problems = backlog.validate_project(paths)
+    # Environments declared in the conventions reach the guard hook here: restrictions apply at once.
+    environments.write_runtime(paths)
     for problem in problems:
         print(f"✗ {problem}")
     if not problems:
@@ -168,6 +183,9 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--host", required=True)
     add("generate", cmd_generate, "generate project files from the configuration")
     add("bundle-targets", cmd_bundle_targets, "print the targets of the project's own bundle as menu lines")
+    add("environments", cmd_environments, "print the declared environments the installer may let the team deploy to").add_argument(
+        "--bundle-target", default="dev", help="the team's dev bundle target"
+    )
     add("doctor", cmd_doctor, "run the readiness checks")
     event = add("event", cmd_event, "append a lifecycle event to .deltaforce/events.jsonl")
     event.add_argument("type", choices=backlog.event_types())

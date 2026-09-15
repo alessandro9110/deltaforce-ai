@@ -1,6 +1,6 @@
 ---
 name: df-conventions
-description: Show or change the client conventions of the project — bundle deploy folder, naming, tags, code style and custom rules.
+description: Show or change the client conventions of the project — bundle deploy folder, naming, tags, code style, environments, CI/CD templates, rules on existing data and custom rules.
 disable-model-invocation: true
 argument-hint: "[change to apply]"
 allowed-tools: Bash(bash .deltaforce/bin/df *) Bash(git status *) Bash(git add *) Bash(git commit *)
@@ -17,8 +17,8 @@ If `$ARGUMENTS` is empty and the PO did not ask for a change, read the file and 
 ## Change
 
 1. Interpret the request. If it is ambiguous, confirm the exact change in one line first.
-2. Update `.deltaforce/conventions.yaml`: set the values, set `source: po` when it was `defaults`, put rules on existing data and objects (what must never be dropped or rewritten, and the exceptions) under `data_rules` and other rules that fit no field under `custom`, one sentence each. The project's own bundle variables for the dev catalog and schemas go under `bundle.variables`; where the client's CI/CD pipeline templates are goes under `cicd`.
-3. Run `bash .deltaforce/bin/df validate` and log `conventions_changed` with the changed keys.
+2. Update `.deltaforce/conventions.yaml`: set the values, set `source: po` when it was `defaults`, put rules on existing data and objects (what must never be dropped or rewritten, and the exceptions) under `data_rules` and other rules that fit no field under `custom`, one sentence each. The project's own bundle variables for the dev catalog and schemas go under `bundle.variables`; where the client's CI/CD pipeline templates are goes under `cicd`; the client's environments and what the team may do in each go under `environments` (fields in `df-kickoff`; production is at most `read`).
+3. Run `bash .deltaforce/bin/df validate` and log `conventions_changed` with the changed keys. `df validate` also hands the environments to the guardrails: narrower access (`read`, `none`, an environment removed) applies at once; a new `deploy` environment applies only after the PO re-runs the installer with Claude Code closed and confirms it — tell them.
 4. Delegate to `solution-architect`: record the decision as an ADR in `.deltaforce/architecture/adr/` and assess the impact on design, bundle and features.
 5. If the bundle must change (deploy folder, naming, tags, run_as), delegate to `devops-engineer` to apply it on a `df/conventions-<yyyymmdd>` branch and include it in the next integration.
 6. If approved features must be redeployed or renamed, tell the PO what changes before it happens.

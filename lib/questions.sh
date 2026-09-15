@@ -279,6 +279,52 @@ df_ask_prod_target() {
     [[ $DF_PROD_WAREHOUSE_ID =~ ^[A-Za-z0-9]+$ ]] || df_die "Invalid production SQL warehouse ID: '$DF_PROD_WAREHOUSE_ID'"
 }
 
+# Environments the PO declared at kickoff (environments in .deltaforce/conventions.yaml) where the team should deploy
+# besides the dev target. More access never comes from a conversation alone: each environment needs an explicit yes
+# here; environments confirmed before are kept, and a non-interactive run adds none.
+df_ask_environments() {
+    local -a lines=()
+    local line kind name target catalogs catalog entry answer missing granted=""
+    mapfile -t lines < <(df_py environments --target "$(df_native_path "$DF_TARGET_DIR")" \
+        --bundle-target "$DF_BUNDLE_TARGET" 2>/dev/null)
+    if [ ${#lines[@]} -eq 0 ]; then
+        DF_ENVIRONMENTS=""
+        return 0
+    fi
+    df_step "Other environments"
+    for line in "${lines[@]}"; do
+        IFS='|' read -r kind name target catalogs <<<"$line"
+        if [ "$kind" = note ]; then
+            df_msg "• $name — $target"
+            continue
+        fi
+        entry="$name|$target|$catalogs"
+        missing=""
+        for catalog in ${catalogs//,/ }; do
+            df_databricks_exists catalogs get "$catalog" || missing="${missing:+$missing, }$catalog"
+        done
+        if [ -n "$missing" ]; then
+            df_warn "Environment '$name': catalog $missing does not exist or you cannot access it — the team does not deploy there"
+            continue
+        fi
+        if [[ ";${DF_ENVIRONMENTS:-};" == *";$entry;"* ]]; then
+            answer=yes
+        elif [ "$DF_INTERACTIVE" = true ]; then
+            answer=$(df_read_line "  Let the team deploy to '$name' — bundle target '$target', catalogs ${catalogs//,/, }? [y/N]: ")
+        else
+            answer=no
+        fi
+        case "$answer" in
+            [yY]|[yY][eE][sS])
+                granted="${granted:+$granted;}$entry"
+                df_ok "The team deploys to '$name' (bundle target '$target')"
+                ;;
+            *) df_msg "• $name — not confirmed: the team does not deploy there" ;;
+        esac
+    done
+    DF_ENVIRONMENTS=$granted
+}
+
 df_print_plan() {
     df_msg "Everything below is installed inside $DF_TARGET_DIR — nothing global:"
     df_msg "  • Git branch '$DF_DEV_BRANCH' checked out (created if missing, after asking)"
@@ -296,7 +342,13 @@ df_print_plan() {
 }
 
 df_print_summary() {
-    local schemas
+    local schemas others="" item env_name env_target env_catalogs
+    local -a items=()
+    IFS=';' read -r -a items <<<"${DF_ENVIRONMENTS:-}"
+    for item in "${items[@]}"; do
+        IFS='|' read -r env_name env_target env_catalogs <<<"$item"
+        others+="${others:+; }$env_name (target $env_target, catalogs ${env_catalogs//,/, })"
+    done
     if [ "$DF_MEDALLION_LAYOUT" = single_schema ]; then
         schemas="$DF_SCHEMA (prefixes bronze_, silver_, gold_)"
     else
@@ -311,6 +363,7 @@ df_print_summary() {
     fi
     df_msg "Warehouse:  $DF_WAREHOUSE_ID — compute $DF_COMPUTE${DF_CLUSTER_ID:+ ($DF_CLUSTER_ID)}"
     df_msg "Dev target: bundle target $DF_BUNDLE_TARGET — catalog $DF_CATALOG — $schemas"
+    df_msg "Also deploys: ${others:-no other environment}"
     df_msg "Team:       ${DF_ROLES//,/, } — default model $DF_MODEL_DEFAULT, nesting depth $DF_MAX_SPAWN_DEPTH"
     df_msg "AI Dev Kit: $DF_ADK_REF"
 }

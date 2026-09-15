@@ -145,6 +145,25 @@ def test_bundle_target_defaults_to_dev_and_round_trips():
         cfg.validate(cfg.build_from_env(answers(DF_BUNDLE_TARGET="dev target")))
 
 
+def test_environments_round_trip_and_never_reuse_the_dev_target():
+    data = cfg.build_from_env(answers(DF_ENVIRONMENTS="proto|proto|proto_lab,proto_raw;uat|uat|uat_cat"))
+    cfg.validate(data)
+    assert data["environments"] == [
+        {"name": "proto", "bundle_target": "proto", "catalogs": ["proto_lab", "proto_raw"]},
+        {"name": "uat", "bundle_target": "uat", "catalogs": ["uat_cat"]},
+    ]
+    env = parse_exports(cfg.export_env(data))
+    env["DF_GIT_PROVIDER"] = data["project"]["git_provider"]
+    assert cfg.build_from_env(env) == data
+
+    for value in ("proto|dev|lab", "a|t1|x;b|t1|y", "proto|proto|", "proto"):
+        with pytest.raises(cfg.ConfigError):
+            cfg.validate(cfg.build_from_env(answers(DF_ENVIRONMENTS=value)))
+    legacy = copy.deepcopy(data)
+    del legacy["environments"]  # configurations written before the setting existed
+    cfg.validate(legacy)
+
+
 def test_skills_union_is_ordered_and_deduplicated():
     skills = cfg.skills_for_roles(["pm", "data-engineer", "devops-engineer"])
     assert skills[0] == "databricks-core"

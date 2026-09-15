@@ -181,6 +181,50 @@ def decide_pre(event: dict[str, Any], policy: dict[str, Any]) -> str | None:
     return None
 
 
+def _declared_environments(policy: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """Environments the PO declared in the conventions (copied by `df validate`); None when there is no copy."""
+    path = policy.get("environments_file")
+    if not path:
+        return None
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError):
+        return []  # unreadable: no declaration confirms a grant
+    items = data.get("environments") if isinstance(data, dict) else None
+    return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
+
+def _declared_access(item: dict[str, Any]) -> str:
+    access = str(item.get("team") or "read")
+    if access not in {"deploy", "read", "none"}:
+        return "none"
+    if access == "deploy" and (item.get("production") or item.get("workspace") == "production"):
+        return "read"
+    return access
+
+
+def environments(policy: dict[str, Any]) -> list[dict[str, Any]]:
+    """Environments besides dev with the team's access. Deploy access comes only from the installer (the policy);
+    what the PO declared in the conventions narrows it at once and never widens it."""
+    declared = _declared_environments(policy)
+    by_name = {str(item.get("name")): item for item in declared or []}
+    result: list[dict[str, Any]] = []
+    for grant in policy.get("environments") or []:
+        access = "deploy"
+        if declared is not None:
+            item = by_name.get(str(grant.get("name")))
+            same_target = item is not None and item.get("bundle_target") == grant.get("bundle_target")
+            access = _declared_access(item) if same_target else "read"
+        result.append({**grant, "access": access})
+    granted = {str(env.get("name")) for env in result}
+    for item in declared or []:
+        if str(item.get("name")) not in granted and _declared_access(item) == "none" and item.get("workspace", "dev") == "dev":
+            result.append({**item, "access": "none"})
+    return result
+
+
 def _decide_mcp(tool: str, tool_input: dict[str, Any], role: str, policy: dict[str, Any]) -> str | None:
     parts = tool.split("__", 2)
     if len(parts) != 3:
@@ -203,9 +247,27 @@ def _decide_mcp(tool: str, tool_input: dict[str, Any], role: str, policy: dict[s
     if server != policy.get("dev_server"):
         return None
     dev_catalog = str(policy["dev_catalog"])
+    envs = environments(policy)
+    own = {str(catalog).lower() for env in envs if env["access"] == "deploy" for catalog in env.get("catalogs") or []}
+    own.discard(dev_catalog.lower())
+    writable = own | {dev_catalog.lower()}
+    closed = {
+        str(catalog).lower(): str(env.get("name"))
+        for env in envs
+        if env["access"] == "none"
+        for catalog in env.get("catalogs") or []
+        if str(catalog).lower() not in writable
+    }
     argument = SQL_ARGUMENT.get(name)
+    sql = str(tool_input.get(argument, "")) if argument else ""
+    if closed:
+        named = sorted((input_catalogs(tool_input) | (sql_catalogs(sql) if sql else set())) & closed.keys())
+        if named:
+            return f"the team has no access to environment '{closed[named[0]]}' (catalog {named[0]})"
+    allowed = f"the dev catalog '{dev_catalog}'"
+    if own:
+        allowed += f" and the catalogs of the environments the team deploys to ({', '.join(sorted(own))})"
     if argument:
-        sql = str(tool_input.get(argument, ""))
         if is_read_only(sql):
             return None
         catalogs = sql_catalogs(sql)
@@ -213,9 +275,9 @@ def _decide_mcp(tool: str, tool_input: dict[str, Any], role: str, policy: dict[s
             catalogs.add(str(tool_input["catalog"]).lower())
         if not catalogs:
             return f"qualify SQL writes with the dev catalog ({dev_catalog}.<schema>.<table>) or pass catalog='{dev_catalog}'"
-        outside = sorted(catalog for catalog in catalogs if catalog != dev_catalog.lower())
+        outside = sorted(catalog for catalog in catalogs if catalog not in writable)
         if outside:
-            return f"writes are allowed only in the dev catalog '{dev_catalog}' (found: {', '.join(outside)})"
+            return f"writes are allowed only in {allowed} (found: {', '.join(outside)})"
         return None
 
     action = str(tool_input.get("action", "")).lower()
@@ -231,9 +293,9 @@ def _decide_mcp(tool: str, tool_input: dict[str, Any], role: str, policy: dict[s
             f"('{name}' action '{action or 'default'}'): declare it in resources/*.yml and let the DevOps Engineer deploy"
         )
     if action or name in DATA_WRITE_TOOLS_WITHOUT_ACTION:
-        outside = sorted(catalog for catalog in input_catalogs(tool_input) if catalog != dev_catalog.lower())
+        outside = sorted(catalog for catalog in input_catalogs(tool_input) if catalog not in writable)
         if outside:
-            return f"changes are allowed only in the dev catalog '{dev_catalog}' (found: {', '.join(outside)})"
+            return f"changes are allowed only in {allowed} (found: {', '.join(outside)})"
     return None
 
 
@@ -476,8 +538,20 @@ def _decide_databricks(arguments: list[str], env: dict[str, str], role: str, pol
             deployer = policy.get("deployer_role", "devops-engineer")
             if role != deployer:
                 return f"only the {deployer} deploys and runs bundles"
-            if target and target != policy.get("dev_target", "dev"):
-                return f"bundles are deployed only to the '{policy.get('dev_target', 'dev')}' target: production goes through CI/CD"
+            dev_target = policy.get("dev_target", "dev")
+            if target and target != dev_target:
+                envs = environments(policy)
+                env = next((item for item in envs if item.get("bundle_target") == target), None)
+                if env and env["access"] == "deploy":
+                    return None
+                if env:
+                    return (
+                        f"the team may not deploy to environment '{env.get('name')}' ({env['access']} access): "
+                        "it is deployed through CI/CD or by a person"
+                    )
+                others = [f"'{item['bundle_target']}'" for item in envs if item["access"] == "deploy" and item.get("bundle_target")]
+                extra = f" and to {', '.join(others)}" if others else ""
+                return f"bundles are deployed only to the '{dev_target}' target{extra}: production and other environments go through CI/CD"
     return None
 
 

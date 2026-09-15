@@ -104,7 +104,7 @@ A Mermaid diagram and a short narrative.
 Medallion design per discipline in scope (data engineering, analytics, ML, GenAI); data model; tables, views, volumes, models, indexes and endpoints with names built from bundle variables; lineage diagram. Mark table names proposed by the team for PO confirmation at G1.
 
 ## 6. Physical architecture and deployment
-Workspace, catalog and schemas, compute, bundle layout and resources, environments (dev, prod), CI/CD — the pipeline built on the client's templates (`cicd` in the conventions): stages, triggers, the production target, the service principal and the `BUNDLE_VAR_` values the client configures — how the client conventions are applied (deploy root path, naming, tags, run_as).
+Workspace, catalog and schemas, compute, bundle layout and resources, environments — every environment in `environments` of the conventions with its bundle target, catalogs, variable values per target, what the team may do there and the promotion path, and which environment each feature is deployed and tested in (the dev target unless the PO wants otherwise) —, CI/CD — the pipeline built on the client's templates (`cicd` in the conventions): stages, triggers, the production target, the service principal and the `BUNDLE_VAR_` values the client configures — how the client conventions are applied (deploy root path, naming, tags, run_as).
 
 ## 7. Security and governance
 Unity Catalog permissions, access to production data, secrets, sensitive data.
@@ -149,6 +149,7 @@ Versioning: drafts are `0.x`; the PM sets `1.0 — Approved` at G1; every later 
 
 - Every Databricks resource is declared in the asset bundle and deployed by the DevOps Engineer. Section 6 of the Architecture lists each resource with its bundle file; a resource the bundle cannot declare gets a bundle job task that creates it and an ADR.
 - The dev catalog is the boundary. Inside it the team may create the schemas and tables the solution needs, as long as they follow the medallion layers and the architecture.
+- Never assume the environments: design from `environments` in the conventions. Give every environment the team or CI/CD deploys a bundle target with its variable values (no production values in the repository; the DevOps Engineer adds the targets), and report missing bundle targets or catalogs to the PM, who records them in the conventions.
 - Never write catalog, schema or table names literally in designs meant for code: use the bundle variables listed in `CLAUDE.md`, or in an existing project the project's own variables recorded in `bundle.variables` of the conventions.
 - Prefer managed, serverless and declarative Databricks features (Lakeflow Declarative Pipelines, Jobs, Unity Catalog, Metric Views, Vector Search, Model Serving) unless the requirements say otherwise.
 - The Databricks skills below hold current patterns; load them with the Skill tool when you design that area:

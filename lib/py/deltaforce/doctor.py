@@ -11,9 +11,16 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from . import backlog, guardrails, team
+from . import backlog, environments, guardrails, team
 from . import config as cfg
-from .generate import CLAUDE_MD_START, GITIGNORE_START, MCP_SERVER_NAME, is_deltaforce_statusline, medallion_schemas
+from .generate import (
+    CLAUDE_MD_START,
+    GITIGNORE_START,
+    MCP_SERVER_NAME,
+    existing_bundle_targets,
+    is_deltaforce_statusline,
+    medallion_schemas,
+)
 from .paths import ProjectPaths
 
 CONFLICTING_ENV = ("DATABRICKS_HOST", "DATABRICKS_TOKEN", "DATABRICKS_CLIENT_ID", "DATABRICKS_CLIENT_SECRET")
@@ -269,6 +276,21 @@ class Doctor:
         detail = "valid" if not problems else f"{len(problems)} problem(s): {problems[0]}"
         self.add("project-state", "Conventions, state, backlog and events", not problems, detail[:200], "warn")
 
+    def check_environments(self) -> None:
+        granted = self.config.get("environments") or []
+        waiting = environments.pending(self.paths, self.config)
+        if not granted and not waiting:
+            return
+        targets = existing_bundle_targets(self.paths)
+        missing = [env["bundle_target"] for env in granted if env["bundle_target"] not in targets]
+        if waiting:
+            detail = f"declared, not confirmed: {', '.join(waiting)} — re-run the installer with Claude Code closed to let the team deploy there"
+        elif missing:
+            detail = f"no bundle target {', '.join(missing)} yet — the Solution Architect adds it to databricks.yml"
+        else:
+            detail = "the team also deploys to " + ", ".join(f"{env['name']} (-t {env['bundle_target']})" for env in granted)
+        self.add("environments", "Environments", not waiting and not missing, detail, "warn")
+
     def check_guardrails(self) -> None:
         policy_ok = self.paths.guard_policy.exists()
         self.add("guard-policy", "Guardrail policy", policy_ok, "" if policy_ok else "missing — re-run the installer")
@@ -331,6 +353,7 @@ def run(paths: ProjectPaths) -> dict[str, Any]:
         doctor.check_team()
         doctor.check_integrity()
         doctor.check_project_state()
+        doctor.check_environments()
         doctor.check_guardrails()
         if workspace_ok:
             doctor.check_bundle_validate()

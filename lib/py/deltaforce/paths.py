@@ -83,6 +83,10 @@ class ProjectPaths:
         return self.runtime / "activity.jsonl"
 
     @property
+    def declared_environments(self) -> Path:
+        return self.runtime / "environments.json"
+
+    @property
     def venv_python(self) -> Path:
         venv = self.runtime / "venv"
         return venv / "Scripts" / "python.exe" if IS_WINDOWS else venv / "bin" / "python"

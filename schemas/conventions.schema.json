@@ -45,6 +45,37 @@
         "notes": { "type": ["string", "null"] }
       }
     },
+    "environments": {
+      "description": "The client's environments besides the team's dev target, declared by the PO at kickoff: what each is for and what the team may do there. Deploy access beyond dev applies only once the PO confirms it in the installer; narrower access applies at once.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "team"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+          "purpose": { "type": ["string", "null"] },
+          "workspace": { "enum": ["dev", "production", "other"] },
+          "production": { "type": "boolean" },
+          "bundle_target": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]+$" },
+          "catalogs": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" } },
+          "team": { "enum": ["deploy", "read", "none"] },
+          "deployed_by": { "enum": ["team", "cicd"] },
+          "data_rules": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "notes": { "type": ["string", "null"] }
+        },
+        "allOf": [
+          {
+            "if": { "required": ["production"], "properties": { "production": { "const": true } } },
+            "then": { "properties": { "team": { "enum": ["read", "none"] } } }
+          },
+          {
+            "if": { "required": ["workspace"], "properties": { "workspace": { "const": "production" } } },
+            "then": { "properties": { "team": { "enum": ["read", "none"] } } }
+          }
+        ]
+      }
+    },
     "data_rules": {
       "description": "Rules on existing data and objects given by the PO, e.g. which tables may never be dropped and the exceptions",
       "type": "array",

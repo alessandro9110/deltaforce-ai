@@ -158,6 +158,66 @@ def test_the_bundle_target_name_comes_from_the_policy(policy):
     assert "only to the 'development' target" in decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t dev"}, role="devops-engineer")
 
 
+def test_environments_are_deployed_only_where_the_installer_confirmed_and_the_conventions_allow(policy, tmp_path):
+    declared = tmp_path / "environments.json"
+    policy["environments"] = [{"name": "proto", "bundle_target": "proto", "catalogs": ["proto_lab"]}]
+    policy["environments_file"] = str(declared)
+    devops = "devops-engineer"
+
+    def declare(*items):
+        declared.write_text(json.dumps({"environments": list(items)}), encoding="utf-8")
+
+    # Confirmed in the installer and declared for deploys: deploys and writes in its catalog are allowed.
+    declare({"name": "proto", "bundle_target": "proto", "catalogs": ["proto_lab"], "team": "deploy"})
+    assert decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t proto"}, role=devops) is None
+    assert decide(policy, DEV_SQL, {"sql_query": "CREATE TABLE proto_lab.s.t AS SELECT 1"}) is None
+    assert "only to the 'dev' target and to 'proto'" in decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t qa"}, role=devops)
+    assert "proto_lab" in decide(policy, DEV_SQL, {"sql_query": "INSERT INTO other.s.t SELECT 1"})
+
+    # The conventions narrow it at once: read-only.
+    declare({"name": "proto", "bundle_target": "proto", "catalogs": ["proto_lab"], "team": "read"})
+    assert "may not deploy to environment 'proto' (read access)" in decide(
+        policy, "Bash", {"command": f"{CLI} bundle deploy -t proto"}, role=devops
+    )
+    assert "only in the dev catalog" in decide(policy, DEV_SQL, {"sql_query": "CREATE TABLE proto_lab.s.t AS SELECT 1"})
+    assert decide(policy, DEV_SQL, {"sql_query": "SELECT * FROM proto_lab.s.t"}) is None
+
+    # A declaration never widens: an environment the installer did not confirm stays closed to deploys,
+    # and a confirmed one that is no longer declared falls back to reads.
+    declare({"name": "uat", "bundle_target": "uat", "catalogs": ["uat"], "team": "deploy"})
+    assert "only to the 'dev' target" in decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t uat"}, role=devops)
+    assert "may not deploy to environment 'proto'" in decide(policy, "Bash", {"command": f"{CLI} bundle run -t proto job"}, role=devops)
+
+
+def test_environments_without_access_are_closed_and_production_is_never_deployed(policy, tmp_path):
+    declared = tmp_path / "environments.json"
+    policy["environments"] = [{"name": "staging", "bundle_target": "staging", "catalogs": ["staging"]}]
+    policy["environments_file"] = str(declared)
+    declared.write_text(
+        json.dumps(
+            {
+                "environments": [
+                    {"name": "staging", "bundle_target": "staging", "catalogs": ["staging"], "team": "deploy", "production": True},
+                    {"name": "hr", "catalogs": ["hr_sensitive", "main"], "team": "none"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    devops = "devops-engineer"
+    assert "may not deploy to environment 'staging'" in decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t staging"}, role=devops)
+    assert "no access to environment 'hr'" in decide(policy, DEV_SQL, {"sql_query": "SELECT * FROM hr_sensitive.people.salaries"})
+    assert "no access to environment 'hr'" in decide(
+        policy, "mcp__databricks__get_table_stats_and_schema", {"catalog": "hr_sensitive", "schema": "people"}
+    )
+    assert decide(policy, DEV_SQL, {"sql_query": "SELECT * FROM main.bronze.trips"}) is None  # the dev catalog stays open
+
+    declared.write_text("not json", encoding="utf-8")  # unreadable: no declaration confirms the grant
+    assert "may not deploy to environment 'staging'" in decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t staging"}, role=devops)
+    declared.unlink()  # never copied: the installer's grant applies
+    assert decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t staging"}, role=devops) is None
+
+
 def test_cli_may_not_target_production(policy):
     assert "may not target production" in decide(policy, "Bash", {"command": "databricks catalogs list -p sandbox-prod"})
     assert "may not target production" in decide(

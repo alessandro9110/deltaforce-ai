@@ -24,5 +24,15 @@ cicd:                       # the client's CI/CD pipeline templates, asked at ki
   ref: null                 # branch or tag of the templates repository
   paths: []                 # template or pipeline files to use or extend
   notes: null               # anything else: CI-only or deploy templates, required stages, variable groups, approvals
+environments: []            # the client's environments besides the dev target, asked at kickoff, e.g.:
+#  - name: proto              # as the client calls it
+#    purpose: prototyping
+#    workspace: dev           # dev (the team's dev workspace) | production | other
+#    production: false        # true: the team at most reads
+#    bundle_target: proto     # null until the bundle has a target for it
+#    catalogs: [proto_lab]
+#    team: deploy             # deploy | read | none — deploy beyond dev needs the PO's yes in the installer
+#    deployed_by: team        # team | cicd
+#    data_rules: [Tables may be dropped and recreated]
 data_rules: []              # rules on existing data and objects, e.g. "Existing tables in dev are never dropped"
 custom: []                  # other client rules, one sentence each

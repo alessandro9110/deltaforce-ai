@@ -166,6 +166,7 @@ main() {
     df_step "Dev target"
     df_ask_target
     df_ask_prod_target
+    df_ask_environments
 
     df_step "Team"
     df_ask_team

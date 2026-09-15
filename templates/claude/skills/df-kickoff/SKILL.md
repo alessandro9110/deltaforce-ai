@@ -61,7 +61,9 @@ Ask how this client organizes Databricks projects, with these options:
 - **Provided during development** — the PO hands over CI-only or deploy templates later; ask them to put the files in the repository when they arrive;
 - **None** — the team proposes the DeltaForce standard pipeline, which the client adopts or changes.
 
-Update `.deltaforce/conventions.yaml`: `cicd` (`templates`, `repository`, `ref`, `paths`, `notes`), `project.kind` (`new` or `existing`), the PO's rules on existing data under `data_rules` (one sentence each, in English), `source` (`defaults`, `po` or `derived` with `source_reference`; for *From this repository* use `derived` with `source_reference: existing codebase` once the analysis is confirmed) and only the values the PO gave; everything else stays as it is.
+**Environments** — never assume dev, test and prod. Ask which environments the client has besides the team's dev target in `CLAUDE.md` — for example prototyping, test, UAT, pre-production, production — and for each: what it is for; where it is (the team's dev workspace, the production workspace, another workspace); its catalogs and bundle target, if known; what the team may do there — **deploy** (the DevOps Engineer deploys and runs the bundle, builders write in its catalogs), **read** or **none**; whether the team or CI/CD deploys it; its data rules (e.g. *in proto, tables may be dropped and recreated*). Production is at most read. When the client has nothing else, record only production. The Solution Architect completes missing bundle targets and catalogs in the design.
+
+Update `.deltaforce/conventions.yaml`: `cicd` (`templates`, `repository`, `ref`, `paths`, `notes`), `environments` (one entry each: `name`, `purpose`, `workspace`, `production`, `bundle_target`, `catalogs`, `team`, `deployed_by`, `data_rules`), `project.kind` (`new` or `existing`), the PO's rules on existing data under `data_rules` (one sentence each, in English), `source` (`defaults`, `po` or `derived` with `source_reference`; for *From this repository* use `derived` with `source_reference: existing codebase` once the analysis is confirmed) and only the values the PO gave; everything else stays as it is.
 
 ## 5. Record
 
@@ -100,4 +102,4 @@ Update `.deltaforce/conventions.yaml`: `cicd` (`templates`, `repository`, `ref`,
 
 ## 6. Start
 
-Tell the PO in two or three lines what happens now — for an existing project the analysis of what exists comes first — then requirements, design, feature list and their review at G1, and that you will ask only if something needs them. Then continue immediately with Phase 1 of your process.
+Tell the PO in two or three lines what happens now — for an existing project the analysis of what exists comes first — then requirements, design, feature list and their review at G1, and that you will ask only if something needs them. If an environment besides the dev target has `team: deploy`, add that the team can deploy there only after the PO re-runs the installer with Claude Code closed and confirms it — until then the team only reads there — while `read` and `none` apply at once. Then continue immediately with Phase 1 of your process.

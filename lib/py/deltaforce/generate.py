@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from . import guardrails, team
+from . import environments, guardrails, team
 from .config import LAYERS, ConfigError, dev_bundle_target, load_roles, load_versions
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
@@ -221,6 +221,15 @@ def render_project_context(config: Mapping[str, Any]) -> str:
     protected = ", ".join(f"`{branch}`" for branch in project["protected_branches"])
     bundle_vars = ", ".join(f"`${{var.{name}}}`" for name in ("catalog", "warehouse_id", *variables))
     target = dev_bundle_target(config)
+    others = config.get("environments") or []
+    others_row = ""
+    if others:
+        items = "; ".join(
+            f"`{env['name']}` — target `{env['bundle_target']}`, catalogs {', '.join(f'`{catalog}`' for catalog in env['catalogs'])}"
+            for env in others
+        )
+        others_row = f"\n| Other environments the team deploys to | {items} — confirmed by the PO in the installer |"
+    target_note = ", or `-t <target>` of an environment below when the design deploys a feature there" if others else ""
 
     prod = config.get("prod")
     prod_row = (
@@ -241,7 +250,7 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 | Databricks CLI | `"$DF_ROOT/.deltaforce/bin/databricks"` — profile `{db['profile']}` is preselected through the environment |
 | Team | Sessions start as the PM; PO commands `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions` |
 | Client conventions | `.deltaforce/conventions.yaml` |{prod_row}
-| Bundle target | `{target}` — the only target the team validates, deploys and runs: always pass `-t {target}` |
+| Bundle target | `{target}` — the team's dev target: always pass `-t {target}`{target_note} |{others_row}
 | SQL warehouse | `{db['warehouse_id']}` |
 | Compute | {compute} |
 | Dev catalog | `{dev['catalog']}` |
@@ -251,9 +260,10 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 
 - In source code and bundle resources, reference these values only through bundle variables ({bundle_vars}, or in an existing project the project's own variables recorded under `bundle.variables` in `.deltaforce/conventions.yaml`); never write catalog, schema or table names literally.
 - The schemas above are the starting point, not a limit: create the schemas and tables the solution needs inside the dev catalog, keep them consistent with the architecture in `.deltaforce/architecture/` and the medallion layers, and declare them in the bundle with variables.
+- The client's environments — what each is for, its catalogs, what the team may do there and how it is deployed — are under `environments` in `.deltaforce/conventions.yaml`. The team deploys and writes only on the dev target and catalog and on the environments confirmed above; an environment declared read-only or without access is closed at once.
 - When calling Databricks MCP tools directly (exploration, validation), pass the dev catalog and schemas above explicitly.
 - Every Databricks resource (jobs, pipelines, schemas, volumes, dashboards, apps, endpoints, indexes, …) is declared in the asset bundle and deployed by the DevOps Engineer; MCP tools are for reading, querying and running only.
-- DeltaForce guardrails (hooks) block resource changes outside the bundle, writes outside the dev catalog, any non-read activity on production, bundle deploys outside the `{target}` target or by roles other than the DevOps Engineer, pushes to protected branches and history rewrites. A blocked action returns `DeltaForce guardrail: <reason>`: report it, never work around it.
+- DeltaForce guardrails (hooks) block resource changes outside the bundle, writes outside the dev catalog, any non-read activity on production, bundle deploys outside the `{target}` target and the confirmed environments or by roles other than the DevOps Engineer, pushes to protected branches and history rewrites. A blocked action returns `DeltaForce guardrail: <reason>`: report it, never work around it.
 """
 
 
@@ -382,4 +392,7 @@ def generate_all(config: Mapping[str, Any], paths: ProjectPaths) -> list[str]:
         write_guard_policy(config, paths),
         *write_bundle(config, paths),
     ]
+    declared = environments.write_runtime(paths)
+    if declared:
+        written.append(declared)
     return [path.relative_to(paths.root).as_posix() for path in written] + team.install_team(config, paths)

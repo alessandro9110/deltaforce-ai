@@ -96,6 +96,9 @@ def build_policy(config: Mapping[str, Any], paths: ProjectPaths, roles: Mapping[
         "dev_server": DEV_MCP_SERVER,
         "dev_catalog": config["targets"]["dev"]["catalog"],
         "dev_target": dev_bundle_target(config),
+        # Deploy grants confirmed in the installer; the environments declared in the conventions only narrow them.
+        "environments": [dict(env) for env in config.get("environments") or []],
+        "environments_file": _posix(paths.declared_environments),
         "dev_branch": config["project"]["dev_branch"],
         "protected_branches": list(config["project"]["protected_branches"]),
         "integration_branch": INTEGRATION_BRANCH,

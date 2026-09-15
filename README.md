@@ -198,6 +198,8 @@ After **Proceed?** the installer checks out the dev branch (offering to create a
 
 **Dev target** — the bundle target the team deploys to (`dev`; asked only when the project's own bundle names its development target differently); SQL warehouse; compute (serverless recommended, or a cluster); dev catalog (must exist); medallion layout — one schema with `bronze_`/`silver_`/`gold_` prefixes, or one schema per layer; schema names (created if missing). They are the starting point: the team adds the schemas and tables the solution needs inside the dev catalog.
 
+**Other environments** — only after a kickoff declared some: for each environment where the team should deploy, the installer checks its catalogs and asks you to confirm (`[y/N]`); the others are listed with the reason (read-only, production, another workspace). Confirmed environments are kept on later runs.
+
 Answers from a previous installation are offered as defaults. Finally the installer writes the configuration, installs everything, offers to **commit the files it installed** (agents cannot change or commit them) and runs the readiness checks.
 
 </details>
@@ -260,6 +262,9 @@ flowchart LR
 | **Rules on existing data** (existing projects) | In your words — e.g. *existing tables in dev are never dropped, except the Auto Loader bronze tables, dropped with their checkpoint to refresh them* — plus jobs, pipelines or folders the team must not touch. They bind every agent, and destructive operations are reported at G2 | `data_rules` in `conventions.yaml`, `request.md` |
 | **Client conventions** | Derived from this repository (existing projects), DeltaForce defaults, defined now (deploy folder, name prefix, tags, Python files or notebooks), from another repository or document, or later. Change them at any time with `/df-conventions` | `conventions.yaml` |
 | **CI/CD templates** | Where the client's pipeline templates are: a templates repository (URL, branch or tag, files), files already in this repository, templates handed over during development, or none (the team proposes the DeltaForce standard) | `cicd` in `conventions.yaml` |
+| **Environments** | Nothing is assumed: which environments the client has besides dev — prototyping, test, UAT, pre-production, production — what each is for, where it is, its catalogs, whether the team or CI/CD deploys it, and what the team may do there: **deploy**, **read** or **nothing** | `environments` in `conventions.yaml` |
+
+**Environments and access** — what you declare as read-only or closed applies at once. To let the team **deploy** to an environment besides dev, re-run the installer with Claude Code closed: it lists the environments declared at kickoff and asks you to confirm each one — access is never widened from the chat. Production is never deployed by the team. Environments on other workspaces are recorded and deployed through CI/CD for now.
 
 The team then starts on its own: for an existing project the **as-is analysis** comes first — the Solution Architect reads the codebase, the bundle and its variables, what is deployed on dev and the existing pipelines; the Business Analyst what the solution does and its business rules — and conventions and bundle variables they find come to you for confirmation, together with the other open questions.
 
@@ -273,7 +278,7 @@ For every feature whose dependencies are done (up to three at a time):
 
 1. **Build** — the PM creates the feature branch `df/F-xxx`; the Data Engineer, Data Analyst, Data Scientist and AI Engineer work in parallel, each in its own git worktree and task branch, writing code in `src/`, bundle resources in `resources/` and tests in `tests/`. Names always come from bundle variables.
 2. **Integrate** — the DevOps Engineer, the only role that integrates and deploys, merges the task branches into the feature branch and rebuilds a local integration branch from the dev branch plus every active feature, in the **review worktree `.deltaforce/review/`**. Your main checkout never leaves the dev branch.
-3. **Deploy on dev** — from the review worktree: `bundle validate`, `bundle deploy` and `bundle run` on the dev **bundle target** chosen at installation (`dev` by default, `-t <target>` on every command). Deploying everything active together keeps one feature's deploy from removing another's resources. Runs are started once and awaited, never polled.
+3. **Deploy on dev** — from the review worktree: `bundle validate`, `bundle deploy` and `bundle run` on the dev **bundle target** chosen at installation (`dev` by default, `-t <target>` on every command) — or on an environment you confirmed, when the design deploys the feature there. Deploying everything active together keeps one feature's deploy from removing another's resources. Runs are started once and awaited, never polled.
 4. **Test** — the QA Engineer tests the deployed feature against its acceptance criteria (data quality, integration, evaluation) and, in an existing project, runs regression checks on the existing objects it touches. Failures go back to the owners as fix tasks.
 5. **G2** — the PM writes `.deltaforce/reports/F-xxx-po-review.md` and asks for your decision: what was built and its business value, Databricks objects created or changed, destructive operations with the rule that allowed each, test and regression evidence, where to look, deviations. Open `.deltaforce/review/` in VS Code to see the code, and the monitor for the evidence. The team keeps working on other features while you review.
 6. **Merge** — after `/df-approve F-xxx` the DevOps Engineer merges the feature into the dev branch, pushes it and cleans up the agent worktrees and branches. When nobody is still working, the PM suggests `/clear`.
@@ -366,7 +371,7 @@ Hooks check every action of every agent before it runs, also in auto mode. Whate
 |---|---|
 | Read and query data on dev, and read production when configured | Write outside the dev catalog, or do anything but read on production |
 | Create schemas, tables, jobs, pipelines, dashboards, models and endpoints — through the asset bundle | Create, change or delete Databricks resources by hand, or run `bundle destroy` |
-| Deploy and run the bundle on the dev target (the DevOps Engineer only) | Deploy to production, push to protected branches, force-push or rewrite history |
+| Deploy and run the bundle on the dev target and on the environments you confirmed in the installer (the DevOps Engineer only) | Deploy to production, push to protected branches, force-push or rewrite history |
 | Commit and push feature and task branches; merge approved features into the dev branch | Change Unity Catalog grants, sharing, connections or storage |
 | Extend an existing project, following its conventions and your rules on existing data | Change what DeltaForce installed — agents, skills, settings, framework — or read the credentials |
 
@@ -379,7 +384,8 @@ A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in
 |---|---|
 | Dev workspace | Creating, changing or deleting Databricks resources outside the asset bundle; writes outside the dev catalog; SQL writes that do not name the catalog; permission, sharing, connection and storage changes |
 | Production workspace | Anything but reads: SQL other than `SELECT`/`WITH … SELECT`/`SHOW`/`DESCRIBE`/`EXPLAIN`, code execution, jobs, pipelines, Unity Catalog changes, any Databricks CLI call to production |
-| Deployments | `bundle deploy` and `bundle run` by anyone but the DevOps Engineer or to a target other than dev; `bundle destroy` |
+| Deployments | `bundle deploy` and `bundle run` by anyone but the DevOps Engineer, or to a target other than dev and the environments you confirmed; `bundle destroy` |
+| Environments | Writes in environments declared read-only; any access to catalogs of environments declared without access; deploys to production environments |
 | Git | Pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`, merges into the dev branch by anyone but the DevOps Engineer |
 | Files | Changes to anything DeltaForce installed, including commits that contain it; changes to the client conventions by anyone but the PM; any access to the credentials file and its backups |
 
@@ -425,7 +431,7 @@ To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databri
 | `.deltaforce/requirements/`, `architecture/`, `backlog/`, `reports/`, `state.yaml`, `events.jsonl` | The team's documents and progress | committed |
 | `.deltaforce/.databrickscfg` | Databricks CLI profile (and token or secret for PAT or service principal); backups are deleted and ignored | ignored |
 | `.deltaforce/bin/` | uv, the Databricks CLI, the `df` helper | ignored |
-| `.deltaforce/runtime/` | Python, AI Dev Kit MCP server and its environment, guard policy, agent activity, monitor state | ignored |
+| `.deltaforce/runtime/` | Python, AI Dev Kit MCP server and its environment, guard policy and declared environments, agent activity, monitor state | ignored |
 | `.deltaforce/audit.jsonl`, `status.json` | Audit trail · result of the last readiness check | ignored |
 | `.claude/agents/` | The DeltaForce agents | committed |
 | `.claude/skills/df-*` · `.claude/skills/databricks-*` | DeltaForce skills and your commands · Databricks agent skills | committed |
@@ -488,6 +494,7 @@ models:
 | The PM warns that `.deltaforce/.databrickscfg.bak` is not ignored | A CLI backup left by an older version: re-run the installer with Claude Code closed |
 | `Failed to create virtual environment ... Access is denied. (os error 5)` | Something still uses the project's Python — usually Claude Code: close it and run the installer again |
 | The monitor page does not open | `bash .deltaforce/bin/df monitor`; if it fails, see `.deltaforce/runtime/monitor.log` and re-run the installer |
+| `DeltaForce guardrail: the team may not deploy to environment '…'` | The environment is declared read-only or without access, or not confirmed yet: change it with `/df-conventions`, then re-run the installer with Claude Code closed and confirm it |
 | `databricks bundle validate` warning | Not blocking: `.deltaforce/bin/databricks bundle validate -t dev` shows the details |
 | Downloads fail | Check access to `github.com`, also through a corporate proxy |
 

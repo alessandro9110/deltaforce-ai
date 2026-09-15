@@ -170,6 +170,28 @@ def test_the_bundle_target_name_is_used_everywhere(example_config, tmp_path):
     assert list(generate.existing_bundle_targets(paths)) == ["development", "prod"]
 
 
+def test_environments_reach_the_policy_and_the_project_context(example_config, tmp_path):
+    config = copy.deepcopy(example_config)
+    config["environments"] = [{"name": "proto", "bundle_target": "proto", "catalogs": ["proto_lab"]}]
+    paths = ProjectPaths(tmp_path)
+    paths.conventions.parent.mkdir(parents=True)
+    paths.conventions.write_text(
+        "version: 1\nsource: po\nenvironments:\n"
+        "  - name: proto\n    bundle_target: proto\n    catalogs: [proto_lab]\n    team: deploy\n"
+        "  - name: prod\n    workspace: production\n    team: read\n    deployed_by: cicd\n",
+        encoding="utf-8",
+    )
+    generate.generate_all(config, paths)
+
+    policy = json.loads(read(paths.guard_policy))
+    assert policy["environments"] == config["environments"]
+    assert policy["environments_file"] == paths.declared_environments.resolve().as_posix()
+    assert [env["name"] for env in json.loads(read(paths.declared_environments))["environments"]] == ["proto", "prod"]
+    claude_md = read(paths.claude_md)
+    assert "`proto` — target `proto`, catalogs `proto_lab`" in claude_md
+    assert "always pass `-t dev`, or `-t <target>` of an environment below" in claude_md
+
+
 def test_existing_bundle_variables_are_not_redefined(example_config, tmp_path):
     paths = ProjectPaths(tmp_path)
     paths.bundle.write_text("bundle:\n  name: sales\ninclude:\n  - resources/*.yml\n  - conf/*.yml\nvariables:\n  catalog:\n    description: own\n", encoding="utf-8")

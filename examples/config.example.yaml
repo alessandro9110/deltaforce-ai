@@ -24,6 +24,7 @@ targets:
     medallion:
       layout: single_schema
       schema: customer_360
+environments: []
 team:
   roles:
   - pm

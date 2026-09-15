@@ -60,6 +60,20 @@
         }
       ]
     },
+    "environments": {
+      "description": "Environments on the dev workspace where the PO confirmed in the installer that the team deploys, besides the dev target. Declared at kickoff in conventions.yaml; the conventions can narrow this access, never widen it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "bundle_target", "catalogs"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+          "bundle_target": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+          "catalogs": { "type": "array", "items": { "$ref": "#/$defs/uc_name" }, "minItems": 1, "uniqueItems": true }
+        }
+      }
+    },
     "targets": {
       "type": "object",
       "additionalProperties": false,

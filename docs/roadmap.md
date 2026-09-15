@@ -8,6 +8,8 @@ Updated with every change that adds or completes something. Last update: 2026-09
 
 ### Done
 
+- [x] Client environments: nothing assumed — the PO declares environments at kickoff (purpose, workspace, catalogs, bundle target, deploy/read/none, deployed by team or CI/CD, data rules); declarations narrow access at once, deploy access beyond dev only after the PO confirms each environment in the installer; SA designs targets and promotion, CI/CD deploys the `cicd` environments; production never deployed by the team
+- [x] QA reads dashboards with the MCP tool (`manage_dashboard`, read actions) instead of the CLI — sandbox audit: 63% of Databricks calls through MCP, the CLI used for bundle commands and for reads without an MCP tool
 - [x] Agent templates in the Claude Code subagent format: frontmatter (`name`, `description`, `tools`, `model`, `skills`, `isolation`, `color`) and prompt in `templates/claude/agents/<role>.md`; the installer adds delegates, MCP tools and the configured model
 - [x] Monitor test evidence in the feature panel: tests per acceptance criterion with passed/failed counts, regression checks and destructive operations, from the review report
 - [x] Changes after delivery: `/df-changes` on a done feature creates a change feature (`change_of`) with its own tasks and G2; the original keeps its history; monitor links both and counts them. Status line second row with the PO commands, led by the one to use now
@@ -47,11 +49,14 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] CI/CD in the framework (M4): kickoff records the client's templates (`cicd` in the conventions); CI/CD feature in the breakdown with its G2; DevOps builds on the templates (reference, not copy) with the standard Azure DevOps and GitHub Actions pipelines as fallback; G2 report lists what to configure. Pipeline files in `.devops/` at the repository root. Pending: a live run on a project with real client templates
 - [ ] ML and GenAI MVP with the Data Scientist and the AI Engineer (M3), within Free Edition limits
 - [ ] Stronger builders: engineering skills for the Data Engineer, Data Scientist and AI Engineer beyond the Databricks agent skills, and a real test and validation process for ML and GenAI work: evaluation datasets, metrics and thresholds, MLflow evaluation, regression of model quality, validation evidence at G2. Agent frameworks first: the Databricks agent framework with MLflow, and LangChain — with the official [langchain-ai/langchain-skills](https://github.com/langchain-ai/langchain-skills) (LangChain, LangGraph, Deep Agents, RAG, evaluation; SKILL.md folders) installed project-scoped, never through its global install or plugin. These skills follow fast-moving libraries: every install and update takes the **latest** version from `main` (no pinned ref) and records the commit it installed
+- [ ] Builder gaps found comparing community data and AI agents (VoltAgent `awesome-claude-code-subagents`, MIT — ideas rewritten, nothing copied; no new roles needed), to add in on-demand skills after checking the APIs against current docs: Data Engineer — Lakeflow AUTO CDC for SCD, quarantine tables instead of silent drops, Auto Loader schema evolution; Data Analyst — every KPI defined once in a metric view; Data Scientist — point-in-time feature tables, champion/challenger aliases in Unity Catalog, inference tables and drift monitoring; AI Engineer — prompts in the MLflow Prompt Registry, AI Gateway guardrails, a red-team slice in the evaluation set; QA — quality regression against the baseline approved at G2, with the evaluation dataset version
+- [ ] Leaner skills: known-failures tables (symptom, cause, fix) from the sandbox runs; `df-engineering-standards` (preloaded by six roles) split into a short SKILL.md and references loaded on demand; a structural test for skills (name, trigger description, line limit for preloaded skills)
 - [x] Monitor usage view: tokens per role, feature, phase, session and model from the Claude Code session files of the project (read incrementally, counts only), weighted tokens, PM peak context per session, optional cost from `.deltaforce/pricing.yaml`
 - [ ] Monitor: audit view — guardrail denials and production reads per role
 
 ### Later — team and client use
 
+- [ ] Team access to environments on other workspaces (a profile and MCP server per workspace, deploys with its profile) — declared today, deployed through CI/CD
 - [ ] Several people using DeltaForce on the same repository: state and backlog coordination, who acts as PO
 - [ ] Per-role service principals with Unity Catalog grants (at least the DevOps Engineer)
 - [ ] GitHub Actions template; macOS and Linux installer validation; `--uninstall`; public repository and `curl` bootstrap
