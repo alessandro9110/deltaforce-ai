@@ -333,7 +333,7 @@ A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in
 **Update** — with Claude Code **closed** (the installer checks and asks), run the install command again. It updates `.deltaforce/framework`, offers your answers as defaults and refreshes everything. The team's work — documents, backlog, reports, state, code, tests, bundle resources, data — is never touched.
 
 ```powershell
-& "$env:ProgramFiles\Git\bin\bash.exe" -c 'git -C .deltaforce/framework pull && bash .deltaforce/framework/install.sh'
+& "$env:ProgramFiles\Git\bin\bash.exe" -c 'bash .deltaforce/framework/install.sh'
 ```
 
 **Another team member** — after cloning the project, run the same install command: it downloads the framework and tools, signs in with their own account and regenerates the machine-specific files.
@@ -390,7 +390,7 @@ Commands for **Git Bash**, from the project root. From PowerShell wrap them: `& 
 |---|---|
 | `bash .deltaforce/framework/install.sh` | Update and reinstall, keeping your answers — with Claude Code closed |
 | `bash .deltaforce/framework/install.sh --doctor` | Readiness checks only |
-| `git -C .deltaforce/framework pull` | Download the latest DeltaForce by hand |
+| `git -C .deltaforce/framework fetch --depth 1 origin main && git -C .deltaforce/framework checkout --detach FETCH_HEAD` | Download the latest DeltaForce by hand — not needed normally: `install.sh` updates itself first (the copy sits on a detached commit, so `git pull` does not work) |
 | `bash .deltaforce/bin/df monitor` | Start the monitor and open it (`--no-open` prints the address, `--stop` stops it) |
 | `bash .deltaforce/bin/df validate` | Check state, backlog, events and conventions |
 | `bash .deltaforce/bin/df events '[...]'` | Record lifecycle events — used by the team |
