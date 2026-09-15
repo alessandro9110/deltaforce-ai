@@ -4,13 +4,19 @@
 version: 1
 source: defaults            # defaults | po | derived
 source_reference: null      # repository or document the conventions were derived from
+project:
+  kind: new                 # new | existing — an existing project is analysed (as-is) before the design
 bundle:
   root_path: null           # e.g. /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}; null = Databricks default
   prod_run_as: null         # service principal application ID for production, injected by CI/CD
+  variables:                # existing project: its own bundle variables for the dev catalog and schemas
+    catalog: null           # e.g. target_catalog; null = the DeltaForce variable `catalog`
+    schemas: {}             # e.g. {bronze: raw_schema, silver: curated_schema}; empty = schema_bronze, schema_silver, schema_gold
 naming:
   resource_prefix: null     # jobs and pipelines; default "[${bundle.name}] "
   table_case: snake_case
 tags: {}                    # mandatory tags on jobs, pipelines and endpoints, e.g. cost_center: "1234"
 code:
   style: files              # files | notebooks
+data_rules: []              # rules on existing data and objects, e.g. "Existing tables in dev are never dropped"
 custom: []                  # other client rules, one sentence each

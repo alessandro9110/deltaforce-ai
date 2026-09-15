@@ -55,6 +55,7 @@ What was done, in three to five lines.
 - Branch and commits
 - Files created or changed
 - Databricks objects created, changed or to be created at deployment
+- Destructive operations on existing data or objects (`DROP`, `TRUNCATE`, `CREATE OR REPLACE`, overwrite, `DELETE`/`UPDATE` without `WHERE`, checkpoint removal), run directly or in code: none, or each with the object and the `data_rules` entry that allows it
 
 ## Verification
 Commands, queries, runs or tests executed and their results.

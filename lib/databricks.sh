@@ -71,5 +71,7 @@ df_authenticate() {
     if [ "${DF_PROD_ENABLED:-false}" = true ]; then
         df_authenticate_profile "$DF_PROD_HOST" "$DF_PROD_PROFILE" "$DF_PROD_AUTH" production
     fi
+    # The CLI keeps a copy of the previous file when it rewrites it; the copy can hold tokens.
+    rm -f "$DF_DATABRICKS_CFG".bak
     return 0
 }

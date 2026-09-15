@@ -9,13 +9,34 @@
     "version": { "const": 1 },
     "source": { "enum": ["defaults", "po", "derived"] },
     "source_reference": { "type": ["string", "null"] },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["new", "existing"] }
+      }
+    },
     "bundle": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "root_path": { "type": ["string", "null"] },
-        "prod_run_as": { "type": ["string", "null"] }
+        "prod_run_as": { "type": ["string", "null"] },
+        "variables": {
+          "description": "Existing project: the project's own bundle variables that hold the dev catalog and the schema of each layer",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "catalog": { "type": ["string", "null"] },
+            "schemas": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+          }
+        }
       }
+    },
+    "data_rules": {
+      "description": "Rules on existing data and objects given by the PO, e.g. which tables may never be dropped and the exceptions",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
     },
     "naming": {
       "type": "object",

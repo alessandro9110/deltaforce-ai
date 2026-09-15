@@ -119,7 +119,8 @@ def build_policy(config: Mapping[str, Any], paths: ProjectPaths, roles: Mapping[
 
 
 def _file_rules() -> list[str]:
-    rules = [f"Read(**/{SECRET_FILE})", f"Edit(**/{SECRET_FILE})"]
+    # The credentials file and its backups (the Databricks CLI writes .databrickscfg.bak).
+    rules = [f"Read(**/{SECRET_FILE})", f"Edit(**/{SECRET_FILE})", f"Read(**/{SECRET_FILE}.*)", f"Edit(**/{SECRET_FILE}.*)"]
     rules += [f"Edit(**/{name})" for name in INSTALLER_FILES]
     rules += [f"Edit(**/{prefix}**)" if prefix.endswith("/") else f"Edit(**/{prefix}*/**)" for prefix in INSTALLER_DIRS]
     return rules

@@ -87,8 +87,12 @@ tools: Read, Edit, Write, Grep, Glob, Bash, Agent(data-engineer), mcp__databrick
 
 ```mermaid
 flowchart TD
-  K["Phase 0 · Kickoff<br/>PO: what to build + catalog, schema(s), optional table names, dev branch"] --> R[BA: requirements and business value]
-  K --> X[SA: technical discovery]
+  K["Phase 0 · Kickoff<br/>PO: what to build or change, optional table names,<br/>rules on existing data (existing project)"] --> E{Existing project?}
+  E -- yes --> A["SA + BA in parallel: as-is analysis<br/>of the codebase and of dev"]
+  A --> R
+  A --> X
+  E -- no --> R[BA: requirements and business value]
+  E -- no --> X[SA: technical discovery]
   R --> D[SA: solution design]
   X --> D
   D --> B[BA + SA + PM: feature breakdown]
@@ -108,6 +112,7 @@ flowchart TD
 ```
 
 - **Phase 0 — Kickoff** (`/df-kickoff`): the PO states *what the team must build* and provides the elements: catalog, schema(s), optional table names, dev branch. Stored in `.deltaforce/config.yaml` and `.deltaforce/requirements/request.md`.
+- **Existing projects**: the team is used to extend a working project as well as to build a new one. The kickoff finds product content in the repository (code, bundle resources, tests, CI/CD, a bundle DeltaForce did not create) and the PO confirms; the PO also gives the rules on existing data and objects — for example, existing tables in dev are never dropped, except the Auto Loader tables that are dropped with their checkpoint to refresh them — and what the team must not touch. Everything project-specific is captured there, in `.deltaforce/conventions.yaml` (`project.kind`, `data_rules`, `bundle.variables`), not in extra installer steps or hook rules. Phase 1 then starts with the **as-is analysis**, SA and BA in parallel and read-only: `architecture/as-is.md` (codebase, bundle and the variables that hold catalog and schemas, data on dev and how it is loaded, observed conventions, CI/CD, technical debt) and `requirements/as-is.md` (outputs, business rules found in the code, KPIs, gaps). Conventions and bundle variables found there are confirmed by the PO with the other open questions. Requirements and architecture describe the change (new, changed, unchanged); builders follow the data rules and list every destructive operation in their reports; QA adds regression checks; the G2 report shows destructive operations and regression evidence. The installer does not redefine bundle variables the project already has.
 - **Phase 1 — Discovery & design**: in parallel, the BA writes requirements (business objectives, value, success metrics, user stories) and the SA does the technical discovery (data sources, workspace capabilities, architecture options); questions for the PO from both are asked in one round; then the SA designs the full solution (architecture, medallion flows for each discipline, table naming proposal when the PO gave none); BA + SA + PM derive the feature list with dependencies and per-role tasks. **G1**: PO approves once.
 - **Phase 2 — Delivery**: the goal is to complete features — one, or several in parallel when they do not depend on each other (up to three active). Per feature: parallel development → integration and dev deploy by DevOps (from the integration branch) → QA → PM feature report → **G2**: PO validates that feature. A feature starts only when its dependencies are done; the team keeps working on other active features while the PO reviews.
 - **Escalation** at any time, and only then: blocker, ambiguity, or a change compared to the request.
@@ -240,12 +245,12 @@ The backlog is designed to be read by a future monitoring app without changes.
 .deltaforce/
   config.yaml           # installer answers (committed, no secrets); kickoff adds request and tables
   status.json           # doctor result gating /df-kickoff (gitignored)
-  .databrickscfg        # project-local CLI profile (gitignored)
+  .databrickscfg        # project-local CLI profile (gitignored, with its .bak backups, which the installer deletes)
   bin/, runtime/        # uv, Databricks CLI, Python, AI Dev Kit, MCP venv (gitignored)
   conventions.yaml      # client conventions (created by the installer, filled at kickoff)
   state.yaml            # phase, active features, G1 decision, next steps, last update (created at kickoff)
-  requirements/         # request.md, functional-analysis.md
-  architecture/         # discovery.md, architecture.md, adr/
+  requirements/         # request.md, as-is.md (existing projects), functional-analysis.md
+  architecture/         # as-is.md (existing projects), discovery.md, architecture.md, adr/
   backlog/F-003-silver-customer-dedup.md
   reports/F-003-po-review.md, tasks/T-003.1.md   # PO reviews; specialists' reports saved verbatim
   events.jsonl          # lifecycle events
@@ -333,7 +338,7 @@ Steps (implemented in `install.sh` + `lib/`):
 6. **Configuration** — `.deltaforce/config.yaml`, validated against `schemas/config.schema.json`.
 7. **AI Dev Kit MCP server** — sparse, shallow clone of `databricks-mcp-server` and `databricks-tools-core` at the pinned ref into `.deltaforce/runtime/ai-dev-kit` (`core.longpaths=true`), venv in `.deltaforce/runtime/venv` built directly with uv (the upstream `setup.sh`/`mcp_install.sh` assume Unix venv paths).
 8. **Databricks skills** — `databricks aitools install --path .claude/skills --skills <union of role skills>`: plain folders, no symlinks and no global state (aitools project scope symlinks, which Windows restricts).
-9. **Generated files** — from the config: `.mcp.json` (absolute paths, gitignored), `.claude/settings.json` (nesting depth, agent teams off, `worktree.baseRef: head`, `enabledMcpjsonServers`), `.claude/settings.local.json` (`DATABRICKS_CONFIG_FILE` + profile for every Bash call), the `CLAUDE.md` project-context block, `databricks.yml` (created once) and `resources/deltaforce.variables.yml` (dev values only; prod values must come from CI/CD), a managed `.gitignore` block.
+9. **Generated files** — from the config: `.mcp.json` (absolute paths, gitignored), `.claude/settings.json` (nesting depth, agent teams off, `worktree.baseRef: head`, `enabledMcpjsonServers`), `.claude/settings.local.json` (`DATABRICKS_CONFIG_FILE` + profile for every Bash call), the `CLAUDE.md` project-context block, `databricks.yml` (created once) and `resources/deltaforce.variables.yml` (dev values only; prod values must come from CI/CD; variables that the project's own bundle files already define are left out), a managed `.gitignore` block.
 10. **Doctor** — config, Claude Code, git and dev branch, tool versions, authentication, warehouse/cluster, catalog and schemas, MCP server import, skills, generated files, `bundle validate -t dev` (warning only). Result in `.deltaforce/status.json`; `/df-kickoff` requires `ready: true`. Rerun with `--doctor`.
 
 The installer is idempotent: re-runs reuse downloaded tools, the AI Dev Kit checkout at the same ref, and regenerate managed files without touching user content outside managed blocks.
@@ -365,7 +370,7 @@ DeltaForce skills:
 
 | Skill | Kind | Purpose |
 | --- | --- | --- |
-| `df-kickoff` | PO command | Readiness gate, request, tables, client conventions, start discovery |
+| `df-kickoff` | PO command | Readiness gate, new or existing project, request, tables, rules on existing data, client conventions, start the analysis |
 | `df-status` | PO command | Read-only project status |
 | `df-approve` | PO command | Approve G1 or a feature at G2 |
 | `df-changes` | PO command | Changes at G1, at G2, or to the request |

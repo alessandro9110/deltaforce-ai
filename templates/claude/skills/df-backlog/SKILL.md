@@ -15,8 +15,8 @@ The PM is the only writer of these files. Specialists report; the PM records. Th
   config.yaml            # installer answers (read-only for the team)
   conventions.yaml       # client conventions
   state.yaml             # where the project stands
-  requirements/          # request.md (PM), functional-analysis.md (Business Analyst)
-  architecture/          # discovery.md, architecture.md, adr/ (Solution Architect)
+  requirements/          # request.md (PM), as-is.md and functional-analysis.md (Business Analyst)
+  architecture/          # as-is.md, discovery.md, architecture.md, adr/ (Solution Architect)
   backlog/F-001-<slug>.md
   reports/F-001-po-review.md, handover.md
   events.jsonl           # lifecycle events, append-only
@@ -157,8 +157,13 @@ One file per task; each delegation round adds a dated section. Consultation repo
 ## Business value delivered
 Objectives served, and how the result moves the success metrics (or how it will be measured).
 ## Databricks objects created or changed
+## Destructive operations on existing data or objects
+None, or each operation with the object and the data rule that allows it (existing projects).
 ## Test evidence
 | Acceptance criterion | Test | Result | Evidence |
+## Regression checks
+| Existing object or test | Check | Result | Evidence |
+(existing projects)
 ## Where to look
 ## Deviations from the design and known limitations
 ```

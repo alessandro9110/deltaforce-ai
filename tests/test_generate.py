@@ -27,6 +27,7 @@ def test_generate_is_idempotent_and_preserves_user_content(example_config, tmp_p
     settings = json.loads(read(paths.claude_settings))
     assert settings["permissions"]["allow"] == ["Bash(ls)", generate.DF_HELPER_PERMISSION]
     assert "Read(**/.deltaforce/.databrickscfg)" in settings["permissions"]["deny"]
+    assert "Read(**/.deltaforce/.databrickscfg.*)" in settings["permissions"]["deny"]
     assert "Edit(**/.claude/agents/**)" in settings["permissions"]["deny"]
     assert "Edit(**/.claude/skills/df-*/**)" in settings["permissions"]["deny"]
     assert not any(rule.startswith("mcp__databricks-prod__") for rule in settings["permissions"]["deny"])
@@ -43,7 +44,7 @@ def test_generate_is_idempotent_and_preserves_user_content(example_config, tmp_p
     gitignore = read(paths.gitignore)
     assert gitignore.startswith("node_modules/\n")
     assert gitignore.count(generate.GITIGNORE_START) == 1
-    assert ".deltaforce/.databrickscfg" in gitignore
+    assert ".deltaforce/.databrickscfg*" in gitignore
 
 
 def test_mcp_server_and_local_settings_share_the_project_profile(example_config, tmp_path):
@@ -152,6 +153,26 @@ def test_disabling_production_cleans_up_and_keeps_user_hooks(prod_config, tmp_pa
     assert sum("deltaforce_hook.py" in json.dumps(group) for group in pre_groups) == 2  # guard and activity
     assert any("my-hook" in json.dumps(group) for group in pre_groups)
     assert json.loads(read(paths.guard_policy))["prod"]["enabled"] is False
+
+
+def test_existing_bundle_variables_are_not_redefined(example_config, tmp_path):
+    paths = ProjectPaths(tmp_path)
+    paths.bundle.write_text("bundle:\n  name: sales\ninclude:\n  - resources/*.yml\n  - conf/*.yml\nvariables:\n  catalog:\n    description: own\n", encoding="utf-8")
+    (tmp_path / "resources").mkdir()
+    (tmp_path / "resources" / "sales.job.yml").write_text("resources: {}\n", encoding="utf-8")
+    (tmp_path / "conf").mkdir()
+    (tmp_path / "conf" / "vars.yml").write_text("variables:\n  warehouse_id:\n    description: own\n", encoding="utf-8")
+
+    generate.generate_all(example_config, paths)
+    generate.generate_all(example_config, paths)  # the generated file itself never counts as the project's
+
+    text = read(paths.bundle_variables)
+    document = yaml.safe_load(text)
+    assert "catalog" not in document["variables"] and "warehouse_id" not in document["variables"]
+    assert "schema_bronze" in document["variables"]
+    assert set(document["targets"]["dev"]["variables"]) == {"schema_bronze", "schema_silver", "schema_gold"}
+    assert "already defines them: catalog, warehouse_id" in text
+    assert read(paths.bundle).startswith("bundle:")  # an existing bundle is never rewritten
 
 
 def test_status_line_links_the_monitor_and_keeps_a_users_own(example_config, tmp_path):

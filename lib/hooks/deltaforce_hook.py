@@ -253,8 +253,8 @@ def _decide_file(tool: str, tool_input: dict[str, Any], role: str, policy: dict[
     path = _normalized(str(tool_input.get("file_path") or tool_input.get("notebook_path") or ""))
     if not path:
         return None
-    secret = _normalized(policy["secret_file"])
-    if path == secret or path.endswith("/" + secret):
+    # The credentials file and its backups, e.g. .databrickscfg.bak written by the Databricks CLI.
+    if re.search(r"(^|/)" + re.escape(_normalized(policy["secret_file"])) + r"(\.[^/]*)?$", path):
         return "the Databricks credentials file is off-limits"
     if tool == "Read":
         return None

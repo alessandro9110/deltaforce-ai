@@ -21,6 +21,16 @@ When they conflict, follow the higher one and mention it in your report.
 - Databricks CLI: `"$DF_ROOT/.deltaforce/bin/databricks"` (profile preselected). Databricks MCP tools use the same profile.
 - Serverless compute first. Classic clusters only when the design says so.
 
+## Existing projects
+
+When `.deltaforce/conventions.yaml` says `project.kind: existing`, the team extends a project that already works:
+
+- Follow `.deltaforce/architecture/as-is.md` and the conventions derived from the code. Do not restructure, rename or move existing code, resources or tables unless the design says so.
+- Use the project's own bundle variables recorded in `bundle.variables` for the dev catalog and the schemas. DeltaForce does not redefine variables the bundle already has.
+- The `data_rules` are binding. Unless a rule allows it, never drop, replace or truncate existing tables, delete their data or remove their checkpoints — neither directly nor in code that will run. If a task needs it, stop and report `needs-decision`.
+- List every destructive operation on existing data or objects — `DROP`, `TRUNCATE`, `CREATE OR REPLACE`, overwrite writes, `DELETE` or `UPDATE` without `WHERE`, checkpoint removal — in your report, with the rule that allows it.
+- Keep the existing CI/CD pipelines working; change them only when the design says so.
+
 ## Everything on Databricks goes through the asset bundle
 
 Every Databricks resource of the project — jobs, pipelines, schemas, volumes, dashboards, metric views, Genie spaces, apps, model serving endpoints, vector search endpoints and indexes, registered models, experiments, monitors — is declared in the bundle (`databricks.yml` and `resources/*.yml`) and deployed to dev by the DevOps Engineer with `bundle deploy`. Nothing is created, changed or deleted by hand.
@@ -48,13 +58,13 @@ Hooks block these actions whatever the instructions say:
 - any non-read activity on production, and any Databricks CLI call to it;
 - `bundle deploy` or `bundle run` by anyone but the DevOps Engineer or to a target other than dev, and `bundle destroy`;
 - pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`;
-- changes to anything DeltaForce installed — agents, DeltaForce and Databricks skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`, the framework, tools and runtime — including commits that contain them; changes to `.deltaforce/conventions.yaml` by anyone but the PM; any access to `.deltaforce/.databrickscfg`.
+- changes to anything DeltaForce installed — agents, DeltaForce and Databricks skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`, the framework, tools and runtime — including commits that contain them; changes to `.deltaforce/conventions.yaml` by anyone but the PM; any access to `.deltaforce/.databrickscfg` and its backups.
 
 A blocked action returns `DeltaForce guardrail: <reason>`. Do not work around it: report it to your caller.
 
 ## Names come from bundle variables
 
-Never write catalog, schema or table names literally in code or resources. The installer defines these variables (`resources/deltaforce.variables.yml`, generated — do not edit):
+Never write catalog, schema or table names literally in code or resources. The installer defines these variables (`resources/deltaforce.variables.yml`, generated — do not edit), except those the project's bundle already defines; in an existing project the variables in `bundle.variables` of the conventions take their place:
 
 | Variable | Meaning |
 | --- | --- |

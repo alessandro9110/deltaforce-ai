@@ -1,9 +1,9 @@
 ---
 name: df-kickoff
-description: Start a DeltaForce project — check readiness, collect the Product Owner's request, known tables and client conventions, record them and start discovery and design.
+description: Start a DeltaForce project — check readiness, find out whether the team extends an existing project, collect the Product Owner's request, known tables, rules on existing data and client conventions, record them and start the analysis and design.
 disable-model-invocation: true
-argument-hint: "[what the team should build]"
-allowed-tools: Bash(bash .deltaforce/bin/df *) Bash(git status *) Bash(git switch *) Bash(git add *) Bash(git commit *)
+argument-hint: "[what the team should build or change]"
+allowed-tools: Bash(bash .deltaforce/bin/df *) Bash(git status *) Bash(git switch *) Bash(git add *) Bash(git commit *) Bash(git ls-files *) Bash(git log *)
 ---
 
 # DeltaForce kickoff
@@ -18,9 +18,22 @@ You are the PM. Talk to the PO in their language; write files in English.
 2. If `.deltaforce/state.yaml` exists, the project already started: show the status as `/df-status` does and stop. Never overwrite state, backlog or requirements.
 3. Run `git status`. If files installed by DeltaForce (`.claude/`, `CLAUDE.md`, `.gitignore`, `databricks.yml`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`) are not committed, stop and ask the PO to re-run the installer and accept its commit: agents cannot commit them. If the main checkout is not on the dev branch from `.deltaforce/config.yaml` and the working tree is clean, `git switch <dev_branch>`; if it is not clean, ask the PO how to proceed.
 
-## 2. Collect the request
+## 2. New or existing project
 
-1. If `$ARGUMENTS` is not empty, that is the request. Otherwise ask: *What should the team build?* and let the PO answer freely.
+Look at what the repository already contains, without reading it in depth — the analysis comes later:
+
+- `git ls-files`, leaving out what DeltaForce installed (`.deltaforce/`, `.claude/`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`);
+- `databricks.yml`: DeltaForce creates it with the comment *Created once by DeltaForce AI*; any other bundle belongs to the project;
+- `git log --oneline -20`.
+
+The project is **existing** when there is product content: source code or notebooks, bundle resources, tests, CI/CD pipelines, or a bundle that DeltaForce did not create. Tell the PO in two or three lines what you found (for example: "a bundle with 4 jobs and 2 pipelines, Python code in `src/`, an Azure DevOps pipeline") and confirm with AskUserQuestion:
+
+- **Extend the existing project** (default when you found product content) — the team first analyses the codebase and what is deployed on dev, then designs the changes;
+- **New project** — the team designs from scratch.
+
+## 3. Collect the request
+
+1. If `$ARGUMENTS` is not empty, that is the request. Otherwise ask: *What should the team build?* — for an existing project: *What should the team add or change?* — and let the PO answer freely.
 2. Ask only what is still missing to start, in one round of at most four questions (use AskUserQuestion when there are clear options):
    - the business goal and the expected benefit for the client — why build it now, what improves (revenue, cost, time, risk, decisions) and how success will be measured — and who will use the result;
    - the data sources — already in Databricks (catalogs, schemas, tables, volumes), files to upload, external systems;
@@ -29,19 +42,21 @@ You are the PM. Talk to the PO in their language; write files in English.
 3. Ask whether the PO already has names for the tables to create:
    - **No, the team proposes them** (default) — the Solution Architect proposes names at G1;
    - **Yes** — collect layer, table name and meaning for each.
+4. **Existing project only** — ask for the rules on existing data and objects, in free text, with an example: *"Existing tables in dev are never dropped or rewritten; the bronze tables loaded with Auto Loader can be dropped, with their checkpoint, to refresh them"*. Also ask whether there are jobs, pipelines or folders the team must not touch. Do not ask for bundle variables, layout or conventions: the team finds them in the analysis and asks the PO to confirm.
 
-## 3. Client conventions
+## 4. Client conventions
 
 Ask how this client organizes Databricks projects, with these options:
 
-- **DeltaForce defaults** — recommended when unsure; they can be changed at any time with `/df-conventions`.
+- **From this repository** — only for an existing project, and the default there: the Solution Architect derives them during the as-is analysis and the PO confirms them with the other open questions.
+- **DeltaForce defaults** — recommended for a new project when unsure; they can be changed at any time with `/df-conventions`.
 - **Define them now** — ask: the bundle deploy folder (e.g. `/Workspace/Shared/<project>`), the prefix for job and pipeline names, mandatory tags, Python files or notebooks, any other rule in free text.
 - **Later** — keep the defaults for now.
-- **From an existing repository or document** — ask for the path or link, delegate to `solution-architect` to extract the conventions (read-only), show the result to the PO and confirm.
+- **From another repository or document** — ask for the path or link, delegate to `solution-architect` to extract the conventions (read-only), show the result to the PO and confirm.
 
-Update `.deltaforce/conventions.yaml`: set `source` (`defaults`, `po` or `derived` with `source_reference`) and only the values the PO gave; everything else stays as it is.
+Update `.deltaforce/conventions.yaml`: `project.kind` (`new` or `existing`), the PO's rules on existing data under `data_rules` (one sentence each, in English), `source` (`defaults`, `po` or `derived` with `source_reference`; for *From this repository* use `derived` with `source_reference: existing codebase` once the analysis is confirmed) and only the values the PO gave; everything else stays as it is.
 
-## 4. Record
+## 5. Record
 
 1. Write `.deltaforce/requirements/request.md`:
 
@@ -50,6 +65,9 @@ Update `.deltaforce/conventions.yaml`: set `source` (`defaults`, `po` or `derive
 
    ## In the PO's words
    > <the request, verbatim>
+
+   ## Project
+   New project | Extension of an existing project: <what the repository contains, in two or three lines>
 
    ## Summary
    ## Business goal and expected value
@@ -62,14 +80,17 @@ Update `.deltaforce/conventions.yaml`: set `source` (`defaults`, `po` or `derive
    | Layer | Table | Meaning |
    (or: None — the team proposes names at G1)
 
+   ## Rules on existing data and objects
+   (existing project: the PO's rules and what the team must not touch; new project: None)
+
    ## Open questions
    ## Change requests
    ```
 
-2. Write `.deltaforce/state.yaml` with `phase: discovery`, the dev branch, `active_features: []`, `g1: {status: pending, at: null, notes: ""}`, `next_steps` (the Business Analyst's Functional Analysis and the Solution Architect's technical discovery, in parallel), `last_update` (kickoff completed) and the current UTC time (format in `df-backlog`).
-3. Log `kickoff_completed` (data: conventions source) and `phase_changed` (to `discovery`) with `bash .deltaforce/bin/df event ...`, then `bash .deltaforce/bin/df validate`.
+2. Write `.deltaforce/state.yaml` with `phase: discovery`, the dev branch, `active_features: []`, `g1: {status: pending, at: null, notes: ""}`, `next_steps`, `last_update` (kickoff completed) and the current UTC time (format in `df-backlog`). `next_steps`: for an existing project, the as-is analysis by the Solution Architect (technical) and the Business Analyst (functional), in parallel; for a new project, the Business Analyst's Functional Analysis and the Solution Architect's technical discovery, in parallel.
+3. Log `kickoff_completed` (data: conventions source and project kind) and `phase_changed` (to `discovery`) with `bash .deltaforce/bin/df event ...`, then `bash .deltaforce/bin/df validate`.
 4. Commit on the dev branch what the kickoff produced — specialists work in git worktrees, which contain only committed files: `.deltaforce/conventions.yaml`, `.deltaforce/state.yaml`, `.deltaforce/events.jsonl`, `.deltaforce/requirements/`. Message `docs(kickoff): record request and conventions` with the trailers `DeltaForce-Role: pm` and `DeltaForce-Task: kickoff`. Never add files that `.gitignore` excludes.
 
-## 5. Start discovery
+## 6. Start
 
-Tell the PO in two or three lines what happens now — requirements, design, feature list, then their review at G1 — and that you will ask only if something needs them. Then continue immediately with Phase 1 of your process.
+Tell the PO in two or three lines what happens now — for an existing project the analysis of what exists comes first — then requirements, design, feature list and their review at G1, and that you will ask only if something needs them. Then continue immediately with Phase 1 of your process.

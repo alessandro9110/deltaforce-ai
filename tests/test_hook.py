@@ -196,6 +196,9 @@ def test_commit_and_upstream_push_use_the_current_branch(policy, tmp_path):
 def test_protected_files(policy):
     assert "credentials" in decide(policy, "Read", {"file_path": "C:/p/.deltaforce/.databrickscfg"})
     assert "credentials" in decide(policy, "Bash", {"command": "cat .deltaforce/.databrickscfg"})
+    assert "credentials" in decide(policy, "Read", {"file_path": "C:\\p\\.deltaforce\\.databrickscfg.bak"})
+    assert "credentials" in decide(policy, "Bash", {"command": "type .deltaforce\\.databrickscfg.bak"})
+    assert decide(policy, "Read", {"file_path": "C:/p/docs/databrickscfg-notes.md"}) is None
     installed = "installed by DeltaForce"
     for path in [
         "C:\\p\\.claude\\settings.local.json",

@@ -29,7 +29,7 @@ GITIGNORE_ENTRIES = (
     ".deltaforce/review/",
     ".deltaforce/bin/",
     ".deltaforce/runtime/",
-    ".deltaforce/.databrickscfg",
+    ".deltaforce/.databrickscfg*",  # the CLI also writes backups (.databrickscfg.bak) that can hold tokens
     ".deltaforce/status.json",
     ".deltaforce/audit.jsonl",
     ".mcp.json",
@@ -247,7 +247,7 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 | Dev branch | `{project['dev_branch']}` |
 | Protected branches | {protected} — never push to them |
 
-- In source code and bundle resources, reference these values only through bundle variables ({bundle_vars}); never write catalog, schema or table names literally.
+- In source code and bundle resources, reference these values only through bundle variables ({bundle_vars}, or in an existing project the project's own variables recorded under `bundle.variables` in `.deltaforce/conventions.yaml`); never write catalog, schema or table names literally.
 - The schemas above are the starting point, not a limit: create the schemas and tables the solution needs inside the dev catalog, keep them consistent with the architecture in `.deltaforce/architecture/` and the medallion layers, and declare them in the bundle with variables.
 - When calling Databricks MCP tools directly (exploration, validation), pass the dev catalog and schemas above explicitly.
 - Every Databricks resource (jobs, pipelines, schemas, volumes, dashboards, apps, endpoints, indexes, …) is declared in the asset bundle and deployed by the DevOps Engineer; MCP tools are for reading, querying and running only.
@@ -289,11 +289,17 @@ def write_bundle(config: Mapping[str, Any], paths: ProjectPaths) -> list[Path]:
         written.append(_write_text(paths.bundle, header + yaml.safe_dump(bundle, sort_keys=False)))
 
     variables = medallion_variables(dev)
+    existing = existing_bundle_variables(paths)
     descriptions = {
         "catalog": "Unity Catalog catalog",
         "warehouse_id": "SQL warehouse ID",
         **{f"schema_{layer}": f"Schema of the {layer} layer" for layer in LAYERS},
         **{f"prefix_{layer}": f"Table name prefix of the {layer} layer" for layer in LAYERS},
+    }
+    dev_values = {
+        "catalog": dev["catalog"],
+        "warehouse_id": db["warehouse_id"],
+        **{name: value for name, value in variables.items() if name.startswith("schema_")},
     }
     document = {
         "variables": {
@@ -301,19 +307,45 @@ def write_bundle(config: Mapping[str, Any], paths: ProjectPaths) -> list[Path]:
             # so a prod deployment without CI/CD values fails instead of writing to dev.
             name: {"description": text, "default": variables[name]} if name.startswith("prefix_") else {"description": text}
             for name, text in descriptions.items()
+            if name not in existing
         },
-        "targets": {
-            "dev": {
-                "variables": {
-                    "catalog": dev["catalog"],
-                    "warehouse_id": db["warehouse_id"],
-                    **{name: value for name, value in variables.items() if name.startswith("schema_")},
-                }
-            }
-        },
+        "targets": {"dev": {"variables": {name: value for name, value in dev_values.items() if name not in existing}}},
     }
-    written.append(_write_text(paths.bundle_variables, GENERATED_HEADER + yaml.safe_dump(document, sort_keys=False)))
+    header = GENERATED_HEADER
+    skipped = [name for name in descriptions if name in existing]
+    if skipped:
+        # An existing project's bundle keeps its own definitions: redefining a variable breaks bundle validate.
+        header += f"# Not defined here because the project's bundle already defines them: {', '.join(skipped)}\n"
+    written.append(_write_text(paths.bundle_variables, header + yaml.safe_dump(document, sort_keys=False)))
     return written
+
+
+def existing_bundle_variables(paths: ProjectPaths) -> set[str]:
+    """Variables defined by the project's own bundle files (databricks.yml and its includes), not by DeltaForce."""
+    if not paths.bundle.exists():
+        return set()
+    try:
+        bundle = yaml.safe_load(paths.bundle.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return set()
+    if not isinstance(bundle, dict):
+        return set()
+    files = [paths.bundle]
+    for pattern in bundle.get("include") or []:
+        if isinstance(pattern, str):
+            files += sorted(paths.root.glob(pattern))
+    generated = paths.bundle_variables.resolve()
+    names: set[str] = set()
+    for path in files:
+        if not path.is_file() or path.resolve() == generated:
+            continue
+        try:
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            continue
+        if isinstance(document, dict) and isinstance(document.get("variables"), dict):
+            names.update(str(name) for name in document["variables"])
+    return names
 
 
 def generate_all(config: Mapping[str, Any], paths: ProjectPaths) -> list[str]:

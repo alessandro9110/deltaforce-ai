@@ -4,7 +4,7 @@ A team of specialized Claude Code agents that design, build, test and deploy on 
 
 DeltaForce is installed **into a project repository**, from your IDE, with **one command**. A guided installer asks what it needs and keeps everything inside the project: the DeltaForce framework, tools, Python, the Databricks MCP server, agent skills and configuration. Nothing is installed globally.
 
-> **Status**: installer, configuration, the nine agents, the team skills and the Product Owner commands are implemented. Guardrail and audit hooks are next — see [docs/roadmap.md](docs/roadmap.md). Architecture and process: [docs/design.md](docs/design.md).
+> **Status**: installer, configuration, the nine agents, the team skills, the Product Owner commands, guardrail and audit hooks, support for existing projects and the base of the monitor are implemented — see [docs/roadmap.md](docs/roadmap.md). Architecture and process: [docs/design.md](docs/design.md).
 
 ## Contents
 
@@ -14,9 +14,10 @@ DeltaForce is installed **into a project repository**, from your IDE, with **one
 4. [What gets installed and where](#4-what-gets-installed-and-where)
 5. [Check that everything is ready](#5-check-that-everything-is-ready)
 6. [Work with the team](#6-work-with-the-team)
-7. [Update, reconfigure or remove](#7-update-reconfigure-or-remove)
-8. [Troubleshooting](#8-troubleshooting)
-9. [Developing DeltaForce AI](#9-developing-deltaforce-ai)
+7. [Command reference](#7-command-reference)
+8. [Update, reconfigure or remove](#8-update-reconfigure-or-remove)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Developing DeltaForce AI](#10-developing-deltaforce-ai)
 
 ## 1. Requirements
 
@@ -83,7 +84,7 @@ test -d $d || git clone -q --depth 1 $u $d
 bash $d/install.sh
 ```
 
-**Command Prompt** cannot take multi-line commands: switch the terminal to PowerShell or Git Bash from the terminal panel's drop-down.
+**Command Prompt** cannot take multi-line commands: switch the terminal to PowerShell or Git Bash from the terminal panel's drop-down. (The prompt ends with `>` without `PS` in front: that is Command Prompt.)
 
 The command downloads DeltaForce into `.deltaforce/framework` (the first time) and starts the guided installer. The repository is private: the first time, Git may open a browser window to sign in to GitHub.
 
@@ -162,7 +163,7 @@ Everything lives inside the project repository.
 | `.deltaforce/config.yaml` | Your answers. No secrets | committed |
 | `.deltaforce/conventions.yaml` | Client conventions, DeltaForce defaults until you change them | committed |
 | `.deltaforce/requirements/`, `architecture/`, `backlog/`, `reports/`, `state.yaml`, `events.jsonl` | The team's working documents and progress — request, Functional Analysis, Architecture, features, task reports, PO reports, next steps — created from `/df-kickoff` on | committed |
-| `.deltaforce/.databrickscfg` | The Databricks CLI profile (and the token or secret for PAT or service principal) | ignored |
+| `.deltaforce/.databrickscfg` | The Databricks CLI profile (and the token or secret for PAT or service principal). The backup copy the CLI writes (`.databrickscfg.bak`) is deleted by the installer and ignored as well | ignored |
 | `.deltaforce/bin/` | uv and the Databricks CLI | ignored |
 | `.deltaforce/runtime/` | Python, AI Dev Kit MCP server source and its virtual environment | ignored |
 | `.deltaforce/status.json` | Result of the last readiness check | ignored |
@@ -204,23 +205,17 @@ The checks cover the configuration, Claude Code, git and the dev branch, tool ve
 
 Open the project in VS Code and start Claude Code. Every session in a DeltaForce project starts as the **Project Manager**: it talks to you as the Product Owner and coordinates the other agents.
 
-| Command | When |
-| --- | --- |
-| `/df-kickoff [what to build]` | Start the project: the PM asks what to build, known table names and the client conventions, then the team starts requirements and design |
-| `/df-status` | See where the project stands and what is waiting for you |
-| `/df-approve` | Approve the design and the feature list (G1) |
-| `/df-approve F-001 [notes]` | Approve a delivered feature (G2) |
-| `/df-changes [F-001] <what to change>` | Ask for changes to the design, to a feature, or to the request |
-| `/df-conventions [change]` | Show or change the client conventions: bundle deploy folder, naming, tags, code style, other rules |
+You talk to the team in plain language and with the Product Owner commands `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes` and `/df-conventions` — all listed in the [command reference](#7-command-reference).
 
 How a project runs:
 
-1. **Kickoff** — you describe what to build.
-2. **Discovery and design** — in parallel, the Business Analyst writes the **Functional Analysis** and the Solution Architect the technical discovery; then the Solution Architect writes the **Architecture** document, and together they derive a feature list with dependencies. Both documents are in English and Markdown, versioned, in `.deltaforce/requirements/` and `.deltaforce/architecture/`.
-3. **G1** — you approve the design and the feature list, or ask for changes.
-4. **Delivery** — features that do not depend on each other are built in parallel, up to three at a time: specialists work in their own branches, the DevOps Engineer integrates and deploys to dev, the QA Engineer tests.
-5. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them.
-6. **Handover** — when every feature is done, a person opens the pull request to the protected branch and CI/CD deploys to production.
+1. **Kickoff** — you describe what to build, or what to add or change in an existing project.
+2. **As-is analysis — existing projects only** — the PM notices that the repository already contains a project (code, bundle resources, tests, CI/CD) and asks you to confirm. It also asks for your rules on existing data and objects, for example *"existing tables in dev are never dropped; the bronze tables loaded with Auto Loader can be dropped, with their checkpoint, to refresh them"*, and what the team must not touch. Before designing anything, the Solution Architect analyses the codebase and what is deployed on dev (`.deltaforce/architecture/as-is.md`) and the Business Analyst what the solution does for its users (`.deltaforce/requirements/as-is.md`). The conventions and the bundle variables they find come to you for confirmation. From then on the team designs the change, follows your rules, reports every destructive operation and checks that what existed still works.
+3. **Discovery and design** — in parallel, the Business Analyst writes the **Functional Analysis** and the Solution Architect the technical discovery; then the Solution Architect writes the **Architecture** document, and together they derive a feature list with dependencies. Both documents are in English and Markdown, versioned, in `.deltaforce/requirements/` and `.deltaforce/architecture/`.
+4. **G1** — you approve the design and the feature list, or ask for changes.
+5. **Delivery** — features that do not depend on each other are built in parallel, up to three at a time: specialists work in their own branches, the DevOps Engineer integrates and deploys to dev, the QA Engineer tests.
+6. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them.
+7. **Handover** — when every feature is done, a person opens the pull request to the protected branch and CI/CD deploys to production.
 
 **See the work in progress.** Until you approve a feature at G2, its code is not in your project folder: the dev branch only holds approved work. The code currently deployed on dev — bundle resources, pipelines, tests of every active feature — is in `.deltaforce/review/`. Add that folder to your VS Code workspace once (**File → Add Folder to Workspace…**) and it stays up to date after every deployment.
 
@@ -252,7 +247,48 @@ Claude Code runs DeltaForce hooks before every action of every agent, also in au
 
 A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in `.deltaforce/audit.jsonl`. Static deny rules in `.claude/settings.json` back up the hooks, and the readiness checks run a self-test of the guardrails.
 
-## 7. Update, reconfigure or remove
+## 7. Command reference
+
+### In Claude Code — Product Owner commands
+
+| Command | When |
+| --- | --- |
+| `/df-kickoff [what to build or change]` | Start the project: the PM checks whether the repository already holds a project, asks what to build or change, known table names, your rules on existing data (existing projects) and the client conventions, then the team starts the analysis and the design |
+| `/df-status` | See where the project stands and what is waiting for you |
+| `/df-approve` | Approve the design and the feature list (G1) |
+| `/df-approve F-001 [notes]` | Approve a delivered feature (G2) |
+| `/df-changes [F-001] <what to change>` | Ask for changes to the design, to a feature, or to the request |
+| `/df-conventions [change]` | Show or change the client conventions: bundle deploy folder, naming, tags, code style, rules on existing data, other rules |
+
+The monitor needs no command: it opens by itself when the team starts working, and the link is always in the Claude Code status line (Ctrl+click).
+
+### In the VS Code terminal
+
+The commands below are for **Git Bash**. From **PowerShell** wrap them like this: `& "$env:ProgramFiles\Git\bin\bash.exe" -c '<command>'`. From **Command Prompt**: `"%ProgramFiles%\Git\bin\bash.exe" -c "<command>"`. Run them from the project root.
+
+| Command | What it does |
+| --- | --- |
+| The command in [Step 3](#step-3--paste-one-command-and-press-enter) | First installation: downloads DeltaForce and starts the guided installer |
+| `bash .deltaforce/framework/install.sh` | Update DeltaForce and reinstall, keeping your answers as defaults — with Claude Code closed |
+| `bash .deltaforce/framework/install.sh --doctor` | Run the readiness checks only |
+| `bash .deltaforce/framework/install.sh --dry-run` | Ask the first questions and print the plan, changing nothing |
+| `bash .deltaforce/framework/install.sh --advanced` | Also ask the team options (roles, model, nesting depth, AI Dev Kit version) |
+| `bash .deltaforce/framework/install.sh --yes` / `--non-interactive` | Skip the confirmations / never ask, reuse the existing configuration |
+| `git -C .deltaforce/framework pull` | Download the latest DeltaForce by hand, when the installer cannot update itself |
+| `bash .deltaforce/bin/df monitor` | Start the monitor and open it in the browser (`--no-open` only prints the address) |
+| `bash .deltaforce/bin/df validate` | Check that state, backlog, events and conventions are valid |
+| `bash .deltaforce/bin/df doctor` | The readiness checks, without going through the installer |
+| `bash .deltaforce/bin/df event <type> --role <role> ...` | Record a lifecycle event — used by the team, not needed by you |
+| `.deltaforce/bin/databricks <command>` | The project's Databricks CLI, e.g. `.deltaforce/bin/databricks bundle validate -t dev` |
+
+### Environment variables
+
+| Variable | Effect |
+| --- | --- |
+| `DELTAFORCE_MONITOR=off` | Set before starting Claude Code: the monitor does not start or open by itself, and the status line shows *monitor off* |
+| `DF_REPO_URL`, `DF_REF` | Repository and branch the installer downloads DeltaForce from (default: this repository, `main`) |
+
+## 8. Update, reconfigure or remove
 
 **Update or change the configuration** — run the install command from [Step 3](#step-3--paste-one-command-and-press-enter) again. It updates `.deltaforce/framework`, offers your current answers as defaults (press Enter to keep them) and refreshes everything.
 
@@ -265,12 +301,12 @@ The installer never touches the team's work: requirements, design, backlog, repo
 **Remove DeltaForce from a project** (no uninstall option yet). In Git Bash, or wrapped like the commands above:
 
 ```bash
-rm -rf .deltaforce/framework .deltaforce/bin .deltaforce/runtime .deltaforce/.databrickscfg .deltaforce/status.json .mcp.json .claude/settings.local.json
+rm -rf .deltaforce/framework .deltaforce/bin .deltaforce/runtime .deltaforce/.databrickscfg* .deltaforce/status.json .mcp.json .claude/settings.local.json
 ```
 
 To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databricks-*` folders, the `deltaforce` blocks in `CLAUDE.md` and `.gitignore`, and `resources/deltaforce.variables.yml`.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
@@ -284,10 +320,11 @@ To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databri
 | OAuth browser window does not open | Copy the URL printed in the terminal into your browser |
 | Authentication check fails | Run the install command again and sign in, or check that your account can access the workspace |
 | Catalog or schema check fails | Create them in Databricks (or ask an administrator), or run the installer again and pick existing ones |
+| The PM warns that `.deltaforce/.databrickscfg.bak` is not ignored by git | A backup the Databricks CLI wrote during sign-in, left by an older DeltaForce version. Re-run the install command with Claude Code closed: it deletes the backup and ignores such files from then on |
 | The monitor page does not open | Run `bash .deltaforce/bin/df monitor` in Git Bash; if it reports an error, look at `.deltaforce/runtime/monitor.log`, then re-run the install command. The page shows *Offline* when the monitor stopped after the sessions closed: it starts again when the team works |
 | `databricks bundle validate` warning | Not blocking. Run `.deltaforce/bin/databricks bundle validate -t dev` in Git Bash to see the details |
 | Downloads fail | Check access to `github.com`, including through a corporate proxy |
 
-## 9. Developing DeltaForce AI
+## 10. Developing DeltaForce AI
 
 For contributors to this repository: commands, layout and conventions are in [CLAUDE.md](CLAUDE.md); architecture, process and open items in [docs/design.md](docs/design.md); milestones in [docs/roadmap.md](docs/roadmap.md).
