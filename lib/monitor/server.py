@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from monitor import launcher, model, statusline  # noqa: E402
+from monitor import launcher, model, statusline, usage  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 CONTENT_TYPES = {
@@ -47,6 +47,25 @@ class MonitorServer(ThreadingHTTPServer):
         if os.name == "nt":
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         super().server_bind()
+
+
+def project_usage(root: Path) -> dict[str, Any]:
+    """Token use with the phases and feature titles of the project, for the Usage panel."""
+    events = model._read_jsonl(root / ".deltaforce" / "events.jsonl", [])
+    phases = [
+        (str(event.get("ts")), str((event.get("data") or {}).get("to")))
+        for event in events
+        if event.get("event") == "phase_changed" and isinstance(event.get("data"), dict) and event["data"].get("to")
+    ]
+    result = usage.usage(root, phases)
+    if result.get("available"):
+        titles = {feature["id"]: feature["title"] for feature in model._features(root, events, {}, [])}
+        labels = {phase: label for phase, label in model.PHASES.items()}
+        for row in result["features"]:
+            row["title"] = titles.get(row["feature"])
+        for row in result["phases"]:
+            row["label"] = labels.get(row["phase"], row["phase"].replace("_", " ").capitalize())
+    return result
 
 
 def make_handler(root: Path) -> type[BaseHTTPRequestHandler]:
@@ -103,6 +122,8 @@ def make_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 address = launcher.url_for(self.server.server_address[1])
                 line = statusline.format_line(address, model.status(model.snapshot(root)))
                 self._send(HTTPStatus.OK, f"{line}\n".encode("utf-8"), "text/plain; charset=utf-8")
+            elif url.path == "/api/usage":
+                self._json(project_usage(root))
             elif url.path == "/api/doc":
                 document = model.read_document(root, (parse_qs(url.query).get("path") or [""])[0])
                 if document:

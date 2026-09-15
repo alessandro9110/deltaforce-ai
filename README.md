@@ -294,6 +294,7 @@ The **monitor** opens in your browser the first time the team starts working in 
 - **Now** — a short description of the project, what the team is doing and what is waiting for you.
 - **Team** — every agent with what it is doing; click one for its tasks and recent actions.
 - **Features** — board or backlog; click a task for what the agent was asked, who worked on it and its report.
+- **Usage** — tokens the team used per role, feature, phase and session, with the PM's peak context per session, read from the Claude Code session files on your computer. Add `.deltaforce/pricing.yaml` to see an estimated cost (see *Reference*).
 - **Documents** — Functional Analysis, Architecture and reports, rendered.
 - Always one click away: the link is in the Claude Code status line. From a terminal: `bash .deltaforce/bin/df monitor`. To keep it from opening by itself: `DELTAFORCE_MONITOR=off`.
 
@@ -395,6 +396,15 @@ Commands for **Git Bash**, from the project root. From PowerShell wrap them: `& 
 | `bash .deltaforce/bin/df validate` | Check state, backlog, events and conventions |
 | `bash .deltaforce/bin/df events '[...]'` | Record lifecycle events — used by the team |
 | `.deltaforce/bin/databricks <command>` | The project's Databricks CLI, e.g. `bundle validate -t dev` |
+
+**Estimated cost in the Usage panel** — create `.deltaforce/pricing.yaml` with your prices per million tokens; model names match by prefix. DeltaForce ships no prices: use the ones of your agreement.
+
+```yaml
+currency: EUR
+models:
+  claude-opus:   { input: 0.0, cache_write: 0.0, cache_read: 0.0, output: 0.0 }
+  claude-sonnet: { input: 0.0, cache_write: 0.0, cache_read: 0.0, output: 0.0 }
+```
 
 | Variable | Effect |
 |---|---|

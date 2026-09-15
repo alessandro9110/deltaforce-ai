@@ -282,6 +282,13 @@ table.grid td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
 .path li.back { background: var(--wait-soft); border-color: transparent; color: var(--wait); }
 .causes { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 2px; font-size: 12.5px; color: var(--muted); }
 
+/* usage */
+table.usage-table td.num, table.usage-table th { text-align: right; }
+table.usage-table th:first-child, table.usage-table td:first-child { text-align: left; }
+table.usage-table td:last-child { white-space: nowrap; }
+.share { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: var(--ground); overflow: hidden; vertical-align: middle; margin-right: 6px; }
+.share b { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+
 /* timeline */
 .drawer.wide { width: min(1180px, 100%); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
