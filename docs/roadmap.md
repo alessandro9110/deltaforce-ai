@@ -34,7 +34,8 @@ Updated with every change that adds or completes something. Last update: 2026-09
 
 ### Next — phase 1: stabilize what exists
 
-- [ ] Finish the sandbox MVP on the current version (F-002, F-004, then F-003 to G2); check `/clear`, timeline and PO interaction counts live; measure tokens again against the first run
+- [x] Sandbox MVP complete (2026-09-15): four features — NYC taxi bronze/silver, gold KPIs, AI/BI dashboard, TPC-H revenue — delivered through G1 and four G2, 34 tests passed, handover written; 37 handoffs, 2 steps back, 7 deploys (1 blocked by a guardrail bug, fixed)
+- [ ] Next run on the latest version: check `/clear` at clean points, `df events`, no polling, backlog and test views and the status line commands live; measure tokens against the MVP run
 - [ ] Installer warns before rebuilding when Claude Code or another process uses the project runtime
 - [ ] Configurable dev target name: guardrails and generated files assume a bundle target called `dev`
 - [ ] Validate on a real existing project (its own bundle variables, target names and conventions)
