@@ -124,6 +124,9 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
                 problems.append(f"{feature['id']}: depends on unknown feature {dependency}")
             elif dependency == feature["id"]:
                 problems.append(f"{feature['id']}: depends on itself")
+        changed = feature.get("change_of")
+        if changed and (changed == feature["id"] or changed not in features):
+            problems.append(f"{feature['id']}: change_of must name another feature of the backlog ({changed})")
 
     if paths.state_yaml.exists() and not any(p.startswith("state.yaml") for p in problems):
         state = _load_yaml(paths.state_yaml)

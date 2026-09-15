@@ -7,8 +7,10 @@
 # monitor's port and asks the monitor for the line over /dev/tcp — because on Windows every extra process
 # costs a second or more. When the monitor is not running it starts it in the background. No model calls.
 
+DF_STATUSLINE_COMMANDS='/df-status where we are · /df-approve approve · /df-changes ask for changes · /df-conventions project rules · /clear fresh session'
+
 df_statusline() {
-    local root=$1 python=$2 state="" port="" reply="" line=""
+    local root=$1 python=$2 state="" port="" reply="" line="" printed=false
     read -r -d '' state < "$root/.deltaforce/runtime/monitor.json" 2>/dev/null
     [[ $state =~ \"port\":\ ([0-9]+) ]] && port=${BASH_REMATCH[1]}
 
@@ -19,23 +21,25 @@ df_statusline() {
             while IFS= read -r -t 3 reply <&3; do
                 [ -z "${reply%$'\r'}" ] && break
             done
-            IFS= read -r -t 3 line <&3
+            # The body is the status line: one row per line (project and link, then the commands).
+            while IFS= read -r -t 3 line <&3 || [ -n "$line" ]; do
+                printf '%s\n' "$line"
+                printed=true
+                line=""
+            done
         fi
         exec 3<&-
     fi
-    if [ -n "$line" ]; then
-        printf '%s\n' "$line"
-        return 0
-    fi
+    $printed && return 0
 
     case "${DELTAFORCE_MONITOR:-}" in
         off | OFF | 0 | false | no)
-            printf '\033[2mDeltaForce · monitor off\033[0m\n'
+            printf '\033[2mDeltaForce · monitor off\033[0m\n\033[2m%s\033[0m\n' "$DF_STATUSLINE_COMMANDS"
             return 0
             ;;
     esac
     "$python" "${BASH_SOURCE[0]%/*}/statusline.py" --root "$root" --start </dev/null >/dev/null 2>&1 &
-    printf '\033[2mDeltaForce · monitor starting…\033[0m\n'
+    printf '\033[2mDeltaForce · monitor starting…\033[0m\n\033[2m%s\033[0m\n' "$DF_STATUSLINE_COMMANDS"
 }
 
 df_statusline "$@"

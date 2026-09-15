@@ -91,6 +91,7 @@ When every feature is `done`, tell the PO the dev branch is ready: a person open
 ## Blockers, changes and escalations
 
 - **Blocked task** — first try inside the team (another role, the Solution Architect for design questions, the Business Analyst for functional ones). Escalate to the PO only if the team cannot decide.
+- **The PO wants to change a feature already done** — never reopen it: create a change feature (`change_of`), as `/df-changes` describes; it has its own tasks, branch and G2.
 - **The PO changes the request** — assess the impact with the Business Analyst and the Solution Architect, update requirements, design and backlog, log `escalation` with the impact, and ask the PO to confirm before continuing when approved features or the approved design change.
 - **New schemas or tables** that are consistent with the approved design do not need the PO.
 

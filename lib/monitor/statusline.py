@@ -29,7 +29,26 @@ def link(url: str, text: str) -> str:
     return f"\x1b]8;;{url}\a{text}\x1b]8;;\a"
 
 
+COMMANDS = "/df-status where we are · /df-approve approve · /df-changes ask for changes · /df-conventions project rules · /clear fresh session"
+
+
+def command_hint(status: dict[str, Any] | None) -> str:
+    """The PO commands, led by the one to use now when something waits for the PO."""
+    status = status or {}
+    review = status.get("review") or []
+    if status and not status.get("started"):
+        lead = "Start: /df-kickoff <what to build>"
+    elif status.get("phase_key") == "awaiting_g1":
+        lead = "Your turn: /df-approve or /df-changes <what to change>"
+    elif review:
+        lead = f"Your turn: /df-approve {review[0]} or /df-changes {review[0]} <what to change>"
+    else:
+        return f"{DIM}{COMMANDS}{RESET}"
+    return f"{ORANGE}{lead}{RESET}{DIM} · /df-status · /df-conventions · /clear{RESET}"
+
+
 def format_line(url: str, status: dict[str, Any] | None) -> str:
+    """Two status line rows: the project and the monitor link, then the commands."""
     parts = [f"{DIM}DeltaForce{RESET}"]
     if status:
         parts.append(str(status.get("phase", "")))
@@ -38,7 +57,7 @@ def format_line(url: str, status: dict[str, Any] | None) -> str:
         if status.get("waiting"):
             parts.append(f"{ORANGE}{status['waiting']} waiting for you{RESET}")
     parts.append(link(url, f"monitor {url}"))
-    return " · ".join(part for part in parts if part)
+    return " · ".join(part for part in parts if part) + "\n" + command_hint(status)
 
 
 def fetch_status(url: str, timeout: float = 0.8) -> dict[str, Any] | None:
@@ -53,7 +72,7 @@ def fetch_status(url: str, timeout: float = 0.8) -> dict[str, Any] | None:
 def render(root: Path, python: Path, autostart: bool = True) -> str:
     url = launcher.start_in_background(root, python) if autostart else launcher.running_url(root)
     if not url:
-        return f"{DIM}DeltaForce · monitor {'starting…' if autostart else 'off'}{RESET}"
+        return f"{DIM}DeltaForce · monitor {'starting…' if autostart else 'off'}{RESET}\n{command_hint(None)}"
     return format_line(url, fetch_status(url))
 
 

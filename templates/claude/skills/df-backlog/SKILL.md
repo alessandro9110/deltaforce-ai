@@ -56,6 +56,7 @@ id: F-003
 title: Silver customer deduplication
 status: in_test
 depends_on: [F-001]
+change_of: null              # on a change feature: the done feature it changes, e.g. F-001
 branch: df/F-003
 tasks:
   - id: T-003.1
@@ -105,6 +106,7 @@ Feature: `todo → in_progress → integrating → in_test → awaiting_po → d
 - Only a PO decision (`/df-approve`) moves a feature to `done`, after the DevOps Engineer merged it into the dev branch.
 - Set `started` the first time a feature moves to `in_progress` and never change it afterwards; set `completed` when it moves to `done`. They feed the project board (what was delivered and when, cycle time).
 - A feature can start only when all `depends_on` features are `done`.
+- A `done` feature is never reopened. A change the PO asks for after delivery is a new **change feature**: `change_of` names the original, `depends_on` includes it, and it has its own tasks, branch and G2.
 
 Task: `todo → in_progress → ready_for_integration → integrated → done`, plus `blocked`.
 

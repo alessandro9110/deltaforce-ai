@@ -282,7 +282,7 @@ How a project runs:
 3. **Discovery and design** — in parallel, the Business Analyst writes the **Functional Analysis** and the Solution Architect the technical discovery; then the Solution Architect writes the **Architecture** document, and together they derive a feature list with dependencies. Both documents are in English and Markdown, versioned, in `.deltaforce/requirements/` and `.deltaforce/architecture/`.
 4. **G1** — you approve the design and the feature list, or ask for changes.
 5. **Delivery** — features that do not depend on each other are built in parallel, up to three at a time: specialists work in their own branches, the DevOps Engineer integrates and deploys to dev, the QA Engineer tests.
-6. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them.
+6. **G2** — you validate each feature. Approved features are merged into the dev branch and unblock the features that depend on them. If later you want a delivered feature to work differently, `/df-changes F-001 <how>` opens a change feature: the team designs, builds and tests the change, and you validate it at its own G2.
 7. **Handover** — when every feature is done, a person opens the pull request to the protected branch and CI/CD deploys to production.
 
 **See the work in progress.** Until you approve a feature at G2, its code is not in your project folder: the dev branch only holds approved work. The code currently deployed on dev — bundle resources, pipelines, tests of every active feature — is in `.deltaforce/review/`. Add that folder to your VS Code workspace once (**File → Add Folder to Workspace…**) and it stays up to date after every deployment.
@@ -297,7 +297,7 @@ The first time the team starts working in a Claude Code session, DeltaForce open
 
 - It runs on your computer only (`http://127.0.0.1:87xx`, always the same address for a project) and only reads the files in `.deltaforce/`: it uses no tokens and changes nothing. Approvals stay in Claude Code (`/df-approve`, `/df-changes`).
 - It updates by itself every few seconds, and stops on its own about half an hour after the last session closes.
-- **Always one click away**: the Claude Code status line shows `DeltaForce · Delivery · 1/4 features done · 1 waiting for you · monitor http://127.0.0.1:87xx`. Ctrl+click the link to open the page. The status line starts the monitor again when it is off and uses no tokens. If `.claude/settings.local.json` already has a status line of your own, DeltaForce keeps yours.
+- **Always one click away**: the Claude Code status line shows `DeltaForce · Delivery · 1/4 features done · 1 waiting for you · monitor http://127.0.0.1:87xx`. Ctrl+click the link to open the page. A second row lists your commands (`/df-status`, `/df-approve`, `/df-changes`, `/df-conventions`, `/clear`) and, when something waits for you, starts with the one to use, e.g. `Your turn: /df-approve F-004 or /df-changes F-004 <what to change>`. The status line starts the monitor again when it is off and uses no tokens. If `.claude/settings.local.json` already has a status line of your own, DeltaForce keeps yours.
 - To open it from a terminal instead, in Git Bash: `bash .deltaforce/bin/df monitor` (PowerShell: `& "$env:ProgramFiles\Git\bin\bash.exe" -c 'bash .deltaforce/bin/df monitor'`).
 - To stop it from opening automatically, set the environment variable `DELTAFORCE_MONITOR=off` before starting Claude Code.
 
@@ -327,7 +327,7 @@ A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in
 | `/df-status` | See where the project stands and what is waiting for you |
 | `/df-approve` | Approve the design and the feature list (G1) |
 | `/df-approve F-001 [notes]` | Approve a delivered feature (G2) |
-| `/df-changes [F-001] <what to change>` | Ask for changes to the design, to a feature, or to the request |
+| `/df-changes [F-001] <what to change>` | Ask for changes: to the design at G1; to a feature under review (it goes back to the team and returns to you); to a feature already done (the team opens a *change feature* linked to it, with its own tasks and G2 — the original keeps its delivery date); or, without a feature id, to the request |
 | `/df-conventions [change]` | Show or change the client conventions: bundle deploy folder, naming, tags, code style, rules on existing data, other rules |
 
 The monitor needs no command: it opens by itself when the team starts working, and the link is always in the Claude Code status line (Ctrl+click).

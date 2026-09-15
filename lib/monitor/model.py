@@ -337,6 +337,8 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
             "status_label": FEATURE_STATUS[status],
             "column": COLUMNS[status],
             "depends_on": [str(item) for item in meta.get("depends_on") or []],
+            "change_of": str(meta["change_of"]) if meta.get("change_of") else None,
+            "changed_by": [],
             "blocked_by": [],
             "branch": meta.get("branch"),
             "tasks": tasks,
@@ -358,8 +360,11 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
         })
 
     done = {feature["id"] for feature in features if feature["status"] == "done"}
+    by_id = {feature["id"]: feature for feature in features}
     for feature in features:
         feature["blocked_by"] = [item for item in feature["depends_on"] if item not in done]
+        if feature["change_of"] in by_id:
+            by_id[feature["change_of"]]["changed_by"].append(feature["id"])
     return features
 
 
@@ -982,6 +987,12 @@ def status(view: dict[str, Any]) -> dict[str, Any]:
     return {
         "project": view["project"]["name"],
         "phase": view["phase_label"],
+        "phase_key": view["phase"],
+        "started": view["started"],
+        "review": [
+            feature["id"] for feature in view["features"]
+            if feature["status"] == "awaiting_po" and (feature["po_decision"] or {}).get("decision") != "approved"
+        ],
         "waiting": len(view["waiting"]),
         "working": sum(role["status"] == "working" for role in view["team"]),
         "features": len(view["features"]),
@@ -1041,6 +1052,7 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
     for feature in features:
         for task in feature["tasks"]:
             task["runs"] = runs_by_task.get(task["id"], [])
+    workflow["counts"]["changes_after_delivery"] = sum(bool(feature["change_of"]) for feature in features)
 
     conventions = _load_yaml(base / "conventions.yaml", problems)
     conventions = conventions if isinstance(conventions, dict) else {}

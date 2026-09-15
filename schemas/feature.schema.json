@@ -11,6 +11,10 @@
     "title": { "type": "string", "minLength": 1 },
     "status": { "enum": ["todo", "in_progress", "integrating", "in_test", "awaiting_po", "done", "blocked"] },
     "depends_on": { "type": "array", "items": { "$ref": "#/$defs/feature_id" }, "uniqueItems": true },
+    "change_of": {
+      "description": "Set on a change feature: the feature already done that this one changes",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/feature_id" }]
+    },
     "branch": { "type": ["string", "null"] },
     "tasks": {
       "type": "array",

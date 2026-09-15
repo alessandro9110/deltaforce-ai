@@ -45,6 +45,17 @@ def test_events_of_one_change_are_recorded_together_or_not_at_all(project):
     assert backlog.validate_project(project) == []
 
 
+def test_change_features_name_an_existing_feature(project):
+    change = (
+        "---\nid: F-002\ntitle: \"Change to F-001: incremental silver\"\nstatus: todo\ndepends_on: [F-001]\nchange_of: {target}\n"
+        "branch: null\ntasks: []\npo_decision: null\ncreated: 2026-09-15T10:00:00Z\nupdated: 2026-09-15T10:00:00Z\n---\n"
+    )
+    write_feature(project, "F-002-change-incremental-silver.md", change.format(target="F-001"))
+    assert backlog.validate_project(project) == []
+    write_feature(project, "F-002-change-incremental-silver.md", change.format(target="F-009"))
+    assert any("change_of must name another feature" in problem for problem in backlog.validate_project(project))
+
+
 def test_feature_problems_are_reported(project):
     write_feature(
         project,

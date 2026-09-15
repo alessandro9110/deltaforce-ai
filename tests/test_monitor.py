@@ -274,6 +274,17 @@ def test_features_say_what_they_are_and_tasks_say_who_worked_on_them(project):
     assert kpis["tasks"][1]["runs"] == []
 
 
+def test_a_change_to_a_delivered_feature_is_linked_both_ways(project):
+    write_feature(project, "F-005-change-incremental-silver.md", feature(
+        "F-005", "Change to F-001: incremental silver", "todo", depends_on=["F-001"], change_of="F-001",
+    ))
+    snap = model.snapshot(project, NOW)
+    features = {item["id"]: item for item in snap["features"]}
+    assert features["F-005"]["change_of"] == "F-001" and features["F-005"]["column"] == "todo"
+    assert features["F-001"]["changed_by"] == ["F-005"] and features["F-001"]["status"] == "done"
+    assert snap["workflow"]["counts"]["changes_after_delivery"] == 1
+
+
 def test_empty_project_before_kickoff(tmp_path):
     snap = model.snapshot(tmp_path, NOW)
     assert snap["started"] is False and snap["features"] == [] and snap["documents"] == []
@@ -384,8 +395,19 @@ def test_server_stops_when_the_team_is_gone(project):
 
 def test_status_summary(project):
     assert model.status(model.snapshot(project, NOW)) == {
-        "project": "customer-360", "phase": "Delivery", "waiting": 2, "working": 1, "features": 4, "done": 1,
+        "project": "customer-360", "phase": "Delivery", "phase_key": "delivery", "started": True, "review": ["F-004"],
+        "waiting": 2, "working": 1, "features": 4, "done": 1,
     }
+
+
+def test_status_line_shows_the_commands_and_the_one_to_use_now():
+    plain = statusline.command_hint({"started": True, "phase_key": "delivery", "review": []})
+    assert "/df-status where we are" in plain and "/df-changes ask for changes" in plain and "/clear" in plain
+    review = statusline.command_hint({"started": True, "phase_key": "delivery", "review": ["F-004"]})
+    assert "Your turn: /df-approve F-004 or /df-changes F-004" in review
+    assert "/df-approve or /df-changes" in statusline.command_hint({"started": True, "phase_key": "awaiting_g1", "review": []})
+    assert "/df-kickoff" in statusline.command_hint({"started": False, "phase_key": None, "review": []})
+    assert "/df-status where we are" in statusline.command_hint(None)
 
 
 def test_status_line_links_the_monitor_without_the_model(tmp_path, monkeypatch):
@@ -413,7 +435,9 @@ def test_status_line_script_asks_the_monitor_with_bash_builtins(project):
         launcher.update_state(project, port=port)
         result = subprocess.run(["bash", "-c", command], capture_output=True, text=True, encoding="utf-8", timeout=60)
         assert f"\x1b]8;;http://127.0.0.1:{port}/\a" in result.stdout
-        assert "2 waiting for you" in result.stdout and result.stdout.count("\n") == 1
+        rows = result.stdout.splitlines()
+        assert len(rows) == 2 and "2 waiting for you" in rows[0]
+        assert "Your turn: /df-approve F-004" in rows[1]
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -423,7 +447,7 @@ def test_status_line_script_asks_the_monitor_with_bash_builtins(project):
         ["bash", "-c", command], capture_output=True, text=True, encoding="utf-8", timeout=60,
         env={**os.environ, "DELTAFORCE_MONITOR": "off"},
     )
-    assert "monitor off" in off.stdout
+    assert "monitor off" in off.stdout and "/df-status where we are" in off.stdout
 
 
 def test_background_start_does_not_spawn_twice(tmp_path, monkeypatch):

@@ -1,6 +1,6 @@
 ---
 name: df-changes
-description: Product Owner asks for changes — to the design and feature list (G1), to a delivered feature (G2), or to the request itself during the project.
+description: Product Owner asks for changes — to the design and feature list (G1), to a feature under review or already done, or to the request itself during the project.
 disable-model-invocation: true
 argument-hint: "[F-xxx] <what to change>"
 allowed-tools: Bash(bash .deltaforce/bin/df *) Bash(git status *) Bash(git add *) Bash(git commit *)
@@ -12,7 +12,7 @@ You are the PM. The PO's notes are in `$ARGUMENTS`; if they are missing, ask wha
 
 ## 1. Find what changes
 
-- `$ARGUMENTS` starts with a feature id (`F-xxx`) → changes to that **delivered feature (G2)**.
+- `$ARGUMENTS` starts with a feature id (`F-xxx`) → changes to that **feature**: under review or in delivery (section 3), or already `done` (section 4).
 - Otherwise, `phase: awaiting_g1` → changes to the **design or feature list (G1)**.
 - Otherwise → a **change to the request** during the project.
 
@@ -25,14 +25,24 @@ If it is ambiguous, confirm your understanding in one line before acting.
 3. Update the backlog, set `g1` back to `pending`, keep `phase: awaiting_g1`, validate.
 4. Present to the PO only what changed, and ask again for `/df-approve` or `/df-changes`.
 
-## 3. G2 changes to a feature
+## 3. Changes to a feature not yet done (G2)
 
-1. In the feature file set `po_decision` to `changes_requested` with the time and notes, and the status back to `in_progress`; log `po_decision` and `feature_status_changed`.
+1. In the feature file set `po_decision` to `changes_requested` with the time and notes, and the status back to `in_progress`; log `po_decision` and `feature_status_changed` in one `bash .deltaforce/bin/df events '[...]'` call.
 2. Turn the notes into fix tasks for the right owners (ask the Solution Architect or the Business Analyst when the owner is unclear) and add them to the feature.
 3. Continue delivery for that feature: build, integrate and deploy, test, then G2 again. Other active features keep going.
 4. Tell the PO which fixes are planned.
 
-## 4. Changes to the request
+## 4. Changes to a feature already done — a change feature
+
+A delivered feature is never reopened: its delivery date and history stay as they are. The change becomes a new feature.
+
+1. Add the change, dated, under *Change requests* in `.deltaforce/requirements/request.md`.
+2. Create `.deltaforce/backlog/F-<next>-change-<slug>.md` with `title: "Change to F-xxx: <short summary>"`, `change_of: F-xxx`, `depends_on` with `F-xxx` and any other feature it needs, `status: todo`. Body: *Business value* (why the PO wants the change), *What changes* (the PO's notes in plain words), *Acceptance criteria* — the new behaviour and what must stay as it is — and *Design references*.
+3. In parallel, delegate to `business-analyst` — update the Functional Analysis and write the acceptance criteria — and to `solution-architect` — technical tasks per role, impact on the design (an ADR when a decision changes), on the other features and on existing data. Add the tasks to the change feature.
+4. Log `feature_created` (data: `{"title":"...","change_of":"F-xxx"}`) with `df events`, and commit the request, documents and backlog on the dev branch.
+5. Present the change feature to the PO in a few lines: what changes, the tasks, the impact. If it changes the approved design or other features already done, wait for their confirmation (*continue*, or more changes). Otherwise it enters delivery as soon as its dependencies allow and follows the normal flow up to its own G2.
+
+## 5. Changes to the request
 
 1. Add the change, dated, under *Change requests* in `.deltaforce/requirements/request.md`.
 2. Assess the impact with `business-analyst` and `solution-architect` in parallel: requirements, design, features affected, approved features that would change.

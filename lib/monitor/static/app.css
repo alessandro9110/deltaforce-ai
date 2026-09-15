@@ -164,6 +164,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
 .chip.po { background: var(--wait-soft); color: var(--wait); }
 .chip.ok { background: var(--ok-soft); color: var(--ok); }
 .chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.change { background: var(--accent-soft); color: var(--accent); }
 
 .problems { margin: 0; font-size: 12px; color: var(--muted); }
 
