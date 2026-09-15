@@ -1,4 +1,5 @@
 import copy
+import json
 
 import pytest
 import yaml
@@ -114,6 +115,40 @@ def test_standard_cicd_templates_validate_on_prs_and_deploy_prod(files):
     assert ".devops/" in texts[0]  # project pipelines live in .devops/ at the repository root
     assert "BUNDLE_VAR_catalog" in text and "DATABRICKS_CLIENT_SECRET" in text
     assert "dapi" not in text  # no token ever written in a template
+
+
+def test_ml_and_genai_agents_list_their_hugging_face_skills(example_config):
+    _, body = split(team.render_agent("data-scientist", example_config))
+    assert "`huggingface-vision-trainer`" in body and "df-mlops" in body
+    _, body = split(team.render_agent("ai-engineer", example_config))
+    assert "`train-sentence-transformers`" in body and "df-aiops" in body
+
+
+def test_hugging_face_skills_are_copied_recorded_and_retired(example_config, tmp_path):
+    config = copy.deepcopy(example_config)
+    config["team"]["roles"] = ["pm", "data-scientist", "ai-engineer"]
+    wanted = cfg.huggingface_skills_for_roles(config["team"]["roles"])
+    source = tmp_path / "hf"
+    for name in [*wanted, "hf-cli"]:
+        (source / "skills" / name / "references").mkdir(parents=True)
+        (source / "skills" / name / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+        (source / "skills" / name / "references" / "guide.md").write_text("guide\n", encoding="utf-8")
+    paths = ProjectPaths(tmp_path / "project")
+    retired = paths.skills / "huggingface-gradio"
+    retired.mkdir(parents=True)
+    (paths.skills / "my-own-skill").mkdir()
+    paths.huggingface_skills_record.parent.mkdir(parents=True)
+    paths.huggingface_skills_record.write_text(json.dumps({"skills": ["huggingface-gradio"]}), encoding="utf-8")
+
+    assert team.install_huggingface_skills(config, paths, source, "https://example.com/skills.git", "abc1234") == wanted
+    assert all((paths.skills / name / "references" / "guide.md").exists() for name in wanted)
+    assert not retired.exists() and (paths.skills / "my-own-skill").exists() and not (paths.skills / "hf-cli").exists()
+    record = json.loads(paths.huggingface_skills_record.read_text(encoding="utf-8"))
+    assert record["commit"] == "abc1234" and record["skills"] == wanted
+
+    (source / "skills" / "trl-training" / "SKILL.md").unlink()
+    with pytest.raises(cfg.ConfigError, match="trl-training"):
+        team.install_huggingface_skills(config, paths, source, "https://example.com/skills.git", "def5678")
 
 
 def test_skills_are_refreshed_and_conventions_created_once(example_config, tmp_path):

@@ -95,6 +95,10 @@ class ProjectPaths:
     def mcp_entry(self) -> Path:
         return self.runtime / "ai-dev-kit" / "databricks-mcp-server" / "run_server.py"
 
+    @property
+    def huggingface_skills_record(self) -> Path:
+        return self.runtime / "huggingface-skills.json"
+
     # ─── Claude Code ───────────────────────────────────────────
 
     @property

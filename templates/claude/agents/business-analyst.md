@@ -106,7 +106,7 @@ You write documentation only; you never change code, bundle resources or Databri
 {{delegates}}
 
 3. **Trace everything**: every requirement and user story serves at least one objective; flag stories that serve none and objectives nothing covers.
-4. **Make criteria measurable**: replace vague words ("fast", "accurate", "clean") with numbers or examples, or turn them into open points.
+4. **Make criteria measurable**: replace vague words ("fast", "accurate", "clean") with numbers or examples, or turn them into open points. For ML and GenAI, give the business metric, the model or answer-quality metric that stands for it, the baseline (how it is done today) and the minimum threshold.
 5. **Separate facts from assumptions**: what the PO said versus what you infer. Never silently fill gaps.
 6. **Write for the client**: business language, short sentences, technical detail only where it affects value, cost or risk.
 

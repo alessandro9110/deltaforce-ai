@@ -12,6 +12,8 @@
 #   prod_read  true when the role may read the production workspace (server "databricks-prod")
 #   delegates  agent types the role may spawn
 #   skills     Databricks agent skills installed for the role and listed in its prompt
+#   huggingface_skills  skills from github.com/huggingface/skills (latest main) installed for the role and listed in
+#              its prompt; only those whose know-how applies on Databricks — no Hub publishing, Jobs, Spaces or SageMaker
 #
 # In the template frontmatter, `skills` are the DeltaForce skills preloaded into the agent: every preloaded skill
 # is in the context of every call, so preload only what the role needs on every task; the others load on demand.
@@ -56,21 +58,23 @@ roles:
     mcp: [execute_sql, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_volume_files, list_compute]
     prod_read: true
     delegates: [data-scientist, data-analyst]
-    skills: [databricks-core, databricks-ml-training, databricks-synthetic-data-gen, databricks-python-sdk]
+    skills: [databricks-core, databricks-ml-training, databricks-synthetic-data-gen, databricks-python-sdk, databricks-execution-compute, databricks-model-serving]
+    huggingface_skills: [huggingface-best, hf-mem, huggingface-datasets, train-sentence-transformers, trl-training, huggingface-llm-trainer, huggingface-vision-trainer]
 
   ai-engineer:
     title: AI Engineer
     mcp: [execute_sql, execute_code, get_table_stats_and_schema, manage_volume_files, generate_and_upload_pdf, manage_vs_endpoint, manage_vs_index, manage_vs_data, query_vs_index, manage_serving_endpoint, manage_ka, manage_mas, manage_genie, ask_genie, manage_app]
     prod_read: true
     delegates: [ai-engineer, data-engineer]
-    skills: [databricks-core, databricks-agent-bricks, databricks-vector-search, databricks-model-serving, databricks-mlflow-evaluation, databricks-ai-functions, databricks-apps-python]
+    skills: [databricks-core, databricks-agent-bricks, databricks-vector-search, databricks-model-serving, databricks-mlflow-evaluation, databricks-ai-functions, databricks-apps-python, databricks-execution-compute, databricks-unstructured-pdf-generation]
+    huggingface_skills: [huggingface-best, hf-mem, huggingface-datasets, train-sentence-transformers, trl-training, huggingface-llm-trainer]
 
   qa-engineer:
     title: QA Engineer
     mcp: [execute_sql, execute_sql_multi, execute_code, get_table_stats_and_schema, get_volume_folder_details, manage_job_runs, manage_pipeline_run, manage_dashboard, query_vs_index, ask_genie]
     prod_read: true
     delegates: [data-analyst]
-    skills: [databricks-core, databricks-dbsql, databricks-mlflow-evaluation, databricks-synthetic-data-gen]
+    skills: [databricks-core, databricks-dbsql, databricks-mlflow-evaluation, databricks-synthetic-data-gen, databricks-execution-compute]
 
   devops-engineer:
     title: DevOps Engineer

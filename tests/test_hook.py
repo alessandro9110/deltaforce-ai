@@ -143,6 +143,64 @@ def test_databricks_resources_only_through_the_bundle(policy):
     assert decide(policy, "mcp__databricks__manage_serving_endpoint", {"action": "query", "name": "m"}) is None
 
 
+def test_agent_bricks_are_created_on_dev_by_the_ai_engineer_and_deleted_by_a_person(policy):
+    ai, ka, mas = "ai-engineer", "mcp__databricks__manage_ka", "mcp__databricks__manage_mas"
+    docs = {"action": "create_or_update", "name": "docs-assistant", "volume_path": "/Volumes/main/bronze/docs"}
+    assert decide(policy, ka, docs, role=ai) is None
+    supervisor = {
+        "action": "create_or_update",
+        "name": "support",
+        "agents": [
+            {"name": "docs", "description": "product documents", "ka_tile_id": "t1"},
+            {"name": "lookup", "description": "order lookup", "uc_function_name": "main.gold.order_lookup"},
+        ],
+    }
+    assert decide(policy, mas, supervisor, role=ai) is None
+    assert decide(policy, ka, {"action": "get", "tile_id": "t1"}, role="qa-engineer") is None
+    assert decide(policy, mas, {"action": "find_by_name", "name": "support"}, role="data-analyst") is None
+    assert "only by the ai-engineer" in decide(policy, ka, docs, role="data-engineer")
+    assert "only in the dev catalog" in decide(policy, ka, {**docs, "volume_path": "/Volumes/other/raw/docs"}, role=ai)
+    outside = {**supervisor, "agents": [{"name": "fn", "description": "f", "uc_function_name": "finance.gold.fn"}]}
+    assert "only in the dev catalog" in decide(policy, mas, outside, role=ai)
+    assert "deleted by a person" in decide(policy, ka, {"action": "delete", "tile_id": "t1"}, role=ai)
+    assert "not allowed" in decide(policy, mas, {"name": "support"}, role=ai)
+    assert "not allowed on production" in decide(policy, "mcp__databricks-prod__manage_ka", docs, role="data-analyst")
+
+
+def test_hugging_face_hub_publishing_and_jobs_are_blocked(policy):
+    ds = "data-scientist"
+    for command in [
+        "hf jobs uv run --flavor a10g-large train.py",
+        "huggingface-cli upload my-org/churn-model ./out",
+        "hf upload-large-folder my-org/churn-model ./out",
+        "hf repo create my-org/churn-model --private",
+        "uvx hf jobs run python:3.12 python train.py",
+        "cd src && python -c \"model.push_to_hub('my-org/m')\"",
+        "trl sft --model_name_or_path Qwen/Qwen2.5-0.5B --push_to_hub --output_dir out",
+    ]:
+        reason = decide(policy, "Bash", {"command": command}, role=ds)
+        assert reason and "Hugging Face" in reason, command
+    for command in [
+        "hf download Qwen/Qwen2.5-0.5B --local-dir /tmp/qwen",
+        "hf auth whoami",
+        "trl sft --model_name_or_path Qwen/Qwen2.5-0.5B --push_to_hub false --output_dir out",
+    ]:
+        assert decide(policy, "Bash", {"command": command}, role=ds) is None, command
+
+    train = "C:/p/src/ml/training/train.py"
+    for tool_input in [
+        {"file_path": train, "content": "args = SFTConfig(output_dir='out', push_to_hub=True)"},
+        {"file_path": train, "old_string": "pass", "new_string": "trainer.push_to_hub()"},
+        {"file_path": train, "content": "from huggingface_hub import run_job, whoami\n"},
+        {"file_path": train, "content": "HfApi().upload_folder(folder_path='out', repo_id='my-org/m')"},
+    ]:
+        tool = "Edit" if "new_string" in tool_input else "Write"
+        reason = decide(policy, tool, tool_input, role=ds)
+        assert reason and "Hugging Face" in reason, tool_input
+    safe = "args = SFTConfig(output_dir='/Volumes/main/gold/checkpoints', push_to_hub=False)\nmlflow.transformers.log_model(model, name='m')"
+    assert decide(policy, "Write", {"file_path": train, "content": safe}, role=ds) is None
+
+
 def test_bundle_rules(policy):
     assert decide(policy, "Bash", {"command": f"{CLI} bundle deploy -t dev"}, role="devops-engineer") is None
     assert decide(policy, "Bash", {"command": f"{CLI} bundle run -t dev trips_pipeline"}, role="devops-engineer") is None
@@ -272,6 +330,7 @@ def test_protected_files(policy):
         "C:/p/.claude/worktrees/agent-a1/.claude/agents/data-engineer.md",
         "C:/p/.claude/skills/df-kickoff/SKILL.md",
         "C:/p/.claude/skills/databricks-core/SKILL.md",
+        "C:/p/.claude/skills/huggingface-llm-trainer/references/training_methods.md",
         "C:/p/.deltaforce/framework/lib/hooks/deltaforce_hook.py",
         "C:/p/.deltaforce/runtime/guard-policy.json",
         "C:/p/CLAUDE.md",

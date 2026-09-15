@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from deltaforce import backlog, databricks_io, doctor, environments, generate  # noqa: E402
+from deltaforce import backlog, databricks_io, doctor, environments, generate, team  # noqa: E402
 from deltaforce import config as cfg  # noqa: E402
 from deltaforce.paths import ProjectPaths  # noqa: E402
 
@@ -37,6 +37,19 @@ def cmd_export_env(args: argparse.Namespace) -> int:
 def cmd_skills(args: argparse.Namespace) -> int:
     data = cfg.load_config(_paths(args).config)
     print(",".join(cfg.skills_for_roles(data["team"]["roles"])))
+    return 0
+
+
+def cmd_hf_skills(args: argparse.Namespace) -> int:
+    data = cfg.load_config(_paths(args).config)
+    print(",".join(cfg.huggingface_skills_for_roles(data["team"]["roles"])))
+    return 0
+
+
+def cmd_install_hf_skills(args: argparse.Namespace) -> int:
+    paths = _paths(args)
+    installed = team.install_huggingface_skills(cfg.load_config(paths.config), paths, Path(args.source), args.repo, args.commit)
+    print(",".join(installed))
     return 0
 
 
@@ -173,6 +186,11 @@ def main(argv: list[str] | None = None) -> int:
     add("write-config", cmd_write_config, "write .deltaforce/config.yaml from DF_* variables")
     add("export-env", cmd_export_env, "print DF_* assignments from the configuration")
     add("skills", cmd_skills, "print the Databricks skills of the enabled roles")
+    add("hf-skills", cmd_hf_skills, "print the Hugging Face skills of the enabled roles")
+    hf = add("install-hf-skills", cmd_install_hf_skills, "copy the Hugging Face skills of the enabled roles into .claude/skills")
+    hf.add_argument("--source", required=True, help="checkout of the Hugging Face skills repository")
+    hf.add_argument("--repo", required=True)
+    hf.add_argument("--commit", required=True)
     add("roles", cmd_roles, "print the role catalog")
     add("list", cmd_list, "turn Databricks CLI JSON into menu lines").add_argument(
         "--kind", required=True, choices=sorted(databricks_io.LISTINGS)

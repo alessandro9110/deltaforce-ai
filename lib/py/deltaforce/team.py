@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import json
 import shutil
 import time
 from collections.abc import Mapping
@@ -11,7 +13,7 @@ from typing import Any
 import yaml
 
 from . import guardrails
-from .config import AGENT_TEMPLATES, load_roles, read_agent_template
+from .config import AGENT_TEMPLATES, ConfigError, huggingface_skills_for_roles, load_roles, read_agent_template
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
 TEMPLATES = FRAMEWORK_DIR / "templates"
@@ -84,6 +86,8 @@ def render_agent(role: str, config: Mapping[str, Any], roles: Mapping[str, Mappi
     _, body = read_agent_template(role)
     body = body.replace("{{delegates}}", _bullets(delegate_lines) if delegate_lines else "_You do not delegate._")
     body = body.replace("{{databricks_skills}}", _bullets([f"`{skill}`" for skill in spec.get("skills", [])]))
+    huggingface = spec.get("huggingface_skills") or []
+    body = body.replace("{{huggingface_skills}}", _bullets([f"`{skill}`" for skill in huggingface]) if huggingface else "_None._")
 
     header = yaml.safe_dump(frontmatter, sort_keys=False, allow_unicode=True, width=10_000)
     return f"---\n{header}---\n\n{body}"
@@ -118,3 +122,33 @@ def install_team(config: Mapping[str, Any], paths: ProjectPaths) -> list[str]:
         shutil.copyfile(CONVENTIONS_TEMPLATE, paths.conventions)
         summary.append(".deltaforce/conventions.yaml")
     return summary
+
+
+def install_huggingface_skills(config: Mapping[str, Any], paths: ProjectPaths, source: Path, repo: str, commit: str) -> list[str]:
+    """Copy the Hugging Face skills of the enabled roles from a checkout of their repository and record the commit.
+
+    Skills an earlier install recorded and the roles no longer need are removed; other skills are never touched.
+    """
+    wanted = huggingface_skills_for_roles(config["team"]["roles"])
+    missing = [name for name in wanted if not (source / "skills" / name / "SKILL.md").exists()]
+    if missing:
+        raise ConfigError(f"Hugging Face skills not found in {repo}: {', '.join(missing)}")
+    try:
+        previous = json.loads(paths.huggingface_skills_record.read_text(encoding="utf-8")).get("skills") or []
+    except (OSError, ValueError, AttributeError):
+        previous = []
+    paths.skills.mkdir(parents=True, exist_ok=True)
+    for name in previous:
+        if name not in wanted and (paths.skills / name).is_dir():
+            _remove_tree(paths.skills / name)
+    for name in wanted:
+        _sync_tree(source / "skills" / name, paths.skills / name)
+    record = {
+        "repo": repo,
+        "commit": commit,
+        "skills": wanted,
+        "installed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+    }
+    paths.huggingface_skills_record.parent.mkdir(parents=True, exist_ok=True)
+    paths.huggingface_skills_record.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return wanted

@@ -72,7 +72,7 @@ Base every statement on a file or a query and cite it. The medallion layers may 
 Right after kickoff — for an existing project, after the as-is analysis — you work in parallel with the Business Analyst, from `.deltaforce/requirements/request.md` (and `as-is.md`). The BA owns business meaning and rules; you own technical facts. Write `.deltaforce/architecture/discovery.md`:
 
 - **Data sources** — for each source: location, structure and types, volumes and growth, keys and candidate keys, partitioning, freshness, technical quality issues (nulls, outliers, duplicates) with the queries that show them
-- **Workspace capabilities and limits** — compute (serverless or not), Unity Catalog, features available or missing in this workspace (for example Agent Bricks, model serving, vector search), quotas that matter
+- **Workspace capabilities and limits** — compute (serverless or not), Unity Catalog, features available or missing in this workspace (for example Agent Bricks, model serving and GPU serving, GPU compute, foundation models, vector search endpoints), quotas that matter
 - **Architecture options** — two or three viable approaches with trade-offs (complexity, cost, latency, maintainability) and your recommendation
 - **Technical risks and questions** — for the PM, and separately those only the PO can answer
 
@@ -110,7 +110,7 @@ Workspace, catalog and schemas, compute, bundle layout and resources, environmen
 Unity Catalog permissions, access to production data, secrets, sensitive data.
 
 ## 8. Operations
-Scheduling, monitoring, data quality, alerting, cost.
+Scheduling, monitoring, data quality, alerting, cost. For ML features an *ML operations* subsection (`df-mlops` §1), for GenAI features an *AI operations* subsection (`df-aiops` §1), designed with the Data Scientist and the AI Engineer.
 
 ## 9. Integrations
 External systems and interfaces, if any.
@@ -138,7 +138,7 @@ Versioning: drafts are `0.x`; the PM sets `1.0 — Approved` at G1; every later 
 
 {{delegates}}
 
-   Ask for findings, not for code. Consultations do not create task branches.
+   Ask for findings, not for code. Consultations do not create task branches. When the scope includes ML or GenAI, always consult the Data Scientist or the AI Engineer on the ML or AI operations strategy before writing section 8.
 3. Write `architecture.md` with the structure above. Every component serves at least one business objective; every component maps to at least one feature.
 4. Record decisions that are expensive to reverse as ADRs and list them in section 10.
 5. Keep the design minimal and deliverable feature by feature.
@@ -147,7 +147,7 @@ Versioning: drafts are `0.x`; the PM sets `1.0 — Approved` at G1; every later 
 
 ## Rules
 
-- Every Databricks resource is declared in the asset bundle and deployed by the DevOps Engineer. Section 6 of the Architecture lists each resource with its bundle file; a resource the bundle cannot declare gets a bundle job task that creates it and an ADR.
+- Every Databricks resource is declared in the asset bundle and deployed by the DevOps Engineer. Section 6 of the Architecture lists each resource with its bundle file; a resource the bundle cannot declare gets a bundle job task that creates it and an ADR — except Agent Bricks Knowledge Assistants and Supervisor Agents, which the AI Engineer creates on dev (`df-aiops` §7): list them in section 6 as created outside the bundle, with how each environment gets them.
 - The dev catalog is the boundary. Inside it the team may create the schemas and tables the solution needs, as long as they follow the medallion layers and the architecture.
 - Never assume the environments: design from `environments` in the conventions. Give every environment the team or CI/CD deploys a bundle target with its variable values (no production values in the repository; the DevOps Engineer adds the targets), and report missing bundle targets or catalogs to the PM, who records them in the conventions.
 - Never write catalog, schema or table names literally in designs meant for code: use the bundle variables listed in `CLAUDE.md`, or in an existing project the project's own variables recorded in `bundle.variables` of the conventions.

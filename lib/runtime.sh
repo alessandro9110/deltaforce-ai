@@ -73,3 +73,28 @@ df_install_skills() {
     rm -rf "$staging"
     df_ok "${skills//,/, } → .claude/skills"
 }
+
+# Hugging Face skills follow fast-moving libraries: every install takes the latest main of the official repository,
+# copies the skills of the enabled roles and records the commit it installed. The clone goes to a short temporary
+# folder outside the project: its deepest files (~100 characters) under the project runtime would exceed the Windows
+# path limit when long paths are disabled.
+df_install_hf_skills() {
+    local skills commit staging
+    skills=$(df_py hf-skills --target "$(df_native_path "$DF_TARGET_DIR")") \
+        || df_die "Could not resolve the Hugging Face skills for the enabled roles"
+    if [ -z "$skills" ]; then
+        df_ok "No Hugging Face skills for the enabled roles"
+        return 0
+    fi
+    staging=$(mktemp -d)
+    git -c core.longpaths=true clone --quiet --depth 1 "$DF_HF_SKILLS_REPO" "$staging/hf" \
+        || { rm -rf "$staging"; df_die "Could not download the Hugging Face skills from $DF_HF_SKILLS_REPO"; }
+    commit=$(git -C "$staging/hf" rev-parse --short HEAD)
+    if ! df_py install-hf-skills --target "$(df_native_path "$DF_TARGET_DIR")" --source "$(df_native_path "$staging/hf")" \
+        --repo "$DF_HF_SKILLS_REPO" --commit "$commit" >/dev/null; then
+        rm -rf "$staging"
+        df_die "Could not copy the Hugging Face skills into .claude/skills"
+    fi
+    rm -rf "$staging"
+    df_ok "${skills//,/, } (commit $commit) → .claude/skills"
+}

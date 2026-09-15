@@ -60,6 +60,7 @@ def load_roles() -> dict[str, dict[str, Any]]:
         spec.update({key: frontmatter[key] for key in AGENT_FIELDS if key in frontmatter})
         spec["tools"] = split_tools(spec.get("tools"))
         spec["process_skills"] = list(frontmatter.get("skills") or [])
+        spec.setdefault("huggingface_skills", [])
     return roles
 
 
@@ -118,13 +119,23 @@ def write_config(path: Path, data: Mapping[str, Any]) -> None:
     path.write_text(CONFIG_HEADER + body, encoding="utf-8")
 
 
-def skills_for_roles(roles: list[str]) -> list[str]:
+def _skill_union(roles: list[str], key: str) -> list[str]:
     catalog = load_roles()
     ordered: dict[str, None] = {}
     for role in roles:
-        for skill in catalog[role]["skills"]:
+        for skill in catalog[role][key]:
             ordered.setdefault(skill)
     return list(ordered)
+
+
+def skills_for_roles(roles: list[str]) -> list[str]:
+    """Databricks agent skills of the roles, in order, without duplicates."""
+    return _skill_union(roles, "skills")
+
+
+def huggingface_skills_for_roles(roles: list[str]) -> list[str]:
+    """Hugging Face skills of the roles, in order, without duplicates."""
+    return _skill_union(roles, "huggingface_skills")
 
 
 def _csv(value: str) -> list[str]:

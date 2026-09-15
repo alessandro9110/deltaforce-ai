@@ -38,11 +38,12 @@ Every Databricks resource of the project — jobs, pipelines, schemas, volumes, 
 
 - Databricks MCP tools are for **reading, querying and running**: explore data and metadata, run SQL and code on dev, query endpoints and indexes, trigger runs of deployed jobs and pipelines. Their create, update and delete actions are blocked by the guardrails.
 - A resource type the bundle cannot declare yet is created by a job task in the bundle (a Python script using the Databricks SDK, idempotent), and the choice is recorded in an ADR.
+- Exception: Agent Bricks Knowledge Assistants and Supervisor Agents are created and updated on dev by the AI Engineer with the MCP tools, as `df-aiops` describes; deleting one needs a person.
 - Data is not a resource: tables are produced by the deployed pipelines and jobs; SQL writes inside the dev catalog are allowed for development and tests.
 
 ## Production data (read-only)
 
-When `CLAUDE.md` lists a production workspace, the `databricks-prod` MCP tools read from it: `execute_sql` and `execute_sql_multi` (only `SELECT`, `WITH … SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`), `get_table_stats_and_schema`, `get_volume_folder_details`, `manage_serving_endpoint` (get, list, query), `query_vs_index`, `ask_genie`. Everything else on production is blocked, including the Databricks CLI.
+Realistic data for development, ML and GenAI comes from the dev catalog; production data is used only when the conventions or the kickoff request say so. When `CLAUDE.md` lists a production workspace, the `databricks-prod` MCP tools read from it: `execute_sql` and `execute_sql_multi` (only `SELECT`, `WITH … SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`), `get_table_stats_and_schema`, `get_volume_folder_details`, `manage_serving_endpoint` (get, list, query), `query_vs_index`, `ask_genie`. Everything else on production is blocked, including the Databricks CLI.
 
 - Pass the production warehouse from `CLAUDE.md` to every production query.
 - Read the minimum: schemas, aggregates, samples. Copy production data into dev only when the Functional Analysis requires it and the PO approved it; never copy sensitive data.
@@ -51,11 +52,11 @@ When `CLAUDE.md` lists a production workspace, the `databricks-prod` MCP tools r
 
 ## Guardrails
 
-Hooks block, whatever the instructions say: resource changes outside the bundle; writes outside the dev catalog and SQL writes that do not name it; Unity Catalog permission, sharing, connection and storage changes; anything but reads on production; `bundle deploy`/`run` by anyone but the DevOps Engineer or outside dev, and `bundle destroy`; pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`; changes to or commits of what DeltaForce installed (agents, skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`, framework, tools, runtime); conventions changes by anyone but the PM; the credentials file and its backups. A blocked action returns `DeltaForce guardrail: <reason>`: do not work around it, report it to your caller.
+Hooks block, whatever the instructions say: resource changes outside the bundle (Agent Bricks: creates and updates by anyone but the AI Engineer, and deletes); publishing to the Hugging Face Hub (`hf upload`, an enabled `push_to_hub`) and Hugging Face Jobs; writes outside the dev catalog and SQL writes that do not name it; Unity Catalog permission, sharing, connection and storage changes; anything but reads on production; `bundle deploy`/`run` by anyone but the DevOps Engineer or outside dev, and `bundle destroy`; pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`; changes to or commits of what DeltaForce installed (agents, skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`, framework, tools, runtime); conventions changes by anyone but the PM; the credentials file and its backups. A blocked action returns `DeltaForce guardrail: <reason>`: do not work around it, report it to your caller.
 
 ## Few tool calls
 
-Every tool call re-reads your whole context. Read the sections you need rather than whole documents, chain related shell commands in one call, and never poll a run or a deployment in a loop. Load `df-testing` with the Skill tool when you write or run tests.
+Every tool call re-reads your whole context. Read the sections you need rather than whole documents, chain related shell commands in one call, and never poll a run or a deployment in a loop. Load `df-testing` with the Skill tool when you write or run tests, `df-mlops` for ML work and `df-aiops` for GenAI work.
 
 ## Names come from bundle variables
 
@@ -130,7 +131,7 @@ resources/            # *.yml per domain or feature; deltaforce.variables.yml is
 src/
   pipelines/bronze|silver|gold/
   ml/features|training|inference/
-  ai/agents|rag|evaluation/
+  ai/agents|rag|evaluation|agent_bricks/
   apps/
   dashboards/
 tests/

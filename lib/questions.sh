@@ -337,6 +337,7 @@ df_print_plan() {
     df_msg "  • Guardrail and audit hooks → .claude/settings.local.json"
     df_msg "  • Missing dev schemas in the chosen catalog created on Databricks"
     df_msg "  • Databricks agent skills for the enabled roles → .claude/skills"
+    df_msg "  • Hugging Face skills for the Data Scientist and the AI Engineer (latest version) → .claude/skills"
     df_msg "  • .deltaforce/config.yaml, .mcp.json, .claude/settings*.json, CLAUDE.md block,"
     df_msg "    bundle variables and a .gitignore block"
 }

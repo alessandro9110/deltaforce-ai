@@ -15,8 +15,8 @@ Every acceptance criterion needs at least one test with recorded evidence. Tests
 | Data quality | `tests/data_quality/` + pipeline expectations | Keys unique and not null, ranges, referential integrity, freshness, row count reconciliation between layers | SQL assertions that return zero violating rows; expectations in pipelines for silver and gold |
 | Transformation | `tests/data_quality/` or `tests/integration/` | Business rules on small, known inputs | Synthetic input rows in a test table, expected output compared with `EXCEPT` both ways |
 | Integration / end-to-end | `tests/integration/` | Deployed jobs and pipelines run successfully and produce the expected objects | Run results from the DevOps Engineer plus checks on the produced tables |
-| ML | `tests/evaluation/` | Model metrics versus baseline and the thresholds in the acceptance criteria | MLflow run metrics; fail when below threshold |
-| GenAI | `tests/evaluation/` | Answer quality, groundedness, retrieval relevance, latency | MLflow evaluation on the gold evaluation dataset with judges; thresholds from the acceptance criteria |
+| ML | `tests/evaluation/` | Metrics of the registered model (by alias) on the held-out test split versus the baseline and the thresholds in the acceptance criteria, per segment; no leakage | Recomputed from the model and the saved split, not from logged numbers; fail when below threshold (`df-mlops`) |
+| GenAI | `tests/evaluation/` | Answer quality, groundedness, retrieval relevance, safety, latency and cost on the versioned evaluation dataset | MLflow GenAI evaluation with judges on the deployed endpoint or registered version; thresholds from the acceptance criteria (`df-aiops`) |
 
 ## Writing SQL assertions
 
@@ -35,6 +35,7 @@ HAVING COUNT(*) > 1
 ## Test data
 
 - Use synthetic data (`databricks-synthetic-data-gen`) in the dev catalog for transformation tests; never copy production data.
+- ML and GenAI evaluation uses realistic samples of the real data in the dev catalog (`df-mlops`, `df-aiops`); production data only when the conventions or the kickoff request allow it.
 - Clean up test tables you create, or give them a `test_` prefix.
 
 ## Running

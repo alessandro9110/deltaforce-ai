@@ -164,6 +164,15 @@ def test_environments_round_trip_and_never_reuse_the_dev_target():
     cfg.validate(legacy)
 
 
+def test_hugging_face_skills_only_for_the_ml_and_genai_roles():
+    assert cfg.huggingface_skills_for_roles(["pm", "data-engineer", "devops-engineer"]) == []
+    skills = cfg.huggingface_skills_for_roles(["data-scientist", "ai-engineer"])
+    assert skills[0] == "huggingface-best" and len(skills) == len(set(skills))
+    assert {"huggingface-llm-trainer", "train-sentence-transformers", "huggingface-vision-trainer"} <= set(skills)
+    # Only know-how that applies on Databricks: nothing that publishes to the Hub or runs on Hugging Face infrastructure.
+    assert not {"hf-cli", "huggingface-spaces", "huggingface-zerogpu", "huggingface-gradio"} & set(skills)
+
+
 def test_skills_union_is_ordered_and_deduplicated():
     skills = cfg.skills_for_roles(["pm", "data-engineer", "devops-engineer"])
     assert skills[0] == "databricks-core"

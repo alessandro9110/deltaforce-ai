@@ -75,8 +75,8 @@ A Project Manager coordinates eight specialists who work in parallel, each in it
 - **Databricks Jobs** — refresh workflows, multi-task jobs, data quality test jobs
 - **AI/BI Dashboards, Metric Views and Genie spaces** — KPIs and analytics on gold
 - **Unity Catalog objects** — schemas, tables, volumes, inside the dev catalog
-- **ML models** — features, training and evaluation with MLflow, registration in Unity Catalog
-- **GenAI** — document processing, vector search, RAG and agents, evaluation, model serving, Databricks Apps
+- **ML models** — realistic data samples, features, baselines and model challenges, training and tuning with MLflow, champion and challenger in Unity Catalog, serving, monitoring and retraining; Hugging Face models fine-tuned and served on Databricks
+- **GenAI** — document processing, vector search, RAG and agents (custom or Agent Bricks), evaluation datasets and model challenges, MLflow evaluation and tracing, model serving, Databricks Apps
 - **Extensions of existing projects** — the team first analyses the codebase and what is deployed, then designs the change
 
 Every resource is declared in the **Databricks Asset Bundle** with parametric names (`${var.catalog}`, `${var.schema_gold}`, …) and follows the **medallion** layers.
@@ -92,20 +92,21 @@ Every resource is declared in the **Databricks Asset Bundle** with parametric na
 | **Business Analyst** | Business objectives, expected value, requirements, acceptance criteria | `databricks-data-discovery` |
 | **Data Engineer** | Ingestion and bronze, silver, gold pipelines and jobs | `databricks-pipelines`, `databricks-jobs`, `databricks-dabs`, `databricks-lakeflow-connect`, `databricks-spark-structured-streaming` |
 | **Data Analyst** | Gold marts, metric views, AI/BI dashboards, Genie spaces | `databricks-dbsql`, `databricks-aibi-dashboards`, `databricks-metric-views`, `databricks-data-discovery` |
-| **Data Scientist** | Exploration, features, ML training and evaluation | `databricks-ml-training`, `databricks-synthetic-data-gen`, `databricks-python-sdk` |
-| **AI Engineer** | Vector search, agents, AI functions, evaluation, serving, apps | `databricks-agent-bricks`, `databricks-vector-search`, `databricks-model-serving`, `databricks-mlflow-evaluation`, `databricks-ai-functions`, `databricks-apps-python` |
-| **QA Engineer** | Data quality, integration and regression tests on the deployed feature | `databricks-dbsql`, `databricks-mlflow-evaluation`, `databricks-synthetic-data-gen` |
+| **Data Scientist** | The ML expert: realistic samples, features, baselines and model challenges, training, champion and challenger in Unity Catalog, serving, monitoring and retraining — Hugging Face models included | `databricks-ml-training`, `databricks-synthetic-data-gen`, `databricks-python-sdk`, `databricks-execution-compute`, `databricks-model-serving` |
+| **AI Engineer** | The GenAI expert: RAG and agents (custom or Agent Bricks), evaluation datasets and model challenges, prompts and tracing, serving, apps — Hugging Face models included | `databricks-agent-bricks`, `databricks-vector-search`, `databricks-model-serving`, `databricks-mlflow-evaluation`, `databricks-ai-functions`, `databricks-apps-python`, `databricks-execution-compute`, `databricks-unstructured-pdf-generation` |
+| **QA Engineer** | Data quality, integration and regression tests on the deployed feature; ML and GenAI results recomputed on its own | `databricks-dbsql`, `databricks-mlflow-evaluation`, `databricks-synthetic-data-gen`, `databricks-execution-compute` |
 | **DevOps Engineer** | The only one who integrates, deploys to dev and merges into the dev branch; owns CI/CD | `databricks-dabs`, `databricks-jobs`, `databricks-pipelines` |
 
-Every role also gets `databricks-core` and its own list of Databricks MCP tools.
+Every role also gets `databricks-core` and its own list of Databricks MCP tools. The Data Scientist and the AI Engineer also get the Hugging Face skills.
 
 ### Skills
 
-Skills are instructions Claude Code loads into an agent's context. The team uses three kinds, all installed in the project's `.claude/skills/` and off-limits to the agents:
+Skills are instructions Claude Code loads into an agent's context. The team uses four kinds, all installed in the project's `.claude/skills/` and off-limits to the agents:
 
 - **Your commands** (`df-*`, 5) — you type them; the model cannot start them on its own.
-- **DeltaForce process skills** (`df-*`, 5) — how this team works: formats, git rules, standards. Hidden from the `/` menu; *preloaded* ones are in the agent's context on every task, the others load when needed.
-- **Databricks agent skills** (`databricks-*`, 21) — the official Databricks platform knowledge, per role in the table above, loaded when needed.
+- **DeltaForce process skills** (`df-*`, 7) — how this team works: formats, git rules, standards, MLOps and AIOps. Hidden from the `/` menu; *preloaded* ones are in the agent's context on every task, the others load when needed.
+- **Databricks agent skills** (`databricks-*`, 23) — the official Databricks platform knowledge, per role in the table above, loaded when needed.
+- **Hugging Face skills** (7) — the official Hugging Face know-how to choose, size and fine-tune models, for the Data Scientist and the AI Engineer, always at the latest version. The team applies it on Databricks: publishing to the Hugging Face Hub and Hugging Face Jobs are blocked.
 
 | Skill | Kind | Used by | What it holds |
 |---|---|---|---|
@@ -119,10 +120,13 @@ Skills are instructions Claude Code loads into an agent's context. The team uses
 | `df-engineering-standards` | Process, preloaded | Solution Architect, builders, QA, DevOps | Medallion layers for data engineering, analytics, ML and GenAI; bundle variables instead of literal names; project layout, naming, data quality; client conventions over the defaults |
 | `df-git-flow` | Process, preloaded | Builders, QA, DevOps | Dev, feature, task and integration branches; worktrees; commit trailers; merges; forbidden operations |
 | `df-testing` | Process — preloaded by QA, on demand for the others | QA Engineer, builders | Data quality, integration and end-to-end tests; ML metrics and GenAI evaluation thresholds; test data; evidence for G2 |
+| `df-mlops` | Process, on demand | Data Scientist, Solution Architect, QA Engineer | ML operations strategy in the Architecture; realistic samples and splits without leakage; baseline and model challenge with a leaderboard; champion and challenger in Unity Catalog; serving, monitoring, retraining; Hugging Face models on Databricks |
+| `df-aiops` | Process, on demand | AI Engineer, Solution Architect, QA Engineer | AI operations strategy; realistic evaluation datasets; baseline and challenge between models, retrieval and prompts; MLflow evaluation, tracing and Prompt Registry; serving and AI Gateway; monitoring; Agent Bricks |
 | `databricks-core` | Databricks | Every role | Databricks CLI, authentication and workspace basics |
-| `databricks-dabs`, `databricks-unity-catalog`, `databricks-docs`, `databricks-metric-views`, `databricks-data-discovery`, `databricks-pipelines`, `databricks-jobs`, `databricks-lakeflow-connect`, `databricks-spark-structured-streaming`, `databricks-dbsql`, `databricks-aibi-dashboards`, `databricks-ml-training`, `databricks-synthetic-data-gen`, `databricks-python-sdk`, `databricks-agent-bricks`, `databricks-vector-search`, `databricks-model-serving`, `databricks-mlflow-evaluation`, `databricks-ai-functions`, `databricks-apps-python` | Databricks | The roles in [Meet the Team](#meet-the-team) | Bundles, Unity Catalog, pipelines, jobs, SQL, dashboards, ML, vector search, serving, apps — installed only for the enabled roles |
+| `databricks-dabs`, `databricks-unity-catalog`, `databricks-docs`, `databricks-metric-views`, `databricks-data-discovery`, `databricks-pipelines`, `databricks-jobs`, `databricks-lakeflow-connect`, `databricks-spark-structured-streaming`, `databricks-dbsql`, `databricks-aibi-dashboards`, `databricks-ml-training`, `databricks-synthetic-data-gen`, `databricks-python-sdk`, `databricks-execution-compute`, `databricks-agent-bricks`, `databricks-vector-search`, `databricks-model-serving`, `databricks-mlflow-evaluation`, `databricks-ai-functions`, `databricks-apps-python`, `databricks-unstructured-pdf-generation` | Databricks | The roles in [Meet the Team](#meet-the-team) | Bundles, Unity Catalog, pipelines, jobs, SQL, dashboards, running code, ML, vector search, serving, apps, test documents for RAG — installed only for the enabled roles |
+| `huggingface-best`, `hf-mem`, `huggingface-datasets`, `train-sentence-transformers`, `trl-training`, `huggingface-llm-trainer`, `huggingface-vision-trainer` | Hugging Face | Data Scientist, AI Engineer (vision: Data Scientist) | Choosing models by task and benchmark, memory estimates, inspecting datasets, fine-tuning recipes for embeddings, rerankers, language and vision models |
 
-*Builders* are the Data Engineer, Data Analyst, Data Scientist and AI Engineer. Which skills each agent preloads is in its template, [`templates/claude/agents/`](templates/claude/agents/); the Databricks skills per role in [`lib/data/roles.yaml`](lib/data/roles.yaml).
+*Builders* are the Data Engineer, Data Analyst, Data Scientist and AI Engineer. Which skills each agent preloads is in its template, [`templates/claude/agents/`](templates/claude/agents/); the Databricks and Hugging Face skills per role in [`lib/data/roles.yaml`](lib/data/roles.yaml).
 
 ---
 
@@ -141,11 +145,12 @@ Skills are instructions Claude Code loads into an agent's context. The team uses
 | Source | What the team gets | How DeltaForce installs it |
 |---|---|---|
 | [databricks/databricks-agent-skills](https://github.com/databricks/databricks-agent-skills) | The official **Databricks agent skills** — pipelines, jobs, bundles, SQL, Unity Catalog, dashboards, ML, vector search, serving, apps — the union of what the enabled roles need | `databricks aitools install --path .claude/skills` with the project's own Databricks CLI (pinned **v1.16.1**) |
+| [huggingface/skills](https://github.com/huggingface/skills) | The official **Hugging Face skills** to choose, size and fine-tune models — only those that apply on Databricks, for the Data Scientist and the AI Engineer | Shallow clone of the latest `main` into a temporary folder at every install, skills copied into `.claude/skills`, commit recorded in `.deltaforce/runtime` and shown by the readiness checks |
 | [databricks-solutions/ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) | The **Databricks MCP server**: 40+ tools to run SQL, explore Unity Catalog, follow job and pipeline runs, query vector indexes and serving endpoints, ask Genie | Sparse clone of `databricks-mcp-server` and `databricks-tools-core` at **v0.2.0** into `.deltaforce/runtime/ai-dev-kit`, own Python environment, registered in `.mcp.json` as `databricks` (and `databricks-prod`, read-only, when production is configured) |
 | [Databricks CLI](https://docs.databricks.com/aws/en/dev-tools/cli/) | Sign-in, bundle validate / deploy / run | Downloaded into `.deltaforce/bin`; the project profile lives in `.deltaforce/.databrickscfg` |
 | This repository | The nine agents, the process skills and your commands, the guardrail and audit hooks, the monitor | Rendered into `.claude/` and `.deltaforce/` from the role catalog |
 
-Versions are pinned in [`lib/data/versions.env`](lib/data/versions.env); each role's skills and MCP tools in [`lib/data/roles.yaml`](lib/data/roles.yaml).
+Versions are pinned in [`lib/data/versions.env`](lib/data/versions.env) — except the Hugging Face skills, which follow fast-moving libraries and always take the latest version; each role's skills and MCP tools in [`lib/data/roles.yaml`](lib/data/roles.yaml).
 
 ---
 
@@ -159,7 +164,7 @@ Versions are pinned in [`lib/data/versions.env`](lib/data/versions.env); each ro
 | [VS Code](https://code.visualstudio.com/) (or another IDE with an integrated terminal) | The whole installation happens in its terminal |
 | [Git for Windows](https://git-scm.com/download/win) | Provides the `bash` that runs the installer |
 | [Claude Code](https://code.claude.com/docs) | Checked by the installer, not installed |
-| Access to `github.com` | DeltaForce, uv, the Databricks CLI, Python and the AI Dev Kit are downloaded from there |
+| Access to `github.com` | DeltaForce, uv, the Databricks CLI, Python, the AI Dev Kit and the Hugging Face skills are downloaded from there |
 
 | On Databricks | Notes |
 |---|---|
@@ -295,7 +300,7 @@ The team then starts on its own: for an existing project the **as-is analysis** 
 
 ### 2. Design and G1
 
-The Business Analyst writes the **Functional Analysis** (objectives, value, success metrics, user stories, acceptance criteria) and the Solution Architect the **Architecture** (medallion flows, tables, bundle layout; for an existing project what is new, changed or unchanged). Together they split the work into **features** with dependencies and tasks per role — including a **CI/CD feature** for the production pipeline. You approve with `/df-approve` or ask for changes with `/df-changes`. After G1 the PM suggests `/clear`: the design is saved and delivery starts from the files.
+The Business Analyst writes the **Functional Analysis** (objectives, value, success metrics, user stories, acceptance criteria) and the Solution Architect the **Architecture** (medallion flows, tables, bundle layout; for an existing project what is new, changed or unchanged). Together they split the work into **features** with dependencies and tasks per role — including a **CI/CD feature** for the production pipeline. For ML and GenAI the Architecture also holds the **ML or AI operations strategy** — metrics and baseline, data and splits, candidate models, promotion, serving, monitoring and retraining — designed with the Data Scientist and the AI Engineer. You approve with `/df-approve` or ask for changes with `/df-changes`. After G1 the PM suggests `/clear`: the design is saved and delivery starts from the files.
 
 ### 3. Build and deploy on dev
 
@@ -304,8 +309,8 @@ For every feature whose dependencies are done (up to three at a time):
 1. **Build** — the PM creates the feature branch `df/F-xxx`; the Data Engineer, Data Analyst, Data Scientist and AI Engineer work in parallel, each in its own git worktree and task branch, writing code in `src/`, bundle resources in `resources/` and tests in `tests/`. Names always come from bundle variables.
 2. **Integrate** — the DevOps Engineer, the only role that integrates and deploys, merges the task branches into the feature branch and rebuilds a local integration branch from the dev branch plus every active feature, in the **review worktree `.deltaforce/review/`**. Your main checkout never leaves the dev branch.
 3. **Deploy on dev** — from the review worktree: `bundle validate`, `bundle deploy` and `bundle run` on the dev **bundle target** chosen at installation (`dev` by default, `-t <target>` on every command) — or on an environment you confirmed, when the design deploys the feature there. Deploying everything active together keeps one feature's deploy from removing another's resources. Runs are started once and awaited, never polled.
-4. **Test** — the QA Engineer tests the deployed feature against its acceptance criteria (data quality, integration, evaluation) and, in an existing project, runs regression checks on the existing objects it touches. Failures go back to the owners as fix tasks.
-5. **G2** — the PM writes `.deltaforce/reports/F-xxx-po-review.md` and asks for your decision: what was built and its business value, Databricks objects created or changed, destructive operations with the rule that allowed each, test and regression evidence, where to look, deviations. Open `.deltaforce/review/` in VS Code to see the code, and the monitor for the evidence. The team keeps working on other features while you review.
+4. **Test** — the QA Engineer tests the deployed feature against its acceptance criteria (data quality, integration, evaluation — for ML and GenAI recomputing the results on its own) and, in an existing project, runs regression checks on the existing objects it touches. Failures go back to the owners as fix tasks.
+5. **G2** — the PM writes `.deltaforce/reports/F-xxx-po-review.md` and asks for your decision: what was built and its business value, Databricks objects created or changed, destructive operations with the rule that allowed each, test and regression evidence, for ML and GenAI the baseline, the model challenge and the evaluation, where to look, deviations. Open `.deltaforce/review/` in VS Code to see the code, and the monitor for the evidence. The team keeps working on other features while you review.
 6. **Merge** — after `/df-approve F-xxx` the DevOps Engineer merges the feature into the dev branch, pushes it and cleans up the agent worktrees and branches. When nobody is still working, the PM suggests `/clear`.
 
 The team never deploys to production and never pushes to a protected branch: the hooks block it whatever an agent is asked.
@@ -399,6 +404,7 @@ Hooks check every action of every agent before it runs, also in auto mode. Whate
 | Deploy and run the bundle on the dev target and on the environments you confirmed in the installer (the DevOps Engineer only) | Deploy to production, push to protected branches, force-push or rewrite history |
 | Commit and push feature and task branches; merge approved features into the dev branch | Change Unity Catalog grants, sharing, connections or storage |
 | Extend an existing project, following its conventions and your rules on existing data | Change what DeltaForce installed — agents, skills, settings, framework — or read the credentials |
+| Create and update Agent Bricks — Knowledge Assistants, Supervisor Agents — on dev (the AI Engineer only: the bundle cannot declare them) | Delete Agent Bricks, publish models or data to the Hugging Face Hub, or run Hugging Face Jobs |
 
 A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in `.deltaforce/audit.jsonl`. Static deny rules in `.claude/settings.json` back up the hooks, and the readiness checks run a self-test.
 
@@ -407,11 +413,12 @@ A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in
 
 | Area | Blocked |
 |---|---|
-| Dev workspace | Creating, changing or deleting Databricks resources outside the asset bundle; writes outside the dev catalog; SQL writes that do not name the catalog; permission, sharing, connection and storage changes |
+| Dev workspace | Creating, changing or deleting Databricks resources outside the asset bundle — except Agent Bricks created or updated by the AI Engineer; deleting Agent Bricks; writes outside the dev catalog; SQL writes that do not name the catalog; permission, sharing, connection and storage changes |
 | Production workspace | Anything but reads: SQL other than `SELECT`/`WITH … SELECT`/`SHOW`/`DESCRIBE`/`EXPLAIN`, code execution, jobs, pipelines, Unity Catalog changes, any Databricks CLI call to production |
 | Deployments | `bundle deploy` and `bundle run` by anyone but the DevOps Engineer, or to a target other than dev and the environments you confirmed; `bundle destroy` |
 | Environments | Writes in environments declared read-only; any access to catalogs of environments declared without access; deploys to production environments |
 | Git | Pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`, merges into the dev branch by anyone but the DevOps Engineer |
+| Hugging Face | `hf upload`, `hf jobs`, Hub repository changes and Inference Endpoints; an enabled `push_to_hub` or Hugging Face Jobs calls in commands and in the code agents write |
 | Files | Changes to anything DeltaForce installed, including commits that contain it; changes to the client conventions by anyone but the PM; any access to the credentials file and its backups |
 
 </details>
@@ -437,7 +444,7 @@ There is no uninstall option yet. In Git Bash:
 rm -rf .deltaforce/framework .deltaforce/bin .deltaforce/runtime .deltaforce/.databrickscfg* .deltaforce/status.json .mcp.json .claude/settings.local.json
 ```
 
-To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databricks-*` folders, the `deltaforce` blocks in `CLAUDE.md` and `.gitignore`, and `resources/deltaforce.variables.yml`.
+To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databricks-*` folders and the Hugging Face skill folders listed in [Skills](#skills), the `deltaforce` blocks in `CLAUDE.md` and `.gitignore`, and `resources/deltaforce.variables.yml`.
 
 </details>
 
@@ -456,10 +463,10 @@ To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databri
 | `.deltaforce/requirements/`, `architecture/`, `backlog/`, `reports/`, `state.yaml`, `events.jsonl` | The team's documents and progress | committed |
 | `.deltaforce/.databrickscfg` | Databricks CLI profile (and token or secret for PAT or service principal); backups are deleted and ignored | ignored |
 | `.deltaforce/bin/` | uv, the Databricks CLI, the `df` helper | ignored |
-| `.deltaforce/runtime/` | Python, AI Dev Kit MCP server and its environment, guard policy and declared environments, agent activity, monitor state | ignored |
+| `.deltaforce/runtime/` | Python, AI Dev Kit MCP server and its environment, the Hugging Face skills commit installed, guard policy and declared environments, agent activity, monitor state | ignored |
 | `.deltaforce/audit.jsonl`, `status.json` | Audit trail · result of the last readiness check | ignored |
 | `.claude/agents/` | The DeltaForce agents | committed |
-| `.claude/skills/df-*` · `.claude/skills/databricks-*` | DeltaForce skills and your commands · Databricks agent skills | committed |
+| `.claude/skills/df-*` · `.claude/skills/databricks-*` · Hugging Face skill folders | DeltaForce skills and your commands · Databricks agent skills · Hugging Face skills | committed |
 | `.claude/settings.json` | Sessions start as the PM, MCP approval, subagent nesting, deny rules | committed |
 | `.claude/settings.local.json` | Project profile for every command, guardrail and audit hooks, status line | ignored |
 | `.mcp.json` | The `databricks` MCP server (and `databricks-prod`) with this machine's paths | ignored |
@@ -521,6 +528,7 @@ models:
 | The PM warns that `.deltaforce/.databrickscfg.bak` is not ignored | A CLI backup left by an older version: re-run the installer with Claude Code closed |
 | `Failed to create virtual environment ... Access is denied. (os error 5)` | Something still uses the project's Python — usually Claude Code: close it and run the installer again |
 | The monitor page does not open | `bash .deltaforce/bin/df monitor`; if it fails, see `.deltaforce/runtime/monitor.log` and re-run the installer |
+| `DeltaForce guardrail: publishing to the Hugging Face Hub and Hugging Face Jobs are not allowed` | Models, data and training stay on Databricks: the team trains on Databricks compute and registers models with MLflow in Unity Catalog. If the client needs something on the Hub, a person does it |
 | `DeltaForce guardrail: the team may not deploy to environment '…'` | The environment is declared read-only or without access, or not confirmed yet: change it with `/df-conventions`, then re-run the installer with Claude Code closed and confirm it |
 | `databricks bundle validate` warning | Not blocking: `.deltaforce/bin/databricks bundle validate -t dev` shows the details |
 | Downloads fail | Check access to `github.com`, also through a corporate proxy |

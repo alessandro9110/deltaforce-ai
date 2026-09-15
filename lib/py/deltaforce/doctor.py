@@ -207,6 +207,14 @@ class Doctor:
         detail = f"{len(expected)} skills" if not missing else "missing: " + ", ".join(missing)
         self.add("skills", "Databricks agent skills", not missing, detail)
 
+        expected = cfg.huggingface_skills_for_roles(self.config["team"]["roles"])
+        if expected:
+            missing = [skill for skill in expected if not (self.paths.skills / skill / "SKILL.md").exists()]
+            commit = _read_json(self.paths.huggingface_skills_record).get("commit")
+            detail = f"{len(expected)} skills" + (f" at commit {commit}" if commit else "")
+            detail = detail if not missing else "missing: " + ", ".join(missing) + " — re-run the installer"
+            self.add("huggingface-skills", "Hugging Face skills", not missing, detail)
+
     def check_generated(self) -> None:
         server = _read_json(self.paths.mcp_json).get("mcpServers", {}).get(MCP_SERVER_NAME, {})
         ok = bool(server) and Path(server.get("command", "")).exists()
@@ -302,6 +310,7 @@ class Doctor:
         cases = [
             ({"tool_name": "Bash", "tool_input": {"command": "databricks bundle deploy -t prod"}, "agent_type": "devops-engineer"}, True),
             ({"tool_name": "Bash", "tool_input": {"command": "git push --force origin dev"}, "agent_type": "devops-engineer"}, True),
+            ({"tool_name": "Bash", "tool_input": {"command": "hf jobs uv run train.py"}, "agent_type": "data-scientist"}, True),
             # The project CLI must stay usable, redirections included.
             (
                 {

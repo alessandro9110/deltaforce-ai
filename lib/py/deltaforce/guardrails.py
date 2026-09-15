@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from .config import dev_bundle_target
+from .config import dev_bundle_target, huggingface_skills_for_roles, load_roles
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
 HOOK_SCRIPT = FRAMEWORK_DIR / "lib" / "hooks" / "deltaforce_hook.py"
@@ -15,6 +15,8 @@ DEV_MCP_SERVER = "databricks"
 PROD_MCP_SERVER = "databricks-prod"
 DEPLOYER_ROLE = "devops-engineer"
 MAIN_ROLE = "pm"
+# Agent Bricks cannot be declared in the asset bundle: this role creates and updates them on dev with the MCP tools.
+AGENT_BRICKS_ROLE = "ai-engineer"
 INTEGRATION_BRANCH = "df/integration"
 
 # Tools registered by the ai-dev-kit MCP server (v0.2.0).
@@ -54,7 +56,7 @@ INSTALLER_DIRS = (
     ".deltaforce/framework/",
     ".deltaforce/bin/",
     ".deltaforce/runtime/",
-)
+) + tuple(f".claude/skills/{name}/" for name in huggingface_skills_for_roles(list(load_roles())))
 PM_ONLY_FILES = (".deltaforce/conventions.yaml",)
 # What the installer commits at the end of an install (agents cannot commit installed files).
 INSTALLED_COMMIT_PATHS = (
@@ -104,6 +106,7 @@ def build_policy(config: Mapping[str, Any], paths: ProjectPaths, roles: Mapping[
         "integration_branch": INTEGRATION_BRANCH,
         "deployer_role": DEPLOYER_ROLE,
         "main_role": MAIN_ROLE,
+        "agent_bricks_role": AGENT_BRICKS_ROLE,
         "prod": {
             "enabled": bool(prod),
             "server": PROD_MCP_SERVER,

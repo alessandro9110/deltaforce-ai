@@ -168,6 +168,10 @@ None, or each operation with the object and the data rule that allows it (existi
 ## Regression checks
 | Existing object or test | Check | Result | Evidence |
 (existing projects)
+## Model and AI evaluation
+(ML and GenAI features: baseline, leaderboard, chosen model or setup with version and alias, evaluation dataset version, thresholds met, MLflow run ids)
+## Created outside the bundle
+(Agent Bricks: each Knowledge Assistant or Supervisor Agent, its definition in src/ai/agent_bricks/ and how other environments get it)
 ## Where to look
 ## What to configure before the first run
 (CI/CD feature: service principal and permissions, variable group or secrets with each BUNDLE_VAR_ value, environments and approvals, production workspace)

@@ -56,6 +56,7 @@ What was done, in three to five lines.
 - Files created or changed
 - Databricks objects created, changed or to be created at deployment
 - Destructive operations on existing data or objects (`DROP`, `TRUNCATE`, `CREATE OR REPLACE`, overwrite, `DELETE`/`UPDATE` without `WHERE`, checkpoint removal), run directly or in code: none, or each with the object and the `data_rules` entry that allows it
+- ML and GenAI: data sample and split or evaluation dataset versions, baseline and leaderboard, model and prompt versions and aliases, MLflow run ids; Agent Bricks created outside the bundle
 
 ## Verification
 Commands, queries, runs or tests executed and their results.

@@ -31,7 +31,7 @@ WRITE_KEYWORDS = {
     "COPY", "OPTIMIZE", "VACUUM", "REFRESH", "RESTORE", "MSCK", "UNCACHE", "CALL", "EXECUTE", "UNDROP",
 }
 SQL_ARGUMENT = {"execute_sql": "sql_query", "execute_sql_multi": "sql_content"}
-READ_ACTIONS = {"get", "list", "describe", "status", "get_best", "query", "search", "preview", "read"}
+READ_ACTIONS = {"get", "list", "describe", "status", "get_best", "query", "search", "preview", "read", "find_by_name"}
 GOVERNANCE_TOOLS = {
     "manage_uc_grants", "manage_uc_security_policies", "manage_uc_sharing", "manage_uc_connections", "manage_uc_storage",
 }
@@ -44,6 +44,26 @@ RESOURCE_TOOLS = {
     "manage_workspace_files", "manage_lakebase_database", "manage_lakebase_branch", "manage_lakebase_sync",
 }
 DATA_WRITE_TOOLS_WITHOUT_ACTION = {"generate_and_upload_pdf"}
+# Knowledge Assistants and Supervisor Agents cannot be declared in the asset bundle: the Agent Bricks role creates and
+# updates them on dev; deleting one needs a person, because the hook cannot tell whether the team created it.
+AGENT_BRICKS_TOOLS = {"manage_ka": "Knowledge Assistants", "manage_mas": "Supervisor Agents"}
+# Models, data and training stay on Databricks: no Hugging Face Hub publishing, Jobs or Inference Endpoints.
+HF_PROGRAMS = {"hf", "huggingface-cli"}
+HF_BLOCKED_COMMANDS = {"upload", "upload-large-folder", "jobs", "repo-files", "endpoints", "spaces"}
+HF_REPO_CHANGES = {"create", "delete", "move", "settings", "update", "branch", "tag"}
+PACKAGE_RUNNERS = {"uv", "uvx", "pipx"}
+HUB_PUBLISH = re.compile(
+    r"\.push_to_hub\s*\("
+    r"|\bpush_to_hub\s*[=:]\s*(?:True|true|1)\b"
+    r"|--push[_-]to[_-]hub\b(?![=\s]+(?:False|false|0)\b)"
+    r"|\b(?:run_uv_job|create_scheduled_uv_job|upload_large_folder)\s*\("
+    r"|HfApi\(\)\s*\.\s*(?:run_job|create_scheduled_job|upload_file|upload_folder|create_repo)\b"
+    r"|\bfrom\s+huggingface_hub\s+import\b[^\n]*\b(?:run_job|create_scheduled_job|upload_file|upload_folder|create_repo)\b"
+)
+HUB_REASON = (
+    "publishing to the Hugging Face Hub and Hugging Face Jobs are not allowed: models, data and training stay on Databricks "
+    "(train on Databricks compute, log and register models with MLflow in Unity Catalog)"
+)
 PUSH_FORBIDDEN_FLAGS = {"-f", "-d", "--delete", "--mirror", "--prune"}
 SHELL_WRAPPERS = {"timeout", "nohup", "time", "command", "env", "nice"}
 AGENT_TOOLS = {"Agent", "Task"}
@@ -287,6 +307,17 @@ def _decide_mcp(tool: str, tool_input: dict[str, Any], role: str, policy: dict[s
         return None
     if name in GOVERNANCE_TOOLS:
         return "permission, sharing, connection and storage changes need a person: escalate to the PO"
+    if name in AGENT_BRICKS_TOOLS:
+        kind = AGENT_BRICKS_TOOLS[name]
+        builder = policy.get("agent_bricks_role", "ai-engineer")
+        if action == "delete":
+            return f"{kind} are deleted by a person, not by the team: report it to the PO"
+        if action != "create_or_update":
+            return f"'{name}' action '{action or 'default'}' is not allowed: only create_or_update, get and find_by_name"
+        if role != builder:
+            return f"{kind} are created and updated only by the {builder}"
+        outside = sorted(catalog for catalog in input_catalogs(tool_input) if catalog not in writable)
+        return f"changes are allowed only in {allowed} (found: {', '.join(outside)})" if outside else None
     if name in RESOURCE_TOOLS:
         return (
             f"Databricks resources are created, changed and deleted only through the asset bundle "
@@ -335,6 +366,9 @@ def _decide_file(tool: str, tool_input: dict[str, Any], role: str, policy: dict[
     managed = installed_path(path, policy)
     if managed:
         return _installed_reason(managed)
+    written = "\n".join(str(tool_input.get(key) or "") for key in ("content", "new_string", "new_source"))
+    if HUB_PUBLISH.search(written):
+        return HUB_REASON
     for owned in policy.get("pm_only_files", []):
         owned_norm = _normalized(owned)
         if (path == owned_norm or path.endswith("/" + owned_norm)) and role != policy.get("main_role", "pm"):
@@ -361,6 +395,8 @@ def decide_bash(command: str, role: str, policy: dict[str, Any], cwd: str = ".")
     reason = _decide_command_files(command, policy)
     if reason:
         return reason
+    if HUB_PUBLISH.search(command):
+        return HUB_REASON
     env: dict[str, str] = {}
     for part in (piece.strip() for piece in SEPARATORS.split(command)):
         if not part:
@@ -392,14 +428,31 @@ def decide_bash(command: str, role: str, policy: dict[str, Any], cwd: str = ".")
                 if reason:
                     return reason
             continue
+        if program in PACKAGE_RUNNERS:  # uvx hf …, uv run hf …
+            index = next((i for i, argument in enumerate(arguments) if _program(argument) in HF_PROGRAMS), None)
+            if index is not None:
+                program, arguments = _program(arguments[index]), arguments[index + 1 :]
         if program == "databricks":
             reason = _decide_databricks(arguments, env, role, policy)
         elif program == "git":
             reason = _decide_git(arguments, role, policy, cwd)
+        elif program in HF_PROGRAMS:
+            reason = _decide_huggingface(arguments)
         else:
             reason = None
         if reason:
             return reason
+    return None
+
+
+def _decide_huggingface(arguments: list[str]) -> str | None:
+    positional = [argument for argument in arguments if not argument.startswith("-")]
+    if not positional:
+        return None
+    if positional[0] in HF_BLOCKED_COMMANDS:
+        return HUB_REASON
+    if positional[0] in {"repo", "repos"} and len(positional) > 1 and positional[1] in HF_REPO_CHANGES:
+        return HUB_REASON
     return None
 
 
