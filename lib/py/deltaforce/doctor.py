@@ -13,7 +13,7 @@ from typing import Any
 
 from . import backlog, guardrails, team
 from . import config as cfg
-from .generate import CLAUDE_MD_START, GITIGNORE_START, MCP_SERVER_NAME, medallion_schemas
+from .generate import CLAUDE_MD_START, GITIGNORE_START, MCP_SERVER_NAME, is_deltaforce_statusline, medallion_schemas
 from .paths import ProjectPaths
 
 CONFLICTING_ENV = ("DATABRICKS_HOST", "DATABRICKS_TOKEN", "DATABRICKS_CLIENT_ID", "DATABRICKS_CLIENT_SECRET")
@@ -209,9 +209,12 @@ class Doctor:
         ok = MCP_SERVER_NAME in settings.get("enabledMcpjsonServers", [])
         self.add("settings", ".claude/settings.json enables the MCP server", ok)
 
-        local_env = _read_json(self.paths.claude_settings_local).get("env", {})
-        ok = local_env.get("DATABRICKS_CONFIG_PROFILE") == self.config["databricks"]["profile"]
+        local = _read_json(self.paths.claude_settings_local)
+        ok = local.get("env", {}).get("DATABRICKS_CONFIG_PROFILE") == self.config["databricks"]["profile"]
         self.add("settings-local", ".claude/settings.local.json selects the project profile", ok)
+        ok = is_deltaforce_statusline(local.get("statusLine"))
+        detail = "links the monitor" if ok else "your own status line is kept — open the monitor with: bash .deltaforce/bin/df monitor"
+        self.add("statusline", "Status line", ok, detail, "warn")
 
         claude_md = self.paths.claude_md.read_text(encoding="utf-8") if self.paths.claude_md.exists() else ""
         self.add("claude-md", "CLAUDE.md project context block", CLAUDE_MD_START in claude_md)

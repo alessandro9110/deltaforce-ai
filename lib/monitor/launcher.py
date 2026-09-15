@@ -23,6 +23,7 @@ PORT_SPAN = 100
 PORT_ATTEMPTS = 20
 START_WAIT_SECONDS = 8.0
 REMEMBERED_SESSIONS = 50
+SPAWN_COOLDOWN_SECONDS = 20
 
 
 def state_file(root: Path) -> Path:
@@ -136,6 +137,18 @@ def start(root: Path, python: Path, wait: float = START_WAIT_SECONDS) -> str | N
         url = running_url(root)
         if url:
             return url
+    return None
+
+
+def start_in_background(root: Path, python: Path) -> str | None:
+    """The address when the monitor runs; otherwise start it without waiting (the status line must stay fast)."""
+    url = running_url(root)
+    if url:
+        return url
+    last = read_state(root).get("spawned_at")
+    if not isinstance(last, (int, float)) or not 0 <= time.time() - last < SPAWN_COOLDOWN_SECONDS:
+        update_state(root, spawned_at=round(time.time(), 1))
+        _spawn(root, python)
     return None
 
 

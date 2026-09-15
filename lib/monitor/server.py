@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from monitor import launcher, model  # noqa: E402
+from monitor import launcher, model, statusline  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 CONTENT_TYPES = {
@@ -97,6 +97,12 @@ def make_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self.end_headers()
                 else:
                     self._send(HTTPStatus.OK, body, "application/json; charset=utf-8", {"ETag": etag})
+            elif url.path == "/api/status":
+                self._json(model.status(model.snapshot(root)))
+            elif url.path == "/api/statusline":
+                address = launcher.url_for(self.server.server_address[1])
+                line = statusline.format_line(address, model.status(model.snapshot(root)))
+                self._send(HTTPStatus.OK, f"{line}\n".encode("utf-8"), "text/plain; charset=utf-8")
             elif url.path == "/api/doc":
                 document = model.read_document(root, (parse_qs(url.query).get("path") or [""])[0])
                 if document:

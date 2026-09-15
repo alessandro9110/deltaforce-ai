@@ -17,6 +17,8 @@ from .paths import FRAMEWORK_DIR, ProjectPaths
 MCP_SERVER_NAME = "databricks"
 DF_HELPER_PERMISSION = "Bash(bash .deltaforce/bin/df *)"
 MCP_STARTUP_TIMEOUT_MS = "60000"  # the MCP server's first start on Windows can exceed the default
+STATUSLINE_SCRIPT = FRAMEWORK_DIR / "lib" / "monitor" / "statusline.sh"
+STATUSLINE_REFRESH_SECONDS = 15  # keeps the line current while the session is idle and agents work
 CLAUDE_MD_START = "<!-- deltaforce:project-context:start -->"
 CLAUDE_MD_END = "<!-- deltaforce:project-context:end -->"
 GITIGNORE_START = "# deltaforce:start"
@@ -163,7 +165,24 @@ def write_claude_settings_local(config: Mapping[str, Any], paths: ProjectPaths) 
     env["DF_ROOT"] = _posix(paths.root)
     # Guardrail and audit hooks use machine-specific interpreter paths, so they live in the local settings.
     data["hooks"] = guardrails.merge_hooks(data.get("hooks"), paths)
+    # The status line links the monitor without calling the model; a status line of the user's own is kept.
+    if not data.get("statusLine") or is_deltaforce_statusline(data["statusLine"]):
+        data["statusLine"] = {
+            "type": "command",
+            "command": statusline_command(paths),
+            "refreshInterval": STATUSLINE_REFRESH_SECONDS,
+        }
     return _write_json(paths.claude_settings_local, data)
+
+
+def statusline_command(paths: ProjectPaths) -> str:
+    # Claude Code runs the status line in a shell (Git Bash on Windows). Sourcing the script keeps it to that
+    # one process: on Windows each extra process adds a second or more to every refresh.
+    return f'. "{_posix(STATUSLINE_SCRIPT)}" "{_posix(paths.root)}" "{_posix(paths.venv_python)}"'
+
+
+def is_deltaforce_statusline(value: Any) -> bool:
+    return STATUSLINE_SCRIPT.name in json.dumps(value)
 
 
 def write_guard_policy(config: Mapping[str, Any], paths: ProjectPaths) -> Path:

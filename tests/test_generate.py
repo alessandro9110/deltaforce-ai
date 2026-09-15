@@ -154,6 +154,21 @@ def test_disabling_production_cleans_up_and_keeps_user_hooks(prod_config, tmp_pa
     assert json.loads(read(paths.guard_policy))["prod"]["enabled"] is False
 
 
+def test_status_line_links_the_monitor_and_keeps_a_users_own(example_config, tmp_path):
+    paths = ProjectPaths(tmp_path)
+    generate.generate_all(example_config, paths)
+    line = json.loads(read(paths.claude_settings_local))["statusLine"]
+    assert line["type"] == "command" and line["refreshInterval"] == generate.STATUSLINE_REFRESH_SECONDS
+    assert line["command"].startswith(". ") and "statusline.sh" in line["command"]
+    assert f'"{tmp_path.resolve().as_posix()}"' in line["command"]
+
+    local = json.loads(read(paths.claude_settings_local))
+    local["statusLine"] = {"type": "command", "command": "my-status-line"}
+    paths.claude_settings_local.write_text(json.dumps(local), encoding="utf-8")
+    generate.generate_all(example_config, paths)
+    assert json.loads(read(paths.claude_settings_local))["statusLine"]["command"] == "my-status-line"
+
+
 def test_medallion_schemas_are_distinct():
     dev = {"catalog": "c", "medallion": {"layout": "multi_schema", "bronze": "raw", "silver": "clean", "gold": "raw"}}
     assert generate.medallion_schemas(dev) == ["raw", "clean"]

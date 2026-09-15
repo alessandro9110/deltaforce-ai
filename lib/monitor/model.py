@@ -540,6 +540,18 @@ def _waiting_for_po(state: dict[str, Any], features: list[dict[str, Any]]) -> li
     return items
 
 
+def status(view: dict[str, Any]) -> dict[str, Any]:
+    """The few numbers the Claude Code status line shows."""
+    return {
+        "project": view["project"]["name"],
+        "phase": view["phase_label"],
+        "waiting": len(view["waiting"]),
+        "working": sum(role["status"] == "working" for role in view["team"]),
+        "features": len(view["features"]),
+        "done": sum(feature["status"] == "done" for feature in view["features"]),
+    }
+
+
 def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
     now = now or dt.datetime.now(dt.timezone.utc)
     base = root / ".deltaforce"

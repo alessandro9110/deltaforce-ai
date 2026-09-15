@@ -174,7 +174,7 @@ Everything lives inside the project repository.
 | `.claude/skills/df-*` | Team skills and Product Owner commands | committed |
 | `.claude/skills/databricks-*` | Databricks agent skills for the enabled roles | committed |
 | `.claude/settings.json` | Team settings: sessions start as the PM, MCP server approval, subagent nesting, worktree base | committed |
-| `.claude/settings.local.json` | Points every Databricks command to the project profile and registers the guardrail and audit hooks | ignored |
+| `.claude/settings.local.json` | Points every Databricks command to the project profile, registers the guardrail and audit hooks and the status line with the monitor link | ignored |
 | `.mcp.json` | Registers the `databricks` MCP server, and `databricks-prod` when production is configured (absolute paths on this machine) | ignored |
 | `CLAUDE.md` | A *DeltaForce project context* block: workspace, warehouse, catalog, schemas, branches | committed |
 | `databricks.yml` | Databricks Asset Bundle skeleton, created only if missing | committed |
@@ -232,7 +232,8 @@ The first time the team starts working in a Claude Code session, DeltaForce open
 
 - It runs on your computer only (`http://127.0.0.1:87xx`, always the same address for a project) and only reads the files in `.deltaforce/`: it uses no tokens and changes nothing. Approvals stay in Claude Code (`/df-approve`, `/df-changes`).
 - It updates by itself every few seconds, and stops on its own about half an hour after the last session closes.
-- To open it at any other time, in Git Bash: `bash .deltaforce/bin/df monitor` (PowerShell: `& "$env:ProgramFiles\Git\bin\bash.exe" -c 'bash .deltaforce/bin/df monitor'`).
+- **Always one click away**: the Claude Code status line shows `DeltaForce · Delivery · 1/4 features done · 1 waiting for you · monitor http://127.0.0.1:87xx`. Ctrl+click the link to open the page. The status line starts the monitor again when it is off and uses no tokens. If `.claude/settings.local.json` already has a status line of your own, DeltaForce keeps yours.
+- To open it from a terminal instead, in Git Bash: `bash .deltaforce/bin/df monitor` (PowerShell: `& "$env:ProgramFiles\Git\bin\bash.exe" -c 'bash .deltaforce/bin/df monitor'`).
 - To stop it from opening automatically, set the environment variable `DELTAFORCE_MONITOR=off` before starting Claude Code.
 
 The team asks you only at G1, at G2, and when something blocks or changes what you asked for. Everything the team writes to organize itself — request, requirements, design, backlog, reports, state and events — lives in `.deltaforce/`; outside it there is only the product: `src/`, `resources/`, `tests/`, `databricks.yml`.

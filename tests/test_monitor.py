@@ -1,6 +1,8 @@
 import datetime as dt
 import json
 import os
+import shutil
+import subprocess
 import sys
 import threading
 import urllib.error
@@ -12,7 +14,7 @@ import yaml
 from conftest import ROOT
 
 sys.path.insert(0, str(ROOT / "lib"))
-from monitor import launcher, model, server  # noqa: E402
+from monitor import launcher, model, server, statusline  # noqa: E402
 
 NOW = dt.datetime(2026, 9, 14, 17, 0, tzinfo=dt.timezone.utc)
 
@@ -224,6 +226,9 @@ def test_server_serves_the_page_snapshot_and_documents_only(project):
         assert status == 200 and json.loads(body)["app"] == launcher.APP_ID
         assert launcher.ping(port, project) and not launcher.ping(port, project / "other")
 
+        status, _, body = request(port, "/api/status")
+        assert status == 200 and json.loads(body)["phase"] == "Delivery"
+
         status, headers, body = request(port, "/api/snapshot")
         assert status == 200 and json.loads(body)["project"]["name"] == "customer-360"
         assert request(port, "/api/snapshot", {"If-None-Match": headers["ETag"]})[0] == 304
@@ -262,6 +267,62 @@ def test_server_stops_when_the_team_is_gone(project):
     old = (NOW - dt.timedelta(hours=5)).timestamp()
     os.utime(activity, (old, old))
     assert server.should_stop(project, NOW - dt.timedelta(hours=6), idle, NOW) is True
+
+
+def test_status_summary(project):
+    assert model.status(model.snapshot(project, NOW)) == {
+        "project": "customer-360", "phase": "Delivery", "waiting": 2, "working": 1, "features": 4, "done": 1,
+    }
+
+
+def test_status_line_links_the_monitor_without_the_model(tmp_path, monkeypatch):
+    url = "http://127.0.0.1:8765/"
+    monkeypatch.setattr(launcher, "start_in_background", lambda root, python: url)
+    monkeypatch.setattr(statusline, "fetch_status", lambda address: {"phase": "Delivery", "features": 4, "done": 1, "waiting": 2})
+    line = statusline.render(tmp_path, tmp_path / "python")
+    assert f"\x1b]8;;{url}\amonitor {url}\x1b]8;;\a" in line
+    assert "Delivery" in line and "1/4 features done" in line and "2 waiting for you" in line
+
+    monkeypatch.setattr(launcher, "start_in_background", lambda root, python: None)
+    assert "starting" in statusline.render(tmp_path, tmp_path / "python")
+    monkeypatch.setattr(launcher, "running_url", lambda root: None)
+    assert "monitor off" in statusline.render(tmp_path, tmp_path / "python", autostart=False)
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not available")
+def test_status_line_script_asks_the_monitor_with_bash_builtins(project):
+    httpd = server.MonitorServer(("127.0.0.1", 0), server.make_handler(project))
+    port = httpd.server_address[1]
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    script = (ROOT / "lib" / "monitor" / "statusline.sh").as_posix()
+    command = f'. "{script}" "{project.as_posix()}" "no-python-needed"'
+    try:
+        launcher.update_state(project, port=port)
+        result = subprocess.run(["bash", "-c", command], capture_output=True, text=True, encoding="utf-8", timeout=60)
+        assert f"\x1b]8;;http://127.0.0.1:{port}/\a" in result.stdout
+        assert "2 waiting for you" in result.stdout and result.stdout.count("\n") == 1
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    launcher.update_state(project, port=None)
+    off = subprocess.run(
+        ["bash", "-c", command], capture_output=True, text=True, encoding="utf-8", timeout=60,
+        env={**os.environ, "DELTAFORCE_MONITOR": "off"},
+    )
+    assert "monitor off" in off.stdout
+
+
+def test_background_start_does_not_spawn_twice(tmp_path, monkeypatch):
+    spawned = []
+    monkeypatch.setattr(launcher, "running_url", lambda root: None)
+    monkeypatch.setattr(launcher, "_spawn", lambda root, python: spawned.append(root))
+    assert launcher.start_in_background(tmp_path, tmp_path / "python") is None
+    assert launcher.start_in_background(tmp_path, tmp_path / "python") is None
+    assert len(spawned) == 1
+    launcher.update_state(tmp_path, spawned_at=1.0)  # long ago
+    launcher.start_in_background(tmp_path, tmp_path / "python")
+    assert len(spawned) == 2
 
 
 def test_ports_are_stable_per_project(tmp_path):
