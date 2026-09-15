@@ -63,8 +63,18 @@ FULL_NAME = re.compile(rf"^({NAME})\.{NAME}\.{NAME}$")
 TWO_PART_NAME = re.compile(rf"^({NAME})\.{NAME}$")
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 SEPARATORS = re.compile(r"\|\||&&|;|\||\n")
-QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
-WRITE_HINT = re.compile(r"(>|\bsed\s+-i|\brm\b|\bmv\b|\bcp\b|\btee\b|\btruncate\b|\bdd\b|\bperl\s+-i|Set-Content|Out-File)")
+REDIRECTIONS = {">", ">>", ">|", "&>", "&>>"}
+OTHER_REDIRECTIONS = {">&", "<", "<<", "<<<", "<&", "<>"}
+COMMAND_BREAKS = {";", "&&", "||", "|", "&", "(", ")", "\n"}
+# Programs that write, move or delete every file they name, and those that write only the last one (the destination).
+ALL_ARGUMENT_WRITERS = {
+    "rm", "rmdir", "mv", "tee", "truncate", "touch", "chmod", "chown", "ln", "unlink", "shred",
+    "set-content", "add-content", "out-file", "remove-item", "move-item", "new-item",
+}
+LAST_ARGUMENT_WRITERS = {"cp", "install", "rsync", "scp", "copy-item"}
+IN_PLACE_EDITORS = {"sed", "perl"}
+DELETE_FLAGS = {"-delete", "-exec", "-execdir"}
+INSTALLED_PARENT_DIRS = (".claude", ".claude/skills", ".deltaforce")
 
 
 # ─── SQL ────────────────────────────────────────────────────────
@@ -286,13 +296,13 @@ def _program(token: str) -> str:
 
 
 def decide_bash(command: str, role: str, policy: dict[str, Any], cwd: str = ".") -> str | None:
+    reason = _decide_command_files(command, policy)
+    if reason:
+        return reason
     env: dict[str, str] = {}
     for part in (piece.strip() for piece in SEPARATORS.split(command)):
         if not part:
             continue
-        reason = _decide_command_files(part, policy)
-        if reason:
-            return reason
         tokens = _tokens(part)
         while tokens and ASSIGNMENT.match(tokens[0]):
             key, value = tokens.pop(0).split("=", 1)
@@ -332,18 +342,92 @@ def decide_bash(command: str, role: str, policy: dict[str, Any], cwd: str = ".")
 
 
 def _decide_command_files(command: str, policy: dict[str, Any]) -> str | None:
-    text = _normalized(command)
-    if _normalized(policy["secret_file"]).rsplit("/", 1)[-1] in text:
+    if _normalized(policy["secret_file"]).rsplit("/", 1)[-1] in _normalized(command):
         return "the Databricks credentials file is off-limits"
-    # Look for redirections and write commands outside quoted text, so JSON such as "a -> b" is not a write.
-    if WRITE_HINT.search(QUOTED.sub(" ", command)):
-        for managed in [*policy.get("installer_files", []), *policy.get("installer_dirs", [])]:
-            if _normalized(managed).rstrip("/") in text:
-                return _installed_reason(managed)
-        # Whole parent folders that contain installed files, e.g. `rm -rf .claude/skills`.
-        for token in _tokens(command):
-            if _normalized(token).rstrip("/") in {".claude", ".claude/skills", ".deltaforce"}:
-                return _installed_reason(token)
+    # Only what the command writes counts: running or reading installed tools (".deltaforce/bin/databricks ... 2>&1") is fine.
+    for target in _write_targets(command):
+        managed = _managed_target(target, policy)
+        if managed:
+            return _installed_reason(managed)
+    return None
+
+
+def _shell_tokens(command: str) -> list[str]:
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        return list(lexer)
+    except ValueError:
+        return command.split()
+
+
+def _write_targets(command: str) -> list[str]:
+    """Paths a shell command may write, move or delete: redirection targets and the file arguments of write commands."""
+    tokens = _shell_tokens(command)
+    segments: list[tuple[list[str], list[str]]] = [([], [])]  # (words, redirection targets) per simple command
+    skip = False
+    for index, token in enumerate(tokens):
+        if skip:
+            skip = False
+        elif token in REDIRECTIONS:
+            if index + 1 < len(tokens):
+                segments[-1][1].append(tokens[index + 1])
+            skip = True
+        elif token in OTHER_REDIRECTIONS:
+            skip = True  # 2>&1 and input redirections write nothing
+        elif token in COMMAND_BREAKS:
+            segments.append(([], []))
+        else:
+            segments[-1][0].append(token)
+
+    targets: list[str] = []
+    directory = ""
+    for segment_words, redirections in segments:
+        words = [word for word in segment_words if not ASSIGNMENT.match(word)]
+        found = list(redirections)
+        if words and _program(words[0]) in {"cd", "pushd"} and len(words) > 1:
+            directory = words[1]
+            words = []
+        for position, word in enumerate(words):
+            name = _program(word)
+            rest = words[position + 1 :]
+            arguments = [item for item in rest if not item.startswith("-")]
+            if name in ALL_ARGUMENT_WRITERS:
+                found += arguments
+                break
+            if name in LAST_ARGUMENT_WRITERS:
+                found += arguments[-1:]
+                break
+            if name in IN_PLACE_EDITORS and any(item.startswith("-i") or item == "--in-place" for item in rest):
+                found += arguments
+                break
+            if name == "dd":
+                found += [item[3:] for item in rest if item.startswith("of=")]
+                break
+        if DELETE_FLAGS.intersection(words):
+            found += [word for word in words[1:] if not word.startswith("-")]
+        targets += [_join(directory, path) for path in found]
+    return targets
+
+
+def _join(directory: str, path: str) -> str:
+    if not directory or re.match(r"^([A-Za-z]:|/|\$|~)", path):
+        return path
+    return f"{directory.rstrip('/')}/{path}"
+
+
+def _managed_target(target: str, policy: dict[str, Any]) -> str | None:
+    path = _normalized(target).strip().rstrip("/")
+    if not path or path in {"/dev/null", "nul"}:
+        return None
+    managed = installed_path(path, policy) or installed_path(path + "/", policy)
+    if managed:
+        return managed
+    # Whole parent folders that contain installed files, e.g. `rm -rf .claude/skills`.
+    base = path[2:] if path.startswith("./") else path
+    for parent in INSTALLED_PARENT_DIRS:
+        if base == parent or base.endswith("/" + parent):
+            return parent
     return None
 
 

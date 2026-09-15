@@ -159,8 +159,9 @@ def start_in_background(root: Path, python: Path) -> str | None:
     if url:
         return url
     last = read_state(root).get("spawned_at")
-    if not isinstance(last, (int, float)) or not 0 <= time.time() - last < SPAWN_COOLDOWN_SECONDS:
-        update_state(root, spawned_at=round(time.time(), 1))
+    # A start in the last few seconds is still coming up: do not start a second one.
+    if not isinstance(last, (int, float)) or not -1 <= time.time() - last < SPAWN_COOLDOWN_SECONDS:
+        update_state(root, spawned_at=time.time())
         _spawn(root, python)
     return None
 

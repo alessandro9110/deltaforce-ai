@@ -280,6 +280,8 @@ class Doctor:
         cases = [
             ({"tool_name": "Bash", "tool_input": {"command": "databricks bundle deploy -t prod"}, "agent_type": "devops-engineer"}, True),
             ({"tool_name": "Bash", "tool_input": {"command": "git push --force origin dev"}, "agent_type": "devops-engineer"}, True),
+            # The project CLI must stay usable, redirections included.
+            ({"tool_name": "Bash", "tool_input": {"command": '"$DF_ROOT/.deltaforce/bin/databricks" bundle validate -t dev 2>&1'}, "agent_type": "devops-engineer"}, False),
         ]
         if self.config.get("prod"):
             tool = f"mcp__{guardrails.PROD_MCP_SERVER}__execute_sql"

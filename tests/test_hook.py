@@ -218,6 +218,30 @@ def test_protected_files(policy):
     assert installed in decide(policy, "Bash", {"command": "rm -rf .claude/agents"})
     assert installed in decide(policy, "Bash", {"command": "echo x > .deltaforce/framework/lib/hooks/deltaforce_hook.py"})
     assert decide(policy, "Bash", {"command": "cat .claude/settings.json"}) is None
+    # Running or reading installed tools is not a change, whatever the redirections.
+    for allowed in [
+        f"{CLI} bundle validate -t dev 2>&1",
+        'cd "C:/p" && ls .deltaforce/bin/ 2>&1',
+        ".deltaforce/bin/databricks --version > /dev/null 2>&1",
+        "cp .deltaforce/bin/databricks /tmp/databricks-copy",
+        "grep -rn deploy .claude/agents | head -5",
+        f"{CLI} bundle deploy -t dev 2>&1 | tail -20",
+    ]:
+        assert decide(policy, "Bash", {"command": allowed}, role="devops-engineer") is None, allowed
+    for blocked in [
+        "echo x > .deltaforce/bin/databricks",
+        "databricks --version 2>/dev/null >> .claude/settings.json",
+        "cp evil.exe .deltaforce/bin/databricks",
+        "mv .claude/agents/pm.md /tmp/",
+        "find .claude/agents -name '*.md' -delete",
+        "cd .claude/agents && rm pm.md",
+        "cd .claude && echo x > settings.json",
+        "sed -i.bak 's/a/b/' CLAUDE.md",
+        "rm -rf .deltaforce",
+        'rm -rf "$DF_ROOT/.claude/skills/df-kickoff"',
+    ]:
+        reason = decide(policy, "Bash", {"command": blocked}, role="devops-engineer")
+        assert reason and installed in reason, blocked
     assert decide(
         policy, "Bash", {"command": "bash .deltaforce/bin/df event phase_changed --role pm --data '{\"summary\":\"discovery -> awaiting_g1\"}'"}, role=None
     ) is None

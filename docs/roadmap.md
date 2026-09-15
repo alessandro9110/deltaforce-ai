@@ -19,6 +19,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] End-to-end install validated on Windows against Databricks Free Edition
 - [x] PO sees work in progress before G2 in `.deltaforce/review/` (integration worktree); main checkout never leaves dev; agent worktrees cleaned up at feature close
 - [x] Fixes from the first sandbox run: task branch naming, `sys.exit` on serverless, PM checks before answering
+- [x] Fixes from the second sandbox run: the installed-files guardrail looks only at what a command writes (redirection targets, file arguments of write commands), so running the project CLI with `2>&1` is no longer blocked; agents never fall back to another Databricks CLI; the doctor self-test covers it
 - [x] Installed files are off-limits to agents (edits, write commands, commits); the installer commits them; the doctor checks agents and skills are unchanged; conventions changed only by the PM
 - [x] Monitor workflow view: handoffs, steps back with causes, deploys and test runs, phase durations, PO involvement (questions and messages counted, never recorded); path of each feature
 - [x] Credential backups: `.deltaforce/.databrickscfg.bak` written by the Databricks CLI is deleted by the installer, ignored by git and off-limits to agents like the credentials file
