@@ -41,8 +41,9 @@ Updated with every change that adds or completes something. Last update: 2026-09
 
 ### Next — phase 2: complete the cycle to production
 
-- [ ] CI/CD templates (M4): Azure DevOps — validate on pull requests, deploy to production from the protected branch with a service principal, `BUNDLE_VAR_*` values — then GitHub Actions
+- [ ] CI/CD (M4), client first: the client's own pipeline templates come in at kickoff — files in the repository, a templates repository, or a CI-only or deploy template — and the DevOps Engineer adapts the project to them. Only when there are none, DeltaForce proposes a standard template (Azure DevOps, then GitHub Actions: validate on pull requests, deploy from the protected branch with a service principal, `BUNDLE_VAR_*` values) that the client adopts or changes
 - [ ] ML and GenAI MVP with the Data Scientist and the AI Engineer (M3), within Free Edition limits
+- [ ] Stronger builders: engineering skills for the Data Engineer, Data Scientist and AI Engineer beyond the Databricks agent skills — agent frameworks (LangGraph, LangChain and others), model and ML libraries — and a real test and validation process for ML and GenAI work: evaluation datasets, metrics and thresholds, MLflow evaluation, regression of model quality, validation evidence at G2
 - [ ] Monitor: tokens and cost per role and feature from the session transcripts; decide the PM model on those numbers
 - [ ] Monitor: audit view — guardrail denials and production reads per role
 
@@ -52,6 +53,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [ ] Per-role service principals with Unity Catalog grants (at least the DevOps Engineer)
 - [ ] GitHub Actions template; macOS and Linux installer validation; `--uninstall`; public repository and `curl` bootstrap
 - [ ] Opt-in agent teams for design review
+- [ ] Beyond Databricks: the team is Databricks-focused today; keep roles, process, guardrails and monitor platform-neutral enough to add other data and AI platforms later
 
 ## M0 — Foundations
 

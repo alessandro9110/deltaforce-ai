@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-label="DeltaForce AI — a Databricks delivery team for Claude Code">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1419"/>
+      <stop offset="0.6" stop-color="#11222a"/>
+      <stop offset="1" stop-color="#0d3a41"/>
+    </linearGradient>
+    <linearGradient id="delta" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4bb9c3" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#4bb9c3" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="400" rx="24" fill="url(#ground)"/>
+
+  <!-- delta mark with the medallion layers -->
+  <path d="M1010 58 L1190 340 L830 340 Z" fill="none" stroke="url(#delta)" stroke-width="3"/>
+  <rect x="905" y="258" width="210" height="26" rx="6" fill="#9c5f2b"/>
+  <rect x="935" y="222" width="150" height="26" rx="6" fill="#8c99a6"/>
+  <rect x="962" y="186" width="96" height="26" rx="6" fill="#c9a227"/>
+  <text x="1010" y="276" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#fff" text-anchor="middle" letter-spacing="1.5">BRONZE</text>
+  <text x="1010" y="240" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#fff" text-anchor="middle" letter-spacing="1.5">SILVER</text>
+  <text x="1010" y="204" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1b1b1b" text-anchor="middle" letter-spacing="1.5">GOLD</text>
+
+  <!-- title -->
+  <text x="72" y="92" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#4bb9c3" letter-spacing="3">A DATABRICKS DELIVERY TEAM FOR CLAUDE CODE</text>
+  <text x="68" y="172" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="80" font-weight="700" fill="#e4eaef">Delta<tspan fill="#4bb9c3">Force</tspan> AI</text>
+  <text x="72" y="214" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="22" fill="#94a2ae">Nine agents analyse, design, build, test and deploy on Databricks.</text>
+  <text x="72" y="244" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="22" fill="#94a2ae">You stay the Product Owner.</text>
+
+  <!-- the team -->
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-weight="700" font-size="17" text-anchor="middle">
+    <rect x="72"  y="290" width="52" height="52" rx="12" fill="#6b4fb3"/><text x="98"  y="322" fill="#fff">PM</text>
+    <rect x="136" y="290" width="52" height="52" rx="12" fill="#2f5fb3"/><text x="162" y="322" fill="#fff">SA</text>
+    <rect x="200" y="290" width="52" height="52" rx="12" fill="#1f8a9a"/><text x="226" y="322" fill="#fff">BA</text>
+    <rect x="264" y="290" width="52" height="52" rx="12" fill="#c0661e"/><text x="290" y="322" fill="#fff">DE</text>
+    <rect x="328" y="290" width="52" height="52" rx="12" fill="#2e8a4f"/><text x="354" y="322" fill="#fff">DA</text>
+    <rect x="392" y="290" width="52" height="52" rx="12" fill="#a88414"/><text x="418" y="322" fill="#fff">DS</text>
+    <rect x="456" y="290" width="52" height="52" rx="12" fill="#b0457c"/><text x="482" y="322" fill="#fff">AI</text>
+    <rect x="520" y="290" width="52" height="52" rx="12" fill="#b8352b"/><text x="546" y="322" fill="#fff">QA</text>
+    <rect x="584" y="290" width="52" height="52" rx="12" fill="#4d5c6b"/><text x="610" y="322" fill="#fff">DO</text>
+  </g>
+  <text x="656" y="312" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" fill="#94a2ae">PM · Solution Architect · Business Analyst · Data Engineer</text>
+  <text x="656" y="334" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" fill="#94a2ae">Data Analyst · Data Scientist · AI Engineer · QA · DevOps</text>
+</svg>

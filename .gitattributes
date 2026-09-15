@@ -1,2 +1,7 @@
 # Shell scripts must keep LF endings or Git Bash fails on Windows checkouts.
 * text=auto eol=lf
+
+# Images are binary: never convert their line endings.
+*.png binary
+*.jpg binary
+*.gif binary
