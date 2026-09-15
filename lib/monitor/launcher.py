@@ -63,13 +63,26 @@ def read_state(root: Path) -> dict[str, Any]:
 
 def write_state(root: Path, data: dict[str, Any]) -> None:
     path = state_file(root)
+    text = json.dumps(data, indent=2) + "\n"
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        os.replace(temporary, path)
+        temporary.write_text(text, encoding="utf-8")
+    except OSError:
+        return
+    # On Windows a scanner can hold the file for a moment: retry, then write in place.
+    for attempt in range(5):
+        try:
+            os.replace(temporary, path)
+            return
+        except OSError:
+            time.sleep(0.05 * (attempt + 1))
+    try:
+        path.write_text(text, encoding="utf-8")
     except OSError:
         pass
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def update_state(root: Path, **changes: Any) -> dict[str, Any]:

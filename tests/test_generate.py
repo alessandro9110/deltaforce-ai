@@ -123,6 +123,8 @@ def test_production_server_rules_hooks_and_policy(prod_config, tmp_path):
     assert "async" not in pre  # the guard must block the tool call
     assert hooks["PostToolUse"][0]["hooks"][0]["async"] is True
     assert "async" not in hooks["SessionEnd"][0]["hooks"][0]
+    assert hooks["UserPromptSubmit"][0]["hooks"][0]["async"] is True
+    assert hooks["PreToolUse"][1]["matcher"] == "Agent|Task|AskUserQuestion"
     assert [group["hooks"][0]["args"][1] for group in hooks["PreToolUse"]] == ["pre", "activity"]
 
     policy = json.loads(read(paths.guard_policy))

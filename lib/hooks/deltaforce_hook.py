@@ -4,7 +4,7 @@
 The installer registers this script in .claude/settings.local.json:
 
     python deltaforce_hook.py <mode> <guard-policy.json>
-    modes: pre, post, activity, subagent-start, subagent-stop, session-start, session-end
+    modes: pre, post, activity, prompt, subagent-start, subagent-stop, session-start, session-end
 
 Claude Code passes the hook input as JSON on stdin. In `pre` mode the script prints a deny
 decision when an action breaks a DeltaForce rule; otherwise it prints nothing and Claude Code
@@ -47,6 +47,8 @@ DATA_WRITE_TOOLS_WITHOUT_ACTION = {"generate_and_upload_pdf"}
 PUSH_FORBIDDEN_FLAGS = {"-f", "-d", "--delete", "--mirror", "--prune"}
 SHELL_WRAPPERS = {"timeout", "nohup", "time", "command", "env", "nice"}
 AGENT_TOOLS = {"Agent", "Task"}
+QUESTION_TOOL = "AskUserQuestion"
+PO_COMMAND = re.compile(r"^\s*(/[\w:-]+)")
 FILE_TOOLS = {"Edit", "Write", "NotebookEdit", "Read"}
 FEATURE_REF = re.compile(r"\bF-\d{3,}\b")
 TASK_REF = re.compile(r"\bT-(\d{3,})\.\d+\b")
@@ -540,6 +542,8 @@ def _detail(tool: str, tool_input: dict[str, Any]) -> str:
         return str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
     if tool in AGENT_TOOLS:
         return str(tool_input.get("description") or "")[:200]
+    if tool == QUESTION_TOOL:
+        return ""  # questions to the PO are counted, their text is not recorded
     return _summary(tool, tool_input, 200)
 
 
@@ -556,6 +560,9 @@ def activity(event: dict[str, Any], policy: dict[str, Any], kind: str) -> None:
     if tool:
         record["tool"] = tool
         record["summary"] = _detail(tool, tool_input)
+    if tool == QUESTION_TOOL:
+        questions = tool_input.get("questions")
+        record["questions"] = len(questions) if isinstance(questions, list) and questions else 1
     if tool in AGENT_TOOLS:
         record["target_role"] = tool_input.get("subagent_type")
         text = f"{tool_input.get('description', '')}\n{str(tool_input.get('prompt', ''))[:4000]}"
@@ -567,6 +574,14 @@ def activity(event: dict[str, Any], policy: dict[str, Any], kind: str) -> None:
             record["feature"] = f"F-{task.group(1)}"
     if event.get("reason"):
         record["reason"] = event["reason"]
+    _append(policy.get("activity_file"), record)
+
+
+def po_message(event: dict[str, Any], policy: dict[str, Any]) -> None:
+    """A message from the PO: counted for the monitor, with the DeltaForce command it runs; the text is not kept."""
+    record: dict[str, Any] = {"ts": _now(), "session_id": event.get("session_id"), "role": "po", "event": "po_message"}
+    if command := PO_COMMAND.match(str(event.get("prompt") or "")):
+        record["command"] = command.group(1)
     _append(policy.get("activity_file"), record)
 
 
@@ -601,7 +616,10 @@ def main(argv: list[str]) -> int:
         audit(event, policy, "allowed")
         activity(event, policy, "tool_used")
     elif mode == "activity":
-        activity(event, policy, "delegated" if str(event.get("tool_name")) in AGENT_TOOLS else "tool_used")
+        tool = str(event.get("tool_name"))
+        activity(event, policy, "delegated" if tool in AGENT_TOOLS else "asked_po" if tool == QUESTION_TOOL else "tool_used")
+    elif mode == "prompt":
+        po_message(event, policy)
     elif mode == "subagent-start":
         activity(event, policy, "agent_started")
     elif mode == "subagent-stop":

@@ -67,7 +67,8 @@ LEGACY_DENY_RULES = ("Edit(**/.deltaforce/runtime/guard-policy.json)",)
 # tool call; audit and activity run in the background. SessionEnd stays synchronous so it is not cut short.
 HOOK_EVENTS = (
     ("PreToolUse", "Bash|Edit|Write|NotebookEdit|Read|mcp__databricks.*", "pre", 30, False),
-    ("PreToolUse", "Agent|Task", "activity", 30, True),
+    ("PreToolUse", "Agent|Task|AskUserQuestion", "activity", 30, True),
+    ("UserPromptSubmit", None, "prompt", 15, True),
     ("PostToolUse", "Bash|mcp__databricks.*", "post", 30, True),
     ("PostToolUse", "Edit|Write|NotebookEdit", "activity", 30, True),
     ("SubagentStart", None, "subagent-start", 30, True),

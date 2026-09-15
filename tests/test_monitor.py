@@ -71,12 +71,22 @@ def project(tmp_path, example_config):
     write_feature(root, "F-003-dashboard.md", feature("F-003", "KPI dashboard", "todo", depends_on=["F-002"]))
     write_feature(root, "F-004-revenue.md", feature("F-004", "Monthly revenue", "awaiting_po"))
     write_jsonl(base / "events.jsonl", [
+        {"ts": "2026-09-14T15:00:00Z", "role": "pm", "event": "phase_changed", "data": {"from": None, "to": "discovery"}},
+        {"ts": "2026-09-14T15:15:00Z", "role": "pm", "event": "phase_changed", "data": {"from": "discovery", "to": "awaiting_g1"}},
+        {"ts": "2026-09-14T15:20:00Z", "role": "pm", "event": "po_decision", "data": {"gate": "G1", "decision": "changes_requested"}},
+        {"ts": "2026-09-14T15:30:00Z", "role": "pm", "event": "po_decision", "data": {"gate": "G1", "decision": "approved"}},
+        {"ts": "2026-09-14T15:31:00Z", "role": "pm", "event": "phase_changed", "data": {"from": "awaiting_g1", "to": "delivery"}},
         {"ts": "2026-09-14T15:40:00Z", "role": "pm", "event": "feature_status_changed", "feature": "F-001",
          "data": {"from": "todo", "to": "in_progress"}},
+        {"ts": "2026-09-14T16:10:00Z", "role": "pm", "event": "test_run", "feature": "F-002", "data": {"passed": 3, "failed": 2}},
+        {"ts": "2026-09-14T16:11:00Z", "role": "pm", "event": "feature_status_changed", "feature": "F-002",
+         "data": {"from": "in_test", "to": "in_progress", "reason": "row count mismatch"}},
         {"ts": "2026-09-14T16:20:00Z", "role": "devops-engineer", "event": "deploy_finished", "feature": "F-002",
          "data": {"target": "dev", "result": "success"}},
         {"ts": "2026-09-14T16:21:00Z", "role": "pm", "event": "delegation_started", "feature": "F-002",
          "data": {"agent": "qa-engineer", "task": "F-002 test phase"}},
+        {"ts": "2026-09-14T16:30:00Z", "role": "pm", "event": "delegation_finished", "feature": "F-002",
+         "data": {"agent": "qa-engineer", "task": "F-002 test phase", "result": "blocked"}},
     ])
     worktree_file = f"{root.as_posix()}/.claude/worktrees/agent-a1/src/pipelines/silver.py"
     write_jsonl(base / "runtime" / "activity.jsonl", [
@@ -84,6 +94,9 @@ def project(tmp_path, example_config):
         {"ts": "2026-09-14T15:01:00Z", "session_id": "s0", "agent_id": "a0", "role": "qa-engineer", "event": "agent_started"},
         {"ts": "2026-09-14T15:10:00Z", "session_id": "s0", "agent_id": "a0", "role": "qa-engineer", "event": "agent_stopped"},
         {"ts": "2026-09-14T15:11:00Z", "session_id": "s0", "role": "pm", "event": "session_ended"},
+        {"ts": "2026-09-14T16:47:00Z", "session_id": "s1", "role": "po", "event": "po_message"},
+        {"ts": "2026-09-14T16:48:00Z", "session_id": "s1", "role": "po", "event": "po_message", "command": "/df-status"},
+        {"ts": "2026-09-14T16:49:00Z", "session_id": "s1", "role": "pm", "event": "asked_po", "tool": "AskUserQuestion", "questions": 2},
         {"ts": "2026-09-14T16:50:00Z", "session_id": "s1", "role": "pm", "event": "session_started"},
         {"ts": "2026-09-14T16:51:00Z", "session_id": "s1", "role": "pm", "event": "delegated", "tool": "Agent",
          "summary": "T-002.1 fix silver joins", "target_role": "data-engineer", "task": "T-002.1", "feature": "F-002"},
@@ -114,13 +127,42 @@ def test_board_columns_dates_dependencies_and_what_waits_for_the_po(project):
     assert features["F-002"]["tasks_done"] == 1 and features["F-002"]["status_label"] == "In test"
     assert features["F-004"]["review_report"] == ".deltaforce/reports/F-004-po-review.md"
     assert "US-1" in features["F-001"]["body"]
-    assert features["F-002"]["events"][0]["text"] == "QA Engineer started F-002 test phase"
+    assert features["F-002"]["events"][0] == {**features["F-002"]["events"][0], "text": "QA Engineer finished F-002 test phase — blocked", "tone": "bad"}
+    assert features["F-002"]["events"][1]["text"] == "QA Engineer started F-002 test phase"
 
     assert snap["phase_label"] == "Delivery" and snap["started"] is True
     assert snap["latest"] == {"text": "F-002 deployed to dev", "ts": "2026-09-14T16:55:00Z"}
     assert [item["route"] for item in snap["waiting"]] == ["feature/F-004", "feature/F-003"]
     assert snap["next_steps"][1]["owner_title"] == "QA Engineer"
     assert snap["project"]["name"] == "customer-360" and snap["problems"] == []
+
+
+def test_workflow_counts_handoffs_steps_back_and_po_involvement(project):
+    snap = model.snapshot(project, NOW)
+    flow = snap["workflow"]
+    counts = flow["counts"]
+
+    assert counts["loops"] == 2  # F-002 sent back by the tests, the design sent back at G1
+    assert flow["loops"][0] == {
+        "ts": "2026-09-14T16:11:00Z", "feature": "F-002", "text": "In test → In progress", "cause": "tests failed (row count mismatch)",
+    }
+    assert flow["loops"][1]["text"] == "Design sent back"
+    assert counts["deploys"] == {"ok": 1, "failed": 0} and counts["tests"] == {"passed": 0, "failed": 1}
+    assert counts["po"] == {"gates": 2, "changes": 1, "questions": 2, "escalations": 0, "messages": 2, "total": 4}
+    assert [item["kind"] for item in flow["po"]] == ["question", "command", "gate", "gate"]
+    assert flow["po"][0]["text"] == "Project Manager asked you 2 questions"
+
+    handoffs = {(item["from"], item["to"]): item for item in flow["handoffs"]}
+    assert handoffs[("pm", "data-engineer")]["count"] == 1  # recorded by the hook
+    assert handoffs[("pm", "qa-engineer")] == {**handoffs[("pm", "qa-engineer")], "count": 1, "done": 0, "not_done": 1}
+    assert counts["handoffs"] == 2
+    assert [phase["phase"] for phase in flow["phases"]] == ["discovery", "awaiting_g1", "delivery"]
+    assert flow["phases"][0]["end"] == "2026-09-14T15:15:00Z" and flow["phases"][-1]["end"] is None
+
+    feature_flow = {item["id"]: item for item in snap["features"]}["F-002"]["flow"]
+    assert [(step["status"], step["back"]) for step in feature_flow["path"]] == [("todo", False), ("in_progress", True)]
+    assert feature_flow["loops"] == 1 and feature_flow["tests"] == {"passed": 0, "failed": 1}
+    assert feature_flow["deploys"] == {"ok": 1, "failed": 0}
 
 
 def test_team_shows_who_works_on_what(project):
@@ -149,6 +191,14 @@ def test_sessions_end_and_stale_agents_go_idle(project):
     with activity.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps({"ts": "2026-09-14T16:59:00Z", "session_id": "s1", "role": "pm", "event": "session_ended"}) + "\n")
     assert model.snapshot(project, NOW)["session"]["open"] is False
+
+
+def test_an_approved_feature_being_closed_no_longer_waits_for_the_po(project):
+    write_feature(project, "F-004-revenue.md", feature(
+        "F-004", "Monthly revenue", "awaiting_po", po_decision={"decision": "approved", "at": "2026-09-14T16:59:00Z", "notes": ""},
+    ))
+    snap = model.snapshot(project, NOW)
+    assert [item["route"] for item in snap["waiting"]] == ["feature/F-003"]
 
 
 def test_broken_files_are_reported_without_breaking_the_view(project):
@@ -196,6 +246,8 @@ def test_documents_are_limited_to_team_markdown(project):
 def test_actions_and_events_in_plain_words(tmp_path):
     assert model.describe_action("Bash", '"$DF_ROOT/.deltaforce/bin/databricks" bundle deploy -t dev', tmp_path) == "Deploying the bundle to dev"
     assert model.describe_action("Bash", "ls -la\nmore", tmp_path) == "Running ls -la"
+    assert model.describe_action("Bash", 'cd "C:/Users/me/My Project" && git merge --no-ff df/F-001', tmp_path) == "Merging branches"
+    assert model.describe_action("Bash", "cd repo; pytest -q", tmp_path) == "Running tests"
     assert model.describe_action("mcp__databricks-prod__execute_sql", "SELECT 1", tmp_path) == "Querying data on production"
     assert model.describe_action("mcp__databricks__manage_jobs", '{"action": "list"}', tmp_path) == "Databricks manage jobs (list) on dev"
     assert model.describe_action("Write", f"{tmp_path.as_posix()}/resources/jobs.yml", tmp_path) == "Editing resources/jobs.yml"

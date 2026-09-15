@@ -38,6 +38,13 @@ COLUMNS = {
     "awaiting_po": "po", "done": "done",
 }
 FINISHED_TASKS = {"integrated", "done"}
+STATUS_ORDER = {"todo": 0, "in_progress": 1, "integrating": 2, "in_test": 3, "awaiting_po": 4, "done": 5}
+LOOP_CAUSES = {
+    "awaiting_po": "you asked for changes", "in_test": "tests failed", "integrating": "integration or deploy failed",
+    "done": "reopened after approval",
+}
+NOT_DONE_RESULTS = {"blocked", "needs-decision", "needs_decision", "failed"}
+OK_RESULTS = {"success", "succeeded", "ok", "done", "passed"}
 DOC_GROUPS = {"requirements": "Requirements", "architecture": "Architecture", "reports": "Reports"}
 NOT_DOCUMENTS = {"framework", "runtime", "review", "bin"}
 ACTIVITY_TAIL_BYTES = 4 * 1024 * 1024
@@ -47,6 +54,7 @@ MAIN_ROLE_BUSY = dt.timedelta(minutes=2)
 FEATURE_FILE = re.compile(r"^(F-\d{3,})")
 WORKTREE_PREFIX = re.compile(r"^.*?/\.claude/worktrees/[^/]+/")
 ACTION = re.compile(r'"action"\s*:\s*"([\w-]+)"')
+CD_PREFIX = re.compile(r"""^(?:cd\s+(?:"[^"]*"|'[^']*'|\S+)\s*(?:&&|;)\s*)+""")
 COMMANDS = (
     (re.compile(r"\bbundle\s+deploy\b"), "Deploying the bundle to dev"),
     (re.compile(r"\bbundle\s+run\b"), "Running a bundle job on dev"),
@@ -179,7 +187,7 @@ def describe_action(tool: str, summary: str, root: Path) -> str:
     if tool in {"Edit", "Write", "NotebookEdit"}:
         return f"Editing {short_path(summary, root)}" if summary else "Editing files"
     if tool == "Bash":
-        command = summary.strip()
+        command = CD_PREFIX.sub("", summary.strip())
         for pattern, text in COMMANDS:
             if pattern.search(command):
                 return text
@@ -332,12 +340,165 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
             "file": f".deltaforce/backlog/{path.name}",
             "review_report": f".deltaforce/reports/{review.name}" if review.exists() else None,
             "events": [describe_event(event, catalog) for event in reversed(feature_events)][:80],
+            "flow": feature_flow(feature_events),
         })
 
     done = {feature["id"] for feature in features if feature["status"] == "done"}
     for feature in features:
         feature["blocked_by"] = [item for item in feature["depends_on"] if item not in done]
     return features
+
+
+# ─── workflow ───────────────────────────────────────────────────
+
+
+def _data(event: dict[str, Any]) -> dict[str, Any]:
+    return event.get("data") if isinstance(event.get("data"), dict) else {}
+
+
+def _step_back(event: dict[str, Any]) -> dict[str, Any] | None:
+    """A feature status change that sends work back, with its most likely cause."""
+    data = _data(event)
+    before, after = data.get("from"), data.get("to")
+    if event.get("event") != "feature_status_changed" or before not in STATUS_ORDER or after not in STATUS_ORDER:
+        return None
+    if STATUS_ORDER[after] >= STATUS_ORDER[before]:
+        return None
+    cause = LOOP_CAUSES.get(str(before), "sent back")
+    if data.get("reason"):
+        cause = f"{cause} ({data['reason']})"
+    return {
+        "ts": event.get("ts"), "feature": event.get("feature"),
+        "text": f"{_label(FEATURE_STATUS, before)} → {_label(FEATURE_STATUS, after)}", "cause": cause,
+    }
+
+
+def _deploy_ok(event: dict[str, Any]) -> bool:
+    return str(_data(event).get("result", "")).lower() in OK_RESULTS
+
+
+def feature_flow(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """The path a feature took through the statuses, with the steps back, deploys, test runs and PO decisions."""
+    path = [{"status": "todo", "label": FEATURE_STATUS["todo"], "ts": None, "back": False, "cause": None}]
+    deploys = {"ok": 0, "failed": 0}
+    tests = {"passed": 0, "failed": 0}
+    decisions = 0
+    for event in events:
+        kind, data = event.get("event"), _data(event)
+        if kind == "feature_status_changed" and data.get("to") in FEATURE_STATUS:
+            back = _step_back(event)
+            path.append({
+                "status": data["to"], "label": FEATURE_STATUS[data["to"]], "ts": event.get("ts"),
+                "back": bool(back), "cause": back["cause"] if back else None,
+            })
+        elif kind == "deploy_finished":
+            deploys["ok" if _deploy_ok(event) else "failed"] += 1
+        elif kind == "test_run":
+            tests["failed" if data.get("failed") else "passed"] += 1
+        elif kind == "po_decision":
+            decisions += 1
+    return {
+        "path": path, "loops": sum(step["back"] for step in path), "deploys": deploys, "tests": tests, "po_decisions": decisions,
+    }
+
+
+def _workflow(
+    events: list[dict[str, Any]], activity: list[dict[str, Any]], catalog: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    loops = [back for event in events if (back := _step_back(event))]
+    for event in events:
+        data = _data(event)
+        if event.get("event") == "po_decision" and data.get("gate") == "G1" and data.get("decision") == "changes_requested":
+            loops.append({"ts": event.get("ts"), "feature": None, "text": "Design sent back", "cause": "you asked for changes at G1"})
+
+    # Handoffs: delegations recorded by the hooks (nested ones included) and, before the hooks recorded any,
+    # the delegations the PM logged as events. Outcomes come from the PM's events.
+    recorded = [record for record in activity if record.get("event") == "delegated" and record.get("target_role")]
+    hooks_since = min((str(record.get("ts")) for record in recorded), default=None)
+    pairs: dict[tuple[str, str], dict[str, Any]] = {}
+
+    def pair(source: Any, target: Any) -> dict[str, Any]:
+        key = (str(source or MAIN_ROLE), str(target))
+        return pairs.setdefault(key, {"from": key[0], "to": key[1], "count": 0, "done": 0, "not_done": 0})
+
+    for record in recorded:
+        pair(record.get("role"), record["target_role"])["count"] += 1
+    for event in events:
+        agent = _data(event).get("agent")
+        if not agent:
+            continue
+        if event.get("event") == "delegation_started" and (hooks_since is None or str(event.get("ts")) < hooks_since):
+            pair(event.get("role"), agent)["count"] += 1
+        elif event.get("event") == "delegation_finished":
+            result = str(_data(event).get("result", "done")).lower()
+            pair(event.get("role"), agent)["not_done" if result in NOT_DONE_RESULTS else "done"] += 1
+    handoffs = sorted(pairs.values(), key=lambda item: (-item["count"], item["from"], item["to"]))
+    for item in handoffs:
+        item.update({
+            "from_title": role_title(item["from"], catalog), "to_title": role_title(item["to"], catalog),
+            "from_short": ROLE_SHORT.get(item["from"], item["from"][:2].upper()),
+            "to_short": ROLE_SHORT.get(item["to"], item["to"][:2].upper()),
+        })
+
+    deploys = {"ok": 0, "failed": 0}
+    tests = {"passed": 0, "failed": 0}
+    po_items: list[dict[str, Any]] = []
+    po = {"gates": 0, "changes": 0, "questions": 0, "escalations": 0, "messages": 0}
+    for event in events:
+        kind, data = event.get("event"), _data(event)
+        if kind == "deploy_finished":
+            deploys["ok" if _deploy_ok(event) else "failed"] += 1
+        elif kind == "test_run":
+            tests["failed" if data.get("failed") else "passed"] += 1
+        elif kind == "po_decision":
+            po["gates"] += 1
+            approved = data.get("decision") == "approved"
+            po["changes"] += not approved
+            subject = data.get("gate") or event.get("feature") or "decision"
+            if data.get("gate") == "G2" and event.get("feature"):
+                subject = f"G2 {event['feature']}"
+            po_items.append({
+                "ts": event.get("ts"), "kind": "gate", "feature": event.get("feature"),
+                "text": f"{subject}: you {'approved' if approved else 'asked for changes'}",
+            })
+        elif kind == "escalation":
+            po["escalations"] += 1
+            po_items.append({
+                "ts": event.get("ts"), "kind": "escalation", "feature": event.get("feature"),
+                "text": f"Escalation: {data.get('reason') or data.get('summary') or 'the team needed a decision'}",
+            })
+    for record in activity:
+        if record.get("event") == "asked_po":
+            count = int(record.get("questions") or 1)
+            po["questions"] += count
+            po_items.append({
+                "ts": record.get("ts"), "kind": "question", "feature": None,
+                "text": f"{role_title(record.get('role') or MAIN_ROLE, catalog)} asked you {count} question{'s' if count != 1 else ''}",
+            })
+        elif record.get("event") == "po_message":
+            po["messages"] += 1
+            if record.get("command"):
+                po_items.append({"ts": record.get("ts"), "kind": "command", "feature": None, "text": f"You ran {record['command']}"})
+
+    changes = [(event.get("ts"), _data(event).get("to")) for event in events if event.get("event") == "phase_changed"]
+    phases = [
+        {"phase": phase, "label": PHASES.get(str(phase), str(phase)), "start": start, "end": changes[index + 1][0] if index + 1 < len(changes) else None}
+        for index, (start, phase) in enumerate(changes) if phase
+    ]
+
+    return {
+        "counts": {
+            "handoffs": sum(item["count"] for item in handoffs),
+            "loops": len(loops),
+            "deploys": deploys,
+            "tests": tests,
+            "po": {**po, "total": po["gates"] + po["questions"] + po["escalations"]},
+        },
+        "loops": sorted(loops, key=lambda item: str(item["ts"] or ""), reverse=True),
+        "handoffs": handoffs,
+        "po": sorted(po_items, key=lambda item: str(item["ts"] or ""), reverse=True)[:60],
+        "phases": phases,
+    }
 
 
 # ─── team ───────────────────────────────────────────────────────
@@ -387,6 +548,9 @@ def _team(
             delegations.setdefault(str(target), []).append(record)
             text = f"Delegated to {role_title(target, catalog)}: {record.get('summary', '')}".rstrip(": ")
             recent.setdefault(role, []).append({"ts": record.get("ts"), "text": text})
+        elif kind == "asked_po":
+            count = record.get("questions") or 1
+            recent.setdefault(role, []).append({"ts": record.get("ts"), "text": f"Asked you {count} question{'s' if count != 1 else ''}"})
         elif kind == "tool_used":
             if agent_id in agents:
                 agents[agent_id]["last"] = moment
@@ -527,7 +691,8 @@ def _waiting_for_po(state: dict[str, Any], features: list[dict[str, Any]]) -> li
     if state.get("phase") == "awaiting_g1":
         items.append({"text": "Approve the design and the feature list (G1)", "command": "/df-approve", "route": "docs"})
     for feature in features:
-        if feature["status"] == "awaiting_po":
+        # Approved features stay awaiting_po until the DevOps Engineer merges them: nothing left for the PO.
+        if feature["status"] == "awaiting_po" and (feature["po_decision"] or {}).get("decision") != "approved":
             items.append({
                 "text": f"Review {feature['id']} — {feature['title']}",
                 "command": f"/df-approve {feature['id']}",
@@ -606,6 +771,7 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
         "features": features,
         "team": team,
         "session": session,
+        "workflow": _workflow(events, activity, catalog),
         "documents": documents(root),
         "problems": problems,
     }

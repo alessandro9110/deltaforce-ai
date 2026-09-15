@@ -315,6 +315,26 @@ def test_activity_records_delegations_and_edits_for_the_monitor(policy, tmp_path
     assert not (tmp_path / "audit.jsonl").exists()  # activity is not audit
 
 
+def test_questions_and_messages_to_the_po_are_counted_without_their_text(policy, tmp_path):
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+    question = {
+        "hook_event_name": "PreToolUse", "session_id": "s1", "tool_name": "AskUserQuestion",
+        "tool_input": {"questions": [{"question": "Secret-ish business detail?"}, {"question": "Another one?"}]},
+    }
+    run_hook("activity", policy_path, question)
+    assert run_hook("prompt", policy_path, {"session_id": "s1", "prompt": "/df-approve F-001 looks good"}).stdout == ""
+    run_hook("prompt", policy_path, {"session_id": "s1", "prompt": "please use the customer table"})
+
+    text = (tmp_path / "activity.jsonl").read_text(encoding="utf-8")
+    records = [json.loads(line) for line in text.splitlines()]
+    assert records[0] == {**records[0], "event": "asked_po", "role": "pm", "questions": 2, "summary": ""}
+    assert records[1] == {**records[1], "event": "po_message", "role": "po", "command": "/df-approve"}
+    assert records[2]["event"] == "po_message" and "command" not in records[2]
+    for private in ("Secret-ish", "looks good", "customer table"):
+        assert private not in text
+
+
 def test_missing_policy_fails_closed_on_production(tmp_path):
     missing = tmp_path / "missing.json"
     prod = run_hook("pre", missing, {"tool_name": PROD_SQL, "tool_input": {"sql_query": "SELECT 1"}})
