@@ -8,6 +8,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 
 ### Done
 
+- [x] Monitor test evidence in the feature panel: tests per acceptance criterion with passed/failed counts, regression checks and destructive operations, from the review report
 - [x] Changes after delivery: `/df-changes` on a done feature creates a change feature (`change_of`) with its own tasks and G2; the original keeps its history; monitor links both and counts them. Status line second row with the PO commands, led by the one to use now
 - [x] Monitor backlog: one-line description on feature cards, Backlog view with descriptions, dependencies, acceptance criteria and task tables, task panel (what was asked, who worked on it and when, report), feature panel ordered from what it is to how it went
 - [x] Guided, project-scoped installer started with one command from the IDE terminal; self-bootstrap and update; readiness checks gate `/df-kickoff`

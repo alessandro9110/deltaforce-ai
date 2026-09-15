@@ -274,6 +274,23 @@ def test_features_say_what_they_are_and_tasks_say_who_worked_on_them(project):
     assert kpis["tasks"][1]["runs"] == []
 
 
+def test_test_evidence_comes_from_the_review_report(project):
+    (project / ".deltaforce" / "reports" / "F-004-po-review.md").write_text(
+        "# F-004 — Monthly revenue\n\n## What was built\n\nA gold table.\n\n"
+        "## Destructive operations on existing data or objects\n\nNone.\n\n"
+        "## Test evidence\n\nVerified by the QA Engineer.\n\n"
+        "| Acceptance criterion | Test | Result | Evidence |\n|---|---|---|---|\n"
+        "| 1. 400 rows | `gold_rows.sql` | Pass | 400 |\n| 2. Totals match | `gold_totals.sql` | **Fail** | diff 0.02 |\n| 3. No nulls | `nulls.sql` | ✓ | 0 |\n\n"
+        "## Where to look\n\n- the table\n",
+        encoding="utf-8",
+    )
+    evidence = {item["id"]: item for item in model.snapshot(project, NOW)["features"]}["F-004"]["evidence"]
+    assert evidence["tests"].startswith("Verified by the QA Engineer.") and "| 2. Totals match |" in evidence["tests"]
+    assert evidence["tests_count"] == {"passed": 2, "failed": 1, "total": 3}
+    assert evidence["destructive"] == "None." and evidence["regression"] is None
+    assert {item["id"]: item for item in model.snapshot(project, NOW)["features"]}["F-002"]["evidence"] is None
+
+
 def test_a_change_to_a_delivered_feature_is_linked_both_ways(project):
     write_feature(project, "F-005-change-incremental-silver.md", feature(
         "F-005", "Change to F-001: incremental silver", "todo", depends_on=["F-001"], change_of="F-001",

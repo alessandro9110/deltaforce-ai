@@ -355,6 +355,7 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
             "criteria_count": len(_top_level_items(criteria)),
             "file": f".deltaforce/backlog/{path.name}",
             "review_report": f".deltaforce/reports/{review.name}" if review.exists() else None,
+            "evidence": review_evidence(review) if review.exists() else None,
             "events": [describe_event(event, catalog) for event in reversed(feature_events)][:80],
             "flow": feature_flow(feature_events),
         })
@@ -898,6 +899,54 @@ def feature_sections(body: str) -> list[dict[str, str]]:
             current = {"title": "", "key": "", "lines": [line]}
             sections.append(current)
     return [{"title": item["title"], "key": item["key"], "markdown": "\n".join(item["lines"]).strip()} for item in sections]
+
+
+PASSED_RESULTS = ("pass", "✓", "ok", "success", "succeeded", "yes")
+FAILED_RESULTS = ("fail", "✗", "error", "no")
+
+
+def _table_results(markdown: str) -> dict[str, int]:
+    """Passed and failed rows of the first Markdown table whose header has a result column."""
+    rows = [line.strip() for line in markdown.split("\n") if line.strip().startswith("|")]
+    counts = {"passed": 0, "failed": 0, "total": 0}
+    if len(rows) < 3:
+        return counts
+    cells = lambda row: [cell.strip() for cell in row.strip("|").split("|")]  # noqa: E731
+    header = [cell.lower() for cell in cells(rows[0])]
+    column = next((index for index, name in enumerate(header) if "result" in name or "outcome" in name), None)
+    if column is None:
+        return counts
+    for row in rows[2:]:
+        values = cells(row)
+        if column >= len(values):
+            continue
+        result = _plain(values[column]).lower()
+        counts["total"] += 1
+        if result.startswith(PASSED_RESULTS):
+            counts["passed"] += 1
+        elif result.startswith(FAILED_RESULTS):
+            counts["failed"] += 1
+    return counts
+
+
+def review_evidence(path: Path) -> dict[str, Any] | None:
+    """Test evidence, regression checks and destructive operations from a PO review report."""
+    try:
+        sections = {item["key"]: item["markdown"] for item in feature_sections(path.read_text(encoding="utf-8", errors="replace"))}
+    except OSError:
+        return None
+    tests = sections.get("test evidence", "")
+    regression = sections.get("regression checks", "")
+    destructive = next((text for key, text in sections.items() if key.startswith("destructive operations")), "")
+    if not (tests or regression or destructive):
+        return None
+    return {
+        "tests": tests or None,
+        "tests_count": _table_results(tests),
+        "regression": regression or None,
+        "regression_count": _table_results(regression),
+        "destructive": destructive or None,
+    }
 
 
 def _top_level_items(markdown: str) -> list[str]:
