@@ -1,12 +1,12 @@
 ---
 name: df-backlog
-description: DeltaForce project state, backlog and event formats — state.yaml, feature files, task and feature statuses, PO review reports and the df event/validate helper. Use whenever reading or updating project state or logging lifecycle events.
+description: DeltaForce project state, backlog and event formats — state.yaml, feature files, task and feature statuses, PO review reports and the df events/validate helper. Use whenever reading or updating project state or logging lifecycle events.
 user-invocable: false
 ---
 
 # DeltaForce backlog and state
 
-The PM is the only writer of these files. Specialists report; the PM records. The files are a contract read by tools, so keep the formats exact and run `bash .deltaforce/bin/df validate` after every change.
+The PM is the only writer of these files. Specialists report; the PM records. The files are a contract read by tools, so keep the formats exact and validate after every change (`df events` does it for you).
 
 ## Layout
 
@@ -110,11 +110,13 @@ Task: `todo → in_progress → ready_for_integration → integrated → done`, 
 
 ## Events
 
-Append one event per lifecycle change:
+Record the events of one change together, in a single call — it appends all of them (or none, when one is invalid) and then validates the whole project:
 
 ```bash
-bash .deltaforce/bin/df event <type> --role pm [--feature F-003] [--task T-003.1] [--data '{"from":"in_progress","to":"integrating"}']
+bash .deltaforce/bin/df events '[{"type":"task_status_changed","role":"pm","feature":"F-003","task":"T-003.1","data":{"from":"in_progress","to":"ready_for_integration"}},{"type":"feature_status_changed","role":"pm","feature":"F-003","data":{"from":"in_progress","to":"integrating"}}]'
 ```
+
+Every tool call re-reads the whole conversation: do not run one command per event, and do not run `df validate` separately after `df events`. `bash .deltaforce/bin/df event <type> --role pm [--feature] [--task] [--data]` records a single event.
 
 | Type | When | Typical data |
 | --- | --- | --- |

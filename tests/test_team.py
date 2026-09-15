@@ -37,7 +37,7 @@ def test_every_agent_renders_without_placeholders(example_config):
 def test_pm_frontmatter(example_config):
     frontmatter, body = split(team.render_agent("pm", example_config))
     assert frontmatter["model"] == "opus"
-    assert frontmatter["skills"] == ["df-backlog", "df-handoff", "df-git-flow"]
+    assert frontmatter["skills"] == ["df-backlog", "df-handoff"]
     agent_tool = next(tool for tool in frontmatter["tools"] if tool.startswith("Agent("))
     assert "devops-engineer" in agent_tool and "Explore" in agent_tool
     assert "mcp__databricks__get_current_user" in frontmatter["tools"]

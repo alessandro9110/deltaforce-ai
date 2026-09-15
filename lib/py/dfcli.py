@@ -90,6 +90,20 @@ def cmd_event(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_events(args: argparse.Namespace) -> int:
+    try:
+        items = json.loads(args.events)
+    except json.JSONDecodeError as exc:
+        raise cfg.ConfigError(f"events are not valid JSON: {exc.msg}") from exc
+    if isinstance(items, dict):
+        items = [items]
+    if not isinstance(items, list) or not items:
+        raise cfg.ConfigError("events must be a JSON array of objects")
+    for event in backlog.append_events(_paths(args), items):
+        print(json.dumps(event, ensure_ascii=False))
+    return cmd_validate(args)
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     problems = backlog.validate_project(_paths(args))
     for problem in problems:
@@ -149,6 +163,9 @@ def main(argv: list[str] | None = None) -> int:
     event.add_argument("--feature")
     event.add_argument("--task")
     event.add_argument("--data", help="JSON object")
+    add("events", cmd_events, "append the lifecycle events of one change, then validate the project").add_argument(
+        "events", help='JSON array, e.g. [{"type": "task_status_changed", "role": "pm", "feature": "F-001", "task": "T-001.1", "data": {}}]'
+    )
     add("validate", cmd_validate, "validate config, conventions, state, backlog and events")
     add("monitor", cmd_monitor, "start the monitor and open it in the browser").add_argument(
         "--no-open", action="store_true", help="print the address without opening the browser"

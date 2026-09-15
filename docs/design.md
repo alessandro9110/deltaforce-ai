@@ -131,6 +131,16 @@ flowchart TD
 - Specialist roles are subagents.
 - Subagents are stateless between calls; collaboration happens through repo artifacts (requirements, architecture, backlog) plus the delegation prompt written by the PM.
 
+### Token use
+
+Measured on the first sandbox run (F-001, 19 subagents): the PM main session was the largest consumer — its context grew from 26 k to 247 k tokens and every call re-read it — then Data Engineer and DevOps; 33 of the PM's 63 shell calls were single `df event`/`df validate` commands; the DevOps Engineer polled job runs; builders started at about 32 k tokens of context against 20 k for the Business Analyst, mostly preloaded skills. Rules that follow:
+
+- **Fresh session at clean points**: after G1 and after an approved feature is merged, with no specialist working, the PM tells the PO everything is saved and suggests `/clear` then *continue*; state, backlog and reports are the memory.
+- **Batched bookkeeping**: `df events '[...]'` records all events of a change and validates in one call; `state.yaml` is rewritten in one write.
+- **No polling**: `bundle run` waits for the run (Bash timeout at maximum, or a background Bash call for long runs); related git commands are chained in one call.
+- **Lean preloads**: every preloaded skill is in every call's context. The PM preloads `df-backlog` and `df-handoff`; builders preload `df-engineering-standards`, `df-git-flow`, `df-handoff`; `df-testing` is preloaded only by the QA Engineer and loaded on demand by the others.
+- Measure again after each change on a real run; the model of the PM (Opus or Sonnet) is a PO decision.
+
 ### Nested delegation
 
 Subagents may spawn other subagents. Nesting depth comes from `orchestration.max_spawn_depth` in config (default `3`, Claude Code's own default), written to `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`. Who may spawn whom is restricted per role with the `Agent(<agent_type>)` syntax in the `tools` frontmatter:

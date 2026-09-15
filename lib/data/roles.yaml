@@ -13,7 +13,8 @@
 #   prod_read       true when the role may read the production workspace (server "databricks-prod")
 #   delegates       agent types the role may spawn (disabled roles are dropped)
 #   isolation       "worktree" for roles that change code in parallel
-#   process_skills  DeltaForce skills preloaded into the agent
+#   process_skills  DeltaForce skills preloaded into the agent: every preloaded skill is in the context of every
+#                   call, so preload only what the role needs on every task; the others load on demand
 #   skills          Databricks agent skills installed for the role and listed in its prompt
 
 roles:
@@ -28,7 +29,7 @@ roles:
     tools: [Read, Grep, Glob, Edit, Write, Bash, Skill, AskUserQuestion, WebFetch]
     mcp: [get_current_user]
     delegates: [business-analyst, solution-architect, data-engineer, data-analyst, data-scientist, ai-engineer, qa-engineer, devops-engineer, Explore]
-    process_skills: [df-backlog, df-handoff, df-git-flow]
+    process_skills: [df-backlog, df-handoff]
     skills: [databricks-core]
 
   solution-architect:
@@ -75,7 +76,7 @@ roles:
     prod_read: true
     delegates: [data-engineer]
     isolation: worktree
-    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff]
     skills: [databricks-core, databricks-pipelines, databricks-jobs, databricks-dabs, databricks-lakeflow-connect, databricks-spark-structured-streaming]
 
   data-analyst:
@@ -91,7 +92,7 @@ roles:
     prod_read: true
     delegates: []
     isolation: worktree
-    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff]
     skills: [databricks-core, databricks-dbsql, databricks-aibi-dashboards, databricks-metric-views, databricks-data-discovery]
 
   data-scientist:
@@ -106,7 +107,7 @@ roles:
     prod_read: true
     delegates: [data-scientist, data-analyst]
     isolation: worktree
-    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff]
     skills: [databricks-core, databricks-ml-training, databricks-synthetic-data-gen, databricks-python-sdk]
 
   ai-engineer:
@@ -122,7 +123,7 @@ roles:
     prod_read: true
     delegates: [ai-engineer, data-engineer]
     isolation: worktree
-    process_skills: [df-engineering-standards, df-git-flow, df-handoff, df-testing]
+    process_skills: [df-engineering-standards, df-git-flow, df-handoff]
     skills: [databricks-core, databricks-agent-bricks, databricks-vector-search, databricks-model-serving, databricks-mlflow-evaluation, databricks-ai-functions, databricks-apps-python]
 
   qa-engineer:

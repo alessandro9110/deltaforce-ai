@@ -146,6 +146,27 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
     return problems
 
 
+def _build_event(
+    event_type: Any, role: Any, feature: Any = None, task: Any = None, data: Any = None, where: str = "event"
+) -> dict[str, Any]:
+    event: dict[str, Any] = {"ts": now_iso(), "role": role, "event": event_type}
+    if feature:
+        event["feature"] = feature
+    if task:
+        event["task"] = task
+    event["data"] = data if data is not None else {}
+    errors = _schema_errors("event", event, where)
+    if errors:
+        raise cfg.ConfigError("\n".join(errors))
+    return event
+
+
+def _write_events(paths: ProjectPaths, events: list[dict[str, Any]]) -> None:
+    paths.events.parent.mkdir(parents=True, exist_ok=True)
+    with paths.events.open("a", encoding="utf-8", newline="\n") as f:
+        f.write("".join(json.dumps(event, ensure_ascii=False) + "\n" for event in events))
+
+
 def append_event(
     paths: ProjectPaths,
     event_type: str,
@@ -154,16 +175,20 @@ def append_event(
     task: str | None = None,
     data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    event: dict[str, Any] = {"ts": now_iso(), "role": role, "event": event_type}
-    if feature:
-        event["feature"] = feature
-    if task:
-        event["task"] = task
-    event["data"] = data or {}
-    errors = _schema_errors("event", event, "event")
-    if errors:
-        raise cfg.ConfigError("\n".join(errors))
-    paths.events.parent.mkdir(parents=True, exist_ok=True)
-    with paths.events.open("a", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    event = _build_event(event_type, role, feature, task, data)
+    _write_events(paths, [event])
     return event
+
+
+def append_events(paths: ProjectPaths, items: list[Any]) -> list[dict[str, Any]]:
+    """Several events of one change, recorded together: all of them, or none when one is invalid."""
+    events = []
+    for number, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            raise cfg.ConfigError(f"event {number}: must be a JSON object")
+        events.append(_build_event(
+            item.get("type") or item.get("event"), item.get("role"), item.get("feature"), item.get("task"),
+            item.get("data"), where=f"event {number}",
+        ))
+    _write_events(paths, events)
+    return events

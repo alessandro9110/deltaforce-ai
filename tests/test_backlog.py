@@ -29,6 +29,22 @@ def test_examples_are_valid(project):
     assert backlog.validate_project(project) == []
 
 
+def test_events_of_one_change_are_recorded_together_or_not_at_all(project):
+    changes = [
+        {"type": "task_status_changed", "role": "pm", "feature": "F-001", "task": "T-001.2", "data": {"from": "in_progress", "to": "ready_for_integration"}},
+        {"type": "feature_status_changed", "role": "pm", "feature": "F-001", "data": {"from": "in_test", "to": "awaiting_po"}},
+    ]
+    with pytest.raises(cfg.ConfigError, match="event 2"):
+        backlog.append_events(project, [changes[0], {"type": "not_an_event", "role": "pm"}])
+    assert not project.events.exists()
+
+    recorded = backlog.append_events(project, changes)
+    lines = [json.loads(line) for line in project.events.read_text(encoding="utf-8").splitlines()]
+    assert [line["event"] for line in lines] == ["task_status_changed", "feature_status_changed"] == [e["event"] for e in recorded]
+    assert lines[0]["task"] == "T-001.2" and "task" not in lines[1]
+    assert backlog.validate_project(project) == []
+
+
 def test_feature_problems_are_reported(project):
     write_feature(
         project,

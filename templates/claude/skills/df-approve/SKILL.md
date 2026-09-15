@@ -22,14 +22,14 @@ The rest of `$ARGUMENTS` are the PO's notes.
 ## 2. G1 — design and feature list
 
 1. In `.deltaforce/state.yaml` set `g1` to `approved` with the time and notes, and `phase: delivery`. In `.deltaforce/requirements/functional-analysis.md` and `.deltaforce/architecture/architecture.md` add a *Document control* row: version `1.0`, status `Approved`, change `Approved by the PO at G1`.
-2. Log `po_decision` (`{"gate":"G1","decision":"approved"}`) and `phase_changed`; run `bash .deltaforce/bin/df validate`.
-3. Commit the `.deltaforce/` changes on the dev branch: `docs(g1): approve design and feature list`, trailers `DeltaForce-Role: pm`, `DeltaForce-Task: G1`.
-4. Tell the PO which features start now (those without dependencies, up to three) and start Phase 2.
+2. Log `po_decision` (`{"gate":"G1","decision":"approved"}`) and `phase_changed` in one `bash .deltaforce/bin/df events '[...]'` call, which also validates.
+3. Set `next_steps` to the features that start (those without dependencies, up to three) and commit the `.deltaforce/` changes on the dev branch: `docs(g1): approve design and feature list`, trailers `DeltaForce-Role: pm`, `DeltaForce-Task: G1`.
+4. Tell the PO which features start and that everything is saved: this is a good moment for `/clear` — discovery filled the conversation — after which they write *continue* and delivery starts from `.deltaforce/`. If they answer *continue* without clearing, start Phase 2.
 
 ## 3. G2 — a delivered feature
 
 1. In the feature file set `po_decision` to `approved` with the time and notes; log `po_decision` (`{"gate":"G2","decision":"approved"}`).
 2. Delegate to `devops-engineer`: merge `df/F-xxx` into the dev branch, push, rebuild `df/integration` with the features still active.
-3. When the merge is confirmed: set the feature `done` and `completed` to the current time, remove it from `active_features`, log `feature_status_changed`, validate, and commit the backlog and state changes on the dev branch.
-4. Tell the PO in one or two lines what was merged and what starts or continues now, then go on with Phase 2: start the features this one unblocked.
+3. When the merge is confirmed: set the feature `done` and `completed` to the current time, remove it from `active_features`, update `next_steps`, log `feature_status_changed` with `bash .deltaforce/bin/df events '[...]'` (it validates), and commit the backlog and state changes on the dev branch.
+4. Tell the PO in one or two lines what was merged and what starts or continues now. If no specialist is still working and nothing is blocked, add that everything is saved and this is a good moment for `/clear`, then *continue*; wait for their answer. Otherwise go on with Phase 2: start the features this one unblocked.
 5. When every feature is `done`, move to Phase 3 (handover).

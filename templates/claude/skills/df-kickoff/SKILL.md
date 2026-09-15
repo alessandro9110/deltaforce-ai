@@ -88,7 +88,7 @@ Update `.deltaforce/conventions.yaml`: `project.kind` (`new` or `existing`), the
    ```
 
 2. Write `.deltaforce/state.yaml` with `phase: discovery`, the dev branch, `active_features: []`, `g1: {status: pending, at: null, notes: ""}`, `next_steps`, `last_update` (kickoff completed) and the current UTC time (format in `df-backlog`). `next_steps`: for an existing project, the as-is analysis by the Solution Architect (technical) and the Business Analyst (functional), in parallel; for a new project, the Business Analyst's Functional Analysis and the Solution Architect's technical discovery, in parallel.
-3. Log `kickoff_completed` (data: conventions source and project kind) and `phase_changed` (to `discovery`) with `bash .deltaforce/bin/df event ...`, then `bash .deltaforce/bin/df validate`.
+3. Log `kickoff_completed` (data: conventions source and project kind) and `phase_changed` (to `discovery`) in one `bash .deltaforce/bin/df events '[...]'` call, which also validates the project.
 4. Commit on the dev branch what the kickoff produced — specialists work in git worktrees, which contain only committed files: `.deltaforce/conventions.yaml`, `.deltaforce/state.yaml`, `.deltaforce/events.jsonl`, `.deltaforce/requirements/`. Message `docs(kickoff): record request and conventions` with the trailers `DeltaForce-Role: pm` and `DeltaForce-Task: kickoff`. Never add files that `.gitignore` excludes.
 
 ## 6. Start

@@ -50,17 +50,11 @@ When `CLAUDE.md` lists a production workspace, the `databricks-prod` MCP tools r
 
 ## Guardrails
 
-Hooks block these actions whatever the instructions say:
+Hooks block, whatever the instructions say: resource changes outside the bundle; writes outside the dev catalog and SQL writes that do not name it; Unity Catalog permission, sharing, connection and storage changes; anything but reads on production; `bundle deploy`/`run` by anyone but the DevOps Engineer or outside dev, and `bundle destroy`; pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`; changes to or commits of what DeltaForce installed (agents, skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`, framework, tools, runtime); conventions changes by anyone but the PM; the credentials file and its backups. A blocked action returns `DeltaForce guardrail: <reason>`: do not work around it, report it to your caller.
 
-- creating, changing or deleting Databricks resources with MCP tools instead of the asset bundle;
-- writes outside the dev catalog, and SQL writes that do not name the dev catalog explicitly;
-- permission, sharing, connection and storage changes in Unity Catalog;
-- any non-read activity on production, and any Databricks CLI call to it;
-- `bundle deploy` or `bundle run` by anyone but the DevOps Engineer or to a target other than dev, and `bundle destroy`;
-- pushes to protected branches, force pushes, remote branch deletions, pushing `df/integration`, `reset --hard`, `rebase`;
-- changes to anything DeltaForce installed — agents, DeltaForce and Databricks skills, Claude settings, `.mcp.json`, `CLAUDE.md`, `.gitignore`, `resources/deltaforce.variables.yml`, `.deltaforce/config.yaml`, the framework, tools and runtime — including commits that contain them; changes to `.deltaforce/conventions.yaml` by anyone but the PM; any access to `.deltaforce/.databrickscfg` and its backups.
+## Few tool calls
 
-A blocked action returns `DeltaForce guardrail: <reason>`. Do not work around it: report it to your caller.
+Every tool call re-reads your whole context. Read the sections you need rather than whole documents, chain related shell commands in one call, and never poll a run or a deployment in a loop. Load `df-testing` with the Skill tool when you write or run tests.
 
 ## Names come from bundle variables
 

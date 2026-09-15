@@ -219,6 +219,8 @@ How a project runs:
 
 **See the work in progress.** Until you approve a feature at G2, its code is not in your project folder: the dev branch only holds approved work. The code currently deployed on dev — bundle resources, pipelines, tests of every active feature — is in `.deltaforce/review/`. Add that folder to your VS Code workspace once (**File → Add Folder to Workspace…**) and it stays up to date after every deployment.
 
+**Start fresh at clean points.** The conversation grows with every report, and every step of the PM re-reads it, which costs tokens. After you approve the design (G1) and after an approved feature is merged — when no specialist is still working — the PM tells you everything is saved: run `/clear`, then write *continue*. The team resumes from `.deltaforce/` with a short conversation.
+
 **You can close Claude Code at any time.** Nothing depends on the conversation: the next session starts from `.deltaforce/` — `state.yaml` (phase, next steps, last update), the backlog and the saved task reports — checks unfinished tasks on their branches and continues. `/df-status` shows you the same.
 
 ### Watch the team in the browser
@@ -278,7 +280,7 @@ The commands below are for **Git Bash**. From **PowerShell** wrap them like this
 | `bash .deltaforce/bin/df monitor` | Start the monitor and open it in the browser (`--no-open` only prints the address) |
 | `bash .deltaforce/bin/df validate` | Check that state, backlog, events and conventions are valid |
 | `bash .deltaforce/bin/df doctor` | The readiness checks, without going through the installer |
-| `bash .deltaforce/bin/df event <type> --role <role> ...` | Record a lifecycle event — used by the team, not needed by you |
+| `bash .deltaforce/bin/df events '[...]'` / `df event <type> --role <role> ...` | Record the lifecycle events of a change (and validate) — used by the team, not needed by you |
 | `.deltaforce/bin/databricks <command>` | The project's Databricks CLI, e.g. `.deltaforce/bin/databricks bundle validate -t dev` |
 
 ### Environment variables
