@@ -249,6 +249,31 @@ def test_header_describes_the_project_and_what_is_being_done(project):
     assert description.startswith("word word") and description.endswith("…") and len(description) <= model.DESCRIPTION_LIMIT + 1
 
 
+def test_features_say_what_they_are_and_tasks_say_who_worked_on_them(project):
+    write_feature(project, "F-002-gold-kpis.md", feature(
+        "F-002", "Gold KPIs", "in_test", depends_on=["F-001"],
+        tasks=[task("T-002.1", "data-engineer", "integrated"), task("T-002.2", "qa-engineer", "todo")],
+    ), body=(
+        "## Business value\n\nObjectives: O1, O3 (see .deltaforce/requirements/functional-analysis.md). "
+        "Daily KPIs let managers plan fleet shifts.\n\n"
+        "## User stories\n\n- **US-3 — Daily KPIs in gold.** As a manager, I want daily KPIs.\n\n"
+        "## Acceptance criteria\n\n1. One row per day.\n2. Revenue matches silver.\n   - within 0.01\n3. No null dates.\n\n"
+        "## Log\n\n- 2026-09-14 — created\n"
+    ))
+    features = {item["id"]: item for item in model.snapshot(project, NOW)["features"]}
+
+    kpis = features["F-002"]
+    assert kpis["description"] == "Daily KPIs let managers plan fleet shifts."
+    assert [section["key"] for section in kpis["sections"]] == ["business value", "user stories", "acceptance criteria", "log"]
+    assert kpis["criteria_count"] == 3
+    assert features["F-001"]["description"] == "As an analyst, I want clean trips."  # only a story id in bold
+
+    fix = kpis["tasks"][0]
+    assert len(fix["runs"]) == 1
+    assert fix["runs"][0] == {**fix["runs"][0], "from": "pm", "role": "data-engineer", "summary": "T-002.1 fix silver joins", "running": True}
+    assert kpis["tasks"][1]["runs"] == []
+
+
 def test_empty_project_before_kickoff(tmp_path):
     snap = model.snapshot(tmp_path, NOW)
     assert snap["started"] is False and snap["features"] == [] and snap["documents"] == []

@@ -4,10 +4,11 @@ Each milestone ends with a demo against a real Databricks dev workspace. See [de
 
 ## Status — what exists and what is left
 
-Updated with every change that adds or completes something. Last update: 2026-09-14.
+Updated with every change that adds or completes something. Last update: 2026-09-15.
 
 ### Done
 
+- [x] Monitor backlog: one-line description on feature cards, Backlog view with descriptions, dependencies, acceptance criteria and task tables, task panel (what was asked, who worked on it and when, report), feature panel ordered from what it is to how it went
 - [x] Guided, project-scoped installer started with one command from the IDE terminal; self-bootstrap and update; readiness checks gate `/df-kickoff`
 - [x] Project configuration and JSON Schemas (config, conventions, state, feature, event)
 - [x] Nine agents rendered from the role catalog, five process skills, PO commands (`/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions`)
@@ -29,20 +30,26 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] Existing projects: the kickoff detects them and collects the PO's rules on existing data; as-is analysis (SA technical, BA functional) before requirements and design; design of the change; data rules binding for builders, destructive operations reported, QA regression checks, G2 report sections; the installer does not redefine existing bundle variables
 - [x] Monitor (M5 base): local read-only page in the system browser — now and waiting for the PO, team with current work, feature board with dates, clickable features, agents and documents; starts with the session, opens on the team's first work, stops by itself; clickable link, phase and what waits for the PO in the Claude Code status line (no tokens); `df monitor`
 
-### Next
+### Next — phase 1: stabilize what exists
 
-- [ ] First MVP run in the sandbox (kickoff → G1 → parallel features → G2) and fixes for what it reveals
-- [ ] Monitor: first live run with the new hooks in the sandbox (re-install with Claude Code closed), then timeline, deploys and tests, audit and guardrail views
-- [ ] CI/CD templates (M4): Azure DevOps, then GitHub Actions
-- [ ] Installer warning when a Claude Code session is open on the project
+- [ ] Finish the sandbox MVP on the current version (F-002, F-004, then F-003 to G2); check `/clear`, timeline and PO interaction counts live; measure tokens again against the first run
+- [ ] Installer warns before rebuilding when Claude Code or another process uses the project runtime
+- [ ] Configurable dev target name: guardrails and generated files assume a bundle target called `dev`
+- [ ] Validate on a real existing project (its own bundle variables, target names and conventions)
 
-### Later
+### Next — phase 2: complete the cycle to production
 
-- [ ] Per-role service principals with Unity Catalog grants
-- [ ] `--uninstall`
+- [ ] CI/CD templates (M4): Azure DevOps — validate on pull requests, deploy to production from the protected branch with a service principal, `BUNDLE_VAR_*` values — then GitHub Actions
+- [ ] ML and GenAI MVP with the Data Scientist and the AI Engineer (M3), within Free Edition limits
+- [ ] Monitor: tokens and cost per role and feature from the session transcripts; decide the PM model on those numbers
+- [ ] Monitor: audit view — guardrail denials and production reads per role
+
+### Later — team and client use
+
+- [ ] Several people using DeltaForce on the same repository: state and backlog coordination, who acts as PO
+- [ ] Per-role service principals with Unity Catalog grants (at least the DevOps Engineer)
+- [ ] GitHub Actions template; macOS and Linux installer validation; `--uninstall`; public repository and `curl` bootstrap
 - [ ] Opt-in agent teams for design review
-- [ ] macOS and Linux installer validation
-- [ ] Repository visibility and a `curl` bootstrap
 
 ## M0 — Foundations
 

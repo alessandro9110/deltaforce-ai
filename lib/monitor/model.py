@@ -60,6 +60,9 @@ MARKDOWN_EMPHASIS = re.compile(r"\*\*|__|`")
 BOLD = re.compile(r"\*\*(.+?)\*\*")
 LIST_ITEM = re.compile(r"^(?:\d+[.)]|[-*+])\s+(.*)$")
 DESCRIPTION_LIMIT = 360
+FEATURE_DESCRIPTION_LIMIT = 220
+STORY_ID = re.compile(r"^(?:US|FR)-[\d.]+[a-z]?\s*[—–:-]?\s*", re.IGNORECASE)
+SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
 DESCRIPTION_SECTIONS = ("summary", "business goal and expected value", "goal and users", "in the po's words")
 COMMANDS = (
     (re.compile(r"\bbundle\s+deploy\b"), "Deploying the bundle to dev"),
@@ -324,6 +327,8 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
             )
         start_moment, end_moment = parse_ts(started), parse_ts(completed)
         review = root / ".deltaforce" / "reports" / f"{feature_id}-po-review.md"
+        sections = feature_sections(body)
+        criteria = next((item["markdown"] for item in sections if item["key"] == "acceptance criteria"), "")
 
         features.append({
             "id": feature_id,
@@ -343,6 +348,9 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
             "created": meta.get("created"),
             "updated": meta.get("updated"),
             "body": body,
+            "sections": sections,
+            "description": feature_description(sections),
+            "criteria_count": len(_top_level_items(criteria)),
             "file": f".deltaforce/backlog/{path.name}",
             "review_report": f".deltaforce/reports/{review.name}" if review.exists() else None,
             "events": [describe_event(event, catalog) for event in reversed(feature_events)][:80],
@@ -863,10 +871,55 @@ def project_description(root: Path) -> str | None:
     for key in DESCRIPTION_SECTIONS:
         description = _describe_section(sections.get(key, []))
         if description:
-            if len(description) > DESCRIPTION_LIMIT:
-                description = description[:DESCRIPTION_LIMIT].rsplit(" ", 1)[0].rstrip(",;:") + "…"
-            return description
+            return _truncate(description, DESCRIPTION_LIMIT)
     return None
+
+
+def _truncate(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+
+
+def feature_sections(body: str) -> list[dict[str, str]]:
+    """The `## ` sections of a feature file body, in order."""
+    sections: list[dict[str, str]] = []
+    current: dict[str, Any] | None = None
+    for line in body.replace("\r\n", "\n").split("\n"):
+        if line.startswith("## "):
+            current = {"title": line[3:].strip(), "key": line[3:].strip().lower(), "lines": []}
+            sections.append(current)
+        elif current is not None:
+            current["lines"].append(line)
+        elif line.strip():
+            current = {"title": "", "key": "", "lines": [line]}
+            sections.append(current)
+    return [{"title": item["title"], "key": item["key"], "markdown": "\n".join(item["lines"]).strip()} for item in sections]
+
+
+def _top_level_items(markdown: str) -> list[str]:
+    return [match.group(1) for line in markdown.split("\n") if (match := LIST_ITEM.match(line))]
+
+
+def feature_description(sections: list[dict[str, str]]) -> str | None:
+    """What a feature is, in a line: its business value, else its user stories."""
+    by_key = {item["key"]: item["markdown"] for item in sections}
+    value = by_key.get("business value", "")
+    if value:
+        prose = " ".join(line.strip() for line in value.split("\n") if line.strip() and not LIST_ITEM.match(line))
+        sentences = [part for part in SENTENCE_BREAK.split(_plain(prose)) if part]
+        if sentences and sentences[0].lower().startswith("objective"):
+            sentences = sentences[1:]  # "Objectives: O1, O3 (see ...)." points elsewhere
+        if sentences:
+            return _truncate(" ".join(sentences), FEATURE_DESCRIPTION_LIMIT)
+    stories = by_key.get("user stories") or by_key.get("user story") or ""
+    titles = []
+    for item in _top_level_items(stories):
+        bold = BOLD.search(item)
+        title = STORY_ID.sub("", _plain(bold.group(1))).strip(" .:—–-") if bold else ""
+        if not title:  # only an id in bold: use the sentence
+            title = STORY_ID.sub("", _plain(BOLD.sub("", item) if bold else item)).strip().rstrip(".")
+        if title:
+            titles.append(title)
+    return _truncate("; ".join(titles) + ".", FEATURE_DESCRIPTION_LIMIT) if titles else None
 
 
 def _overview(state: dict[str, Any], features: list[dict[str, Any]]) -> str:
@@ -974,6 +1027,21 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
         for step in state.get("next_steps") or [] if isinstance(step, dict)
     ]
 
+    workflow = _workflow(
+        events, activity, catalog,
+        {task["id"]: task["title"] for feature in features for task in feature["tasks"]}, now,
+    )
+    # Each task shows who worked on it, when, what they were asked and the result.
+    runs_by_task: dict[str, list[dict[str, Any]]] = {}
+    for item in workflow["timeline"]["runs"]:
+        if item.get("task"):
+            runs_by_task.setdefault(str(item["task"]), []).append({
+                key: item[key] for key in ("from", "from_title", "role", "role_title", "start", "end", "running", "summary", "result")
+            })
+    for feature in features:
+        for task in feature["tasks"]:
+            task["runs"] = runs_by_task.get(task["id"], [])
+
     conventions = _load_yaml(base / "conventions.yaml", problems)
     conventions = conventions if isinstance(conventions, dict) else {}
     kind = (conventions.get("project") or {}).get("kind") if isinstance(conventions.get("project"), dict) else None
@@ -997,10 +1065,7 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
         "features": features,
         "team": team,
         "session": session,
-        "workflow": _workflow(
-            events, activity, catalog,
-            {task["id"]: task["title"] for feature in features for task in feature["tasks"]}, now,
-        ),
+        "workflow": workflow,
         "documents": documents(root),
         "problems": problems,
     }
