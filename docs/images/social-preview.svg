@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="DeltaForce AI — Claude Code agents that deliver on Databricks">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1419"/>
+      <stop offset="0.55" stop-color="#11222a"/>
+      <stop offset="1" stop-color="#0d3a41"/>
+    </linearGradient>
+    <linearGradient id="delta" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4bb9c3" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#4bb9c3" stop-opacity="0.15"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.82" cy="0.5" r="0.45">
+      <stop offset="0" stop-color="#4bb9c3" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#4bb9c3" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#ground)"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+
+  <!-- delta mark with the medallion layers -->
+  <path d="M1060 105 L1245 520 L875 520 Z" fill="none" stroke="url(#delta)" stroke-width="4" stroke-linejoin="round"/>
+  <rect x="930" y="440" width="260" height="42" rx="9" fill="#9c5f2b"/>
+  <rect x="965" y="385" width="190" height="42" rx="9" fill="#8c99a6"/>
+  <rect x="1000" y="330" width="120" height="42" rx="9" fill="#c9a227"/>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="middle" letter-spacing="2">
+    <text x="1060" y="467" fill="#fff">BRONZE</text>
+    <text x="1060" y="412" fill="#fff">SILVER</text>
+    <text x="1060" y="357" fill="#1b1b1b">GOLD</text>
+  </g>
+
+  <!-- title -->
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif">
+    <text x="88" y="140" font-size="22" font-weight="600" fill="#4bb9c3" letter-spacing="4">CLAUDE CODE × DATABRICKS</text>
+    <text x="82" y="248" font-size="104" font-weight="700" fill="#e4eaef">Delta<tspan fill="#4bb9c3">Force</tspan> AI</text>
+    <text x="88" y="310" font-size="32" fill="#b5c2cc">Nine AI agents design, build, test and deploy</text>
+    <text x="88" y="352" font-size="32" fill="#b5c2cc">on Databricks — you stay the Product Owner.</text>
+  </g>
+
+  <!-- the team -->
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-weight="700" font-size="21" text-anchor="middle">
+    <rect x="88"  y="410" width="66" height="66" rx="15" fill="#6b4fb3"/><text x="121" y="451" fill="#fff">PM</text>
+    <rect x="166" y="410" width="66" height="66" rx="15" fill="#2f5fb3"/><text x="199" y="451" fill="#fff">SA</text>
+    <rect x="244" y="410" width="66" height="66" rx="15" fill="#1f8a9a"/><text x="277" y="451" fill="#fff">BA</text>
+    <rect x="322" y="410" width="66" height="66" rx="15" fill="#c0661e"/><text x="355" y="451" fill="#fff">DE</text>
+    <rect x="400" y="410" width="66" height="66" rx="15" fill="#2e8a4f"/><text x="433" y="451" fill="#fff">DA</text>
+    <rect x="478" y="410" width="66" height="66" rx="15" fill="#a88414"/><text x="511" y="451" fill="#fff">DS</text>
+    <rect x="556" y="410" width="66" height="66" rx="15" fill="#b0457c"/><text x="589" y="451" fill="#fff">AI</text>
+    <rect x="634" y="410" width="66" height="66" rx="15" fill="#b8352b"/><text x="667" y="451" fill="#fff">QA</text>
+    <rect x="712" y="410" width="66" height="66" rx="15" fill="#4d5c6b"/><text x="745" y="451" fill="#fff">DO</text>
+  </g>
+
+  <!-- what it brings -->
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="20" fill="#94a2ae">
+    <text x="88" y="548">Databricks agent skills · AI Dev Kit MCP · Asset Bundles</text>
+    <text x="88" y="580">PO gates · guardrails and audit · live monitor, no tokens</text>
+  </g>
+</svg>
