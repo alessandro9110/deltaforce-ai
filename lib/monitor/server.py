@@ -48,6 +48,12 @@ class MonitorServer(ThreadingHTTPServer):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         super().server_bind()
 
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        # A client that gave up (the status line times out, a page reloads) is not an error worth a traceback.
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            return
+        super().handle_error(request, client_address)
+
 
 def project_usage(root: Path) -> dict[str, Any]:
     """Token use with the phases and feature titles of the project, for the Usage panel."""

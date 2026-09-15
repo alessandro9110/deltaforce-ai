@@ -97,7 +97,32 @@ Every resource is declared in the **Databricks Asset Bundle** with parametric na
 | **QA Engineer** | Data quality, integration and regression tests on the deployed feature | `databricks-dbsql`, `databricks-mlflow-evaluation`, `databricks-synthetic-data-gen` |
 | **DevOps Engineer** | The only one who integrates, deploys to dev and merges into the dev branch; owns CI/CD | `databricks-dabs`, `databricks-jobs`, `databricks-pipelines` |
 
-Every role also gets `databricks-core`, its own list of Databricks MCP tools, and the DeltaForce process skills (engineering standards, git flow, hand-offs, testing, backlog).
+Every role also gets `databricks-core` and its own list of Databricks MCP tools.
+
+### Skills
+
+Skills are instructions Claude Code loads into an agent's context. The team uses three kinds, all installed in the project's `.claude/skills/` and off-limits to the agents:
+
+- **Your commands** (`df-*`, 5) — you type them; the model cannot start them on its own.
+- **DeltaForce process skills** (`df-*`, 5) — how this team works: formats, git rules, standards. Hidden from the `/` menu; *preloaded* ones are in the agent's context on every task, the others load when needed.
+- **Databricks agent skills** (`databricks-*`, 21) — the official Databricks platform knowledge, per role in the table above, loaded when needed.
+
+| Skill | Kind | Used by | What it holds |
+|---|---|---|---|
+| `/df-kickoff` | Your command | You | Readiness check, new or existing project, the request, table names, rules on existing data, client conventions, CI/CD templates, environments — then the team starts |
+| `/df-status` | Your command | You | Where the project stands and what waits for you; read-only |
+| `/df-approve` | Your command | You | Approve the design and feature list (G1) or a delivered feature (G2) |
+| `/df-changes` | Your command | You | Changes at G1, to a feature under review or already done, or to the request |
+| `/df-conventions` | Your command | You | Show or change the client conventions: deploy folder, naming, tags, code style, environments, CI/CD templates, rules on existing data |
+| `df-handoff` | Process, preloaded | Every role | What a delegation must contain, how specialists report back, nested delegation, when to escalate |
+| `df-backlog` | Process, preloaded | Project Manager | `state.yaml`, feature files, task and feature statuses, PO review reports, `df events` and `df validate` |
+| `df-engineering-standards` | Process, preloaded | Solution Architect, builders, QA, DevOps | Medallion layers for data engineering, analytics, ML and GenAI; bundle variables instead of literal names; project layout, naming, data quality; client conventions over the defaults |
+| `df-git-flow` | Process, preloaded | Builders, QA, DevOps | Dev, feature, task and integration branches; worktrees; commit trailers; merges; forbidden operations |
+| `df-testing` | Process — preloaded by QA, on demand for the others | QA Engineer, builders | Data quality, integration and end-to-end tests; ML metrics and GenAI evaluation thresholds; test data; evidence for G2 |
+| `databricks-core` | Databricks | Every role | Databricks CLI, authentication and workspace basics |
+| `databricks-dabs`, `databricks-unity-catalog`, `databricks-docs`, `databricks-metric-views`, `databricks-data-discovery`, `databricks-pipelines`, `databricks-jobs`, `databricks-lakeflow-connect`, `databricks-spark-structured-streaming`, `databricks-dbsql`, `databricks-aibi-dashboards`, `databricks-ml-training`, `databricks-synthetic-data-gen`, `databricks-python-sdk`, `databricks-agent-bricks`, `databricks-vector-search`, `databricks-model-serving`, `databricks-mlflow-evaluation`, `databricks-ai-functions`, `databricks-apps-python` | Databricks | The roles in [Meet the Team](#meet-the-team) | Bundles, Unity Catalog, pipelines, jobs, SQL, dashboards, ML, vector search, serving, apps — installed only for the enabled roles |
+
+*Builders* are the Data Engineer, Data Analyst, Data Scientist and AI Engineer. Which skills each agent preloads is in its template, [`templates/claude/agents/`](templates/claude/agents/); the Databricks skills per role in [`lib/data/roles.yaml`](lib/data/roles.yaml).
 
 ---
 
@@ -167,7 +192,7 @@ test -d $d || git clone -q --depth 1 $u $d
 bash $d/install.sh
 ```
 
-**Next steps:** answer the questions in the terminal — when a question shows `[Enter = value]`, Enter keeps that value. If Claude Code is open on the project, the installer asks you to close it first. The first run takes a few minutes. Command Prompt cannot take multi-line commands (its prompt has no `PS` in front): switch the terminal to PowerShell or Git Bash. The repository is private: the first time, Git may ask you to sign in to GitHub.
+**Next steps:** answer the questions in the terminal — when a question shows `[Enter = value]`, Enter keeps that value. If Claude Code is open on the project, the installer asks you to close it first and lists the processes it found. The first run takes a few minutes. Command Prompt cannot take multi-line commands (its prompt has no `PS` in front): switch the terminal to PowerShell or Git Bash. The repository is private: the first time, Git may ask you to sign in to GitHub.
 
 <details>
 <summary><strong>Installer options</strong> (click to expand)</summary>
@@ -354,7 +379,7 @@ The **monitor** opens in your browser the first time the team starts working in 
 </tr>
 </table>
 
-- **Now** — a short description of the project, what the team is doing and what is waiting for you.
+- **Now** — a short description of the project, what the team is doing and what is waiting for you: a short notification, click it for the full requests and the commands to use.
 - **Team** — every agent with what it is doing; click one for its tasks and recent actions.
 - **Features** — board or backlog; click a task for what the agent was asked, who worked on it and its report.
 - **Usage** — tokens the team used per role, feature, phase and session, with the PM's peak context per session, read from the Claude Code session files on your computer. Add `.deltaforce/pricing.yaml` to see an estimated cost (see *Reference*).
@@ -483,6 +508,8 @@ models:
 | Symptom | Fix |
 |---|---|
 | `...\Git\bin\bash.exe ... is not recognized` | Git for Windows is missing or elsewhere: install it, or use your `bash.exe` path |
+| `bash : The term 'bash' is not recognized` in PowerShell | PowerShell has no `bash` on its path: wrap the command, e.g. `& "$env:ProgramFiles\Git\bin\bash.exe" -c 'bash .deltaforce/framework/install.sh'` |
+| `Claude Code seems to be open on this project` with every session closed | A process left behind by a closed session — the installer lists them by id and name: end them in Task Manager or with `Stop-Process -Id <id>`, then press Enter |
 | `DeltaForce guardrail: …` in the conversation | An agent tried a blocked action; the team reports it instead of working around it. If the action is legitimate, a person does it |
 | `Could not download https://github.com/...` | Check access to the DeltaForce repository and sign in to GitHub when Git asks |
 | `The repository path is N characters and Windows long paths are disabled` | Move the project to a shorter path (≤ 140 characters), or enable `LongPathsEnabled` |

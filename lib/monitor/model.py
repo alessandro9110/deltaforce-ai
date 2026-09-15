@@ -1037,7 +1037,17 @@ def _waiting_for_po(state: dict[str, Any], features: list[dict[str, Any]]) -> li
     for step in state.get("next_steps") or []:
         if isinstance(step, dict) and step.get("owner") == "po" and f"feature/{step.get('feature')}" not in reviewed:
             items.append({"text": str(step.get("action", "")), "route": f"feature/{step['feature']}" if step.get("feature") else None})
+    for item in items:
+        item["title"] = _notification_title(item["text"])
     return items
+
+
+def _notification_title(text: str) -> str:
+    """The first sentence, short enough for one line of the collapsed Waiting for you box."""
+    first = text.strip()
+    for mark in (". ", "! ", "? ", "\n"):
+        first = first.split(mark, 1)[0]
+    return _truncate(first.rstrip("."), 60)
 
 
 def status(view: dict[str, Any]) -> dict[str, Any]:

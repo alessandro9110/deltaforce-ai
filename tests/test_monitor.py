@@ -133,6 +133,7 @@ def test_board_columns_dates_dependencies_and_what_waits_for_the_po(project):
     assert snap["phase_label"] == "Delivery" and snap["started"] is True
     assert snap["latest"] == {"text": "F-002 deployed to dev", "ts": "2026-09-14T16:55:00Z"}
     assert [item["route"] for item in snap["waiting"]] == ["feature/F-004", "feature/F-003"]
+    assert [item["title"] for item in snap["waiting"]] == ["Review F-004 — Monthly revenue", "Confirm the KPI list"]
     assert snap["next_steps"][1]["owner_title"] == "QA Engineer"
     assert snap["project"]["name"] == "customer-360" and snap["problems"] == []
 
@@ -384,6 +385,19 @@ def test_server_serves_the_page_snapshot_and_documents_only(project):
         assert request(port, "/api/ping", {"Host": "attacker.example:80"})[0] == 403
     finally:
         httpd.shutdown()
+        httpd.server_close()
+
+
+def test_server_does_not_log_clients_that_gave_up(project, capsys):
+    httpd = server.MonitorServer(("127.0.0.1", 0), server.make_handler(project))
+    try:
+        for error, logged in ((ConnectionAbortedError(), False), (ConnectionResetError(), False), (ValueError("boom"), True)):
+            try:
+                raise error
+            except Exception:
+                httpd.handle_error(None, ("127.0.0.1", 50000))
+            assert ("Traceback" in capsys.readouterr().err) is logged
+    finally:
         httpd.server_close()
 
 

@@ -41,6 +41,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] Run on the latest version (change feature F-005 to the delivered dashboard): change feature, `/clear` suggestion, `df events`, no polling, status line and monitor views confirmed live; PM context peak 159 k (MVP up to 277 k), PM share 38% (MVP up to 48%), DevOps 27 calls (MVP up to 130)
 - [x] Lighter document updates for change features: only the affected sections of the Functional Analysis and the Architecture, in place; handover updated with the change feature only (the Solution Architect took 25% of the F-005 session)
 - [x] Installer asks to close Claude Code when its MCP server or hooks run from the project runtime (and stops the monitor by itself)
+- [x] Fix from the update run (2026-09-15): a status line refresh left behind by a closed session kept the installer asking to close Claude Code — the status line no longer counts, the warning lists the processes found (id and name) with how to end them; the monitor no longer logs clients that gave up; *Waiting for you* in the monitor is a compact notification (count and short titles) that expands to the full requests; README section on all the skills
 - [x] Configurable bundle target name (`targets.dev.bundle_target`, default `dev`, chosen from the project's own bundle when it has no `dev` target) for guardrails, generated files, `CLAUDE.md`, agents and doctor
 - [ ] Validate on a real existing project (its own bundle variables, target names and conventions)
 

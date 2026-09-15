@@ -102,6 +102,22 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
 .po-chip.waiting a { color: var(--ink); font-weight: 600; text-decoration: none; }
 .po-chip.waiting a:hover { text-decoration: underline; }
 .po-chip code { justify-self: start; background: transparent; }
+details.po-chip { display: block; min-width: 0; }
+.po-chip summary {
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 2px 8px;
+  cursor: pointer; list-style: none;
+}
+.po-chip summary::-webkit-details-marker { display: none; }
+.po-chip summary::after { content: "▾"; grid-row: 1; grid-column: 3; justify-self: end; color: var(--wait); transition: transform 0.15s; }
+.po-chip[open] summary::after { transform: rotate(180deg); }
+.po-chip .count {
+  min-width: 20px; padding: 0 6px; border-radius: 999px; text-align: center;
+  background: var(--wait); color: var(--surface); font-size: 12px; font-weight: 700; line-height: 18px;
+}
+.po-chip .titles { grid-column: 1 / -1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.po-chip[open] .titles { display: none; }
+.po-chip .items { display: grid; gap: 10px; margin-top: 6px; }
+.po-chip .item { display: grid; gap: 2px; }
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .section-head h2 { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: 0.03em; }
