@@ -54,7 +54,14 @@ Ask how this client organizes Databricks projects, with these options:
 - **Later** — keep the defaults for now.
 - **From another repository or document** — ask for the path or link, delegate to `solution-architect` to extract the conventions (read-only), show the result to the PO and confirm.
 
-Update `.deltaforce/conventions.yaml`: `project.kind` (`new` or `existing`), the PO's rules on existing data under `data_rules` (one sentence each, in English), `source` (`defaults`, `po` or `derived` with `source_reference`; for *From this repository* use `derived` with `source_reference: existing codebase` once the analysis is confirmed) and only the values the PO gave; everything else stays as it is.
+**CI/CD templates** — unless `project.cicd` in `.deltaforce/config.yaml` is `none`, ask where the client's pipeline templates are (the team builds the production pipeline on them, as a feature validated at G2):
+
+- **A templates repository** — ask its URL, the branch or tag, and which template files the pipeline must use;
+- **Files in this repository** — ask for the paths (for an existing project the as-is analysis finds them: default to this option);
+- **Provided during development** — the PO hands over CI-only or deploy templates later; ask them to put the files in the repository when they arrive;
+- **None** — the team proposes the DeltaForce standard pipeline, which the client adopts or changes.
+
+Update `.deltaforce/conventions.yaml`: `cicd` (`templates`, `repository`, `ref`, `paths`, `notes`), `project.kind` (`new` or `existing`), the PO's rules on existing data under `data_rules` (one sentence each, in English), `source` (`defaults`, `po` or `derived` with `source_reference`; for *From this repository* use `derived` with `source_reference: existing codebase` once the analysis is confirmed) and only the values the PO gave; everything else stays as it is.
 
 ## 5. Record
 

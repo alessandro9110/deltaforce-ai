@@ -93,7 +93,7 @@ A Mermaid diagram and a short narrative.
 Medallion design per discipline in scope (data engineering, analytics, ML, GenAI); data model; tables, views, volumes, models, indexes and endpoints with names built from bundle variables; lineage diagram. Mark table names proposed by the team for PO confirmation at G1.
 
 ## 6. Physical architecture and deployment
-Workspace, catalog and schemas, compute, bundle layout and resources, environments (dev, prod), CI/CD, how the client conventions are applied (deploy root path, naming, tags, run_as).
+Workspace, catalog and schemas, compute, bundle layout and resources, environments (dev, prod), CI/CD — the pipeline built on the client's templates (`cicd` in the conventions): stages, triggers, the production target, the service principal and the `BUNDLE_VAR_` values the client configures — how the client conventions are applied (deploy root path, naming, tags, run_as).
 
 ## 7. Security and governance
 Unity Catalog permissions, access to production data, secrets, sensitive data.

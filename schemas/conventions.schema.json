@@ -33,6 +33,18 @@
         }
       }
     },
+    "cicd": {
+      "description": "Where the client's CI/CD pipeline templates are; the DevOps Engineer builds the pipeline on them",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "templates": { "enum": ["repository", "project", "provided", "none"] },
+        "repository": { "type": ["string", "null"] },
+        "ref": { "type": ["string", "null"] },
+        "paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
     "data_rules": {
       "description": "Rules on existing data and objects given by the PO, e.g. which tables may never be dropped and the exceptions",
       "type": "array",

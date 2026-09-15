@@ -18,5 +18,11 @@ naming:
 tags: {}                    # mandatory tags on jobs, pipelines and endpoints, e.g. cost_center: "1234"
 code:
   style: files              # files | notebooks
+cicd:                       # the client's CI/CD pipeline templates, asked at kickoff
+  templates: none           # repository | project | provided | none (the team proposes the DeltaForce standard)
+  repository: null          # templates repository, e.g. https://dev.azure.com/<org>/<project>/_git/pipeline-templates
+  ref: null                 # branch or tag of the templates repository
+  paths: []                 # template or pipeline files to use or extend
+  notes: null               # anything else: CI-only or deploy templates, required stages, variable groups, approvals
 data_rules: []              # rules on existing data and objects, e.g. "Existing tables in dev are never dropped"
 custom: []                  # other client rules, one sentence each

@@ -169,5 +169,7 @@ None, or each operation with the object and the data rule that allows it (existi
 | Existing object or test | Check | Result | Evidence |
 (existing projects)
 ## Where to look
+## What to configure before the first run
+(CI/CD feature: service principal and permissions, variable group or secrets with each BUNDLE_VAR_ value, environments and approvals, production workspace)
 ## Deviations from the design and known limitations
 ```

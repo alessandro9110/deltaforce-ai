@@ -1,6 +1,8 @@
 import copy
 
+import pytest
 import yaml
+from conftest import ROOT
 
 from deltaforce import backlog, guardrails, team
 from deltaforce import config as cfg
@@ -81,6 +83,16 @@ def test_disabled_roles_are_dropped_and_removed(example_config, tmp_path):
     frontmatter, _ = split((paths.agents / "data-engineer.md").read_text(encoding="utf-8"))
     assert frontmatter["isolation"] == "worktree"
     assert "Agent(data-engineer)" in frontmatter["tools"]
+
+
+@pytest.mark.parametrize("template", ["azure-devops/azure-pipelines.yml", "github/databricks-bundle.yml"])
+def test_standard_cicd_templates_validate_on_prs_and_deploy_prod(template):
+    path = ROOT / "templates" / "cicd" / template
+    text = path.read_text(encoding="utf-8")
+    assert yaml.safe_load(text)
+    assert "databricks bundle validate -t prod" in text and "databricks bundle deploy -t prod" in text
+    assert "BUNDLE_VAR_catalog" in text and "DATABRICKS_CLIENT_SECRET" in text
+    assert "dapi" not in text  # no token ever written in a template
 
 
 def test_skills_are_refreshed_and_conventions_created_once(example_config, tmp_path):

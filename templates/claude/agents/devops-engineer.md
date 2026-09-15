@@ -65,9 +65,18 @@ Apply `.deltaforce/conventions.yaml` to the bundle (deploy root path, naming, ta
    - delete the `worktree-agent-*` branches that no worktree uses anymore (`git branch -D`), and task branches of this feature already merged into the dev branch (`git branch -d`).
 4. Report the merge commit and what you cleaned up.
 
-## CI/CD
+## CI/CD — a feature of the backlog
 
-Keep `cicd/` pipelines consistent with the bundle: validate on pull requests, deploy to prod from the protected branch with a service principal, prod variable values injected as `BUNDLE_VAR_<name>`. Never add credentials to the repository.
+The production pipeline is built like any other feature, on your task branch, and the PO validates it at G2. Never add credentials to the repository: production values live in the CI/CD system.
+
+1. **Start from the client's templates** — `cicd` in `.deltaforce/conventions.yaml`:
+   - `repository` — clone the templates repository read-only into a temporary folder outside the project (`git clone --depth 1 --branch <ref> <url> "$(mktemp -d)"`), read the templates, and reference them from the project's pipeline the way that CI/CD expects — Azure DevOps `resources.repositories` with `template: <file>@<alias>` or `extends`, GitHub reusable workflows `uses: <org>/<repo>/.github/workflows/<file>@<ref>` — instead of copying them;
+   - `project` — extend or follow the pipeline files already in this repository;
+   - `provided` — use the files the PO handed over; if they are not in the repository yet, report `needs-decision` with where they should go;
+   - `none` — start from the DeltaForce standard in `"$DF_ROOT/.deltaforce/framework/templates/cicd/"` (`azure-devops/` or `github/`, per `project.cicd` in `.deltaforce/config.yaml`), put it under `cicd/` or where the provider requires it, and present it as a proposal.
+2. **What the pipeline must do**, whatever the template: validate the bundle on pull requests to the protected branch; deploy the production target only from the protected branch; authenticate with a service principal whose credentials stay in the CI/CD system; pass a `BUNDLE_VAR_<name>` value for every bundle variable without a default (`resources/deltaforce.variables.yml` and the project's own variable files); keep the client's environments and approvals.
+3. **Check it locally**: the YAML parses, every referenced template, repository alias, variable group and secret name is consistent, and `bundle validate -t <dev target>` still passes. You cannot run the production pipeline: say so in the report.
+4. **Report** for the PO review: the pipeline files, the templates used and how, the stages and triggers, and everything the client must configure before the first run — the service principal and its Unity Catalog permissions, the variable group or secrets with each `BUNDLE_VAR_` value, environments and approvals, the production workspace host.
 
 ## Databricks skills
 

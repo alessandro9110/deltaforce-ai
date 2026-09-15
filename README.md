@@ -220,7 +220,7 @@ Open the project in VS Code and start Claude Code: the session starts as the **P
 
 | Command | When |
 |---|---|
-| `/df-kickoff [what to build or change]` | Start the project: the PM checks whether the repository already holds a project, asks what to build or change, known table names, your rules on existing data and the client conventions, then the team starts |
+| `/df-kickoff [what to build or change]` | Start the project: the PM checks whether the repository already holds a project, asks what to build or change, known table names, your rules on existing data, the client conventions and where the client's CI/CD templates are, then the team starts |
 | `/df-status` | Where the project stands and what is waiting for you |
 | `/df-approve` · `/df-approve F-001 [notes]` | Approve the design and the feature list (G1) · approve a delivered feature (G2) |
 | `/df-changes [F-001] <what to change>` | Changes to the design at G1; to a feature under review (it goes back to the team); to a feature already done (a *change feature* linked to it, with its own G2); or, without an id, to the request |
@@ -255,6 +255,8 @@ flowchart LR
 5. **Delivery** — independent features in parallel (up to three); specialists work in their own branches, the DevOps Engineer integrates and deploys to dev, the QA Engineer tests.
 6. **G2** — you validate each feature with its review report: what was built, Databricks objects, destructive operations, test and regression evidence. Approved features are merged into the dev branch.
 7. **Handover** — a person opens the pull request to the protected branch; CI/CD deploys to production.
+
+**CI/CD built on the client's templates** — at kickoff you say where the client's pipeline templates are: a templates repository, files already in the project, or templates you will hand over. The production pipeline is then a feature like the others: the DevOps Engineer builds it on those templates (referencing them, not copying them), and you validate it at G2 with the list of what the client must configure before the first run. Only when the client has no templates, the team proposes the DeltaForce standard for Azure DevOps or GitHub Actions.
 
 **See the work in progress** — the code currently deployed on dev is in `.deltaforce/review/`: add that folder to your VS Code workspace once. **Close Claude Code at any time** — the next session continues from `.deltaforce/`.
 
