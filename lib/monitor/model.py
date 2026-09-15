@@ -12,6 +12,7 @@ import yaml
 
 LIB_DIR = Path(__file__).resolve().parents[1]
 ROLES_FILE = LIB_DIR / "data" / "roles.yaml"
+AGENT_TEMPLATES = LIB_DIR.parent / "templates" / "claude" / "agents"
 
 MAIN_ROLE = "pm"
 ROLE_ORDER = (
@@ -167,10 +168,18 @@ def split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
 
 
 def _roles_catalog() -> dict[str, dict[str, Any]]:
+    """Roles with the description and model of their agent template (Claude Code subagent frontmatter)."""
     try:
-        return (yaml.safe_load(ROLES_FILE.read_text(encoding="utf-8")) or {}).get("roles", {})
+        catalog = (yaml.safe_load(ROLES_FILE.read_text(encoding="utf-8")) or {}).get("roles", {})
     except (OSError, yaml.YAMLError):
         return {}
+    for role, spec in catalog.items():
+        try:
+            frontmatter, _ = split_frontmatter((AGENT_TEMPLATES / f"{role}.md").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        spec.update({key: frontmatter[key] for key in ("description", "model", "color") if key in frontmatter})
+    return catalog
 
 
 # ─── wording ────────────────────────────────────────────────────

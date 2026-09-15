@@ -34,7 +34,7 @@ It is installed from GitHub with `install.sh` into a **target project repo**, co
 
 ## 4. Team
 
-The PO is the human user. The PM is the main Claude Code session (`"agent": "pm"` in the project's `.claude/settings.json`, so every session — terminal or VS Code — starts as the PM); every other role is a subagent in `.claude/agents/`. Agents are rendered by the installer from `lib/data/roles.yaml` (frontmatter) and `templates/claude/agents/<role>.md` (prompt).
+The PO is the human user. The PM is the main Claude Code session (`"agent": "pm"` in the project's `.claude/settings.json`, so every session — terminal or VS Code — starts as the PM); every other role is a subagent in `.claude/agents/`. Each agent is written in `templates/claude/agents/<role>.md` in the Claude Code subagent format — frontmatter (`name`, `description`, `tools`, `model`, `skills`, `isolation`, `color`) and prompt — and rendered by the installer into the project, which adds from `lib/data/roles.yaml` the `Agent(...)` allowlist, the Databricks MCP tools and production reads, and applies the model chosen in the configuration.
 
 | Role (id) | Responsibilities | May | May not |
 |---|---|---|---|
@@ -50,7 +50,7 @@ The PO is the human user. The PM is the main Claude Code session (`"agent": "pm"
 
 ### Skills per role
 
-Skills come from `databricks aitools` (official `databricks/databricks-agent-skills`) and are preloaded through the subagent `skills:` frontmatter. All roles get `databricks-core`.
+Databricks skills come from `databricks aitools` (official `databricks/databricks-agent-skills`), are listed in each prompt and load on demand; the DeltaForce process skills in the subagent `skills:` frontmatter are preloaded. All roles get `databricks-core`.
 
 | Role | Skills |
 |---|---|
@@ -67,19 +67,20 @@ Default models (overridable in config): `pm` and `solution-architect` on Opus, t
 
 ### Example agent definition
 
+Rendered `.claude/agents/data-engineer.md` (MCP tools shortened):
+
 ```markdown
 ---
 name: data-engineer
-description: Builds ingestion and medallion pipelines (bronze/silver/gold) and jobs on Databricks. Use for data pipeline tasks of the current feature.
+description: Builds ingestion and bronze, silver and gold pipelines, jobs and the related bundle resources on Databricks, in its own worktree and task branch. Use for data pipeline and data modelling tasks of the current feature.
+tools: Read, Grep, Glob, Edit, Write, Bash, Skill, Agent(data-engineer), mcp__databricks__execute_sql, mcp__databricks__execute_code, mcp__databricks__get_table_stats_and_schema
 model: sonnet
-isolation: worktree
-color: blue
 skills:
-  - databricks-core
-  - databricks-pipelines
-  - databricks-jobs
-  - databricks-dabs
-tools: Read, Edit, Write, Grep, Glob, Bash, Agent(data-engineer), mcp__databricks__execute_sql, mcp__databricks__execute_code, mcp__databricks__get_table_stats_and_schema
+  - df-engineering-standards
+  - df-git-flow
+  - df-handoff
+isolation: worktree
+color: orange
 ---
 ```
 
@@ -367,14 +368,14 @@ deltaforce-ai/
   install.sh
   lib/
     *.sh                # installer steps
-    data/roles.yaml     # role catalog: models, tools, MCP tools, delegates, skills
+    data/roles.yaml     # added to each agent: MCP tools, production reads, delegates, Databricks skills
     data/versions.env   # pinned downloads
     py/dfcli.py         # helper CLI (installer, and .deltaforce/bin/df for the team)
     py/deltaforce/      # config, generate, team, backlog, doctor, guardrails
     hooks/              # deltaforce_hook.py: guardrails, audit, activity (standard library only)
     monitor/            # launcher, server, model, static page (read-only local web view)
   templates/
-    claude/agents/      # prompt body per role; frontmatter comes from roles.yaml
+    claude/agents/      # one subagent per role: frontmatter (name, description, tools, model, skills) and prompt
     claude/skills/      # df-* skills copied into the project
     cicd/               # DeltaForce standard pipelines, used only when a client has no templates
     deltaforce/conventions.yaml

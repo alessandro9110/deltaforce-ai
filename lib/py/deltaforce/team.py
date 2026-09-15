@@ -11,11 +11,10 @@ from typing import Any
 import yaml
 
 from . import guardrails
-from .config import load_roles
+from .config import AGENT_TEMPLATES, load_roles, read_agent_template
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
 TEMPLATES = FRAMEWORK_DIR / "templates"
-AGENT_TEMPLATES = TEMPLATES / "claude" / "agents"
 SKILL_TEMPLATES = TEMPLATES / "claude" / "skills"
 CONVENTIONS_TEMPLATE = TEMPLATES / "deltaforce" / "conventions.yaml"
 
@@ -54,7 +53,7 @@ def _bullets(lines: list[str]) -> str:
 
 
 def render_agent(role: str, config: Mapping[str, Any], roles: Mapping[str, Mapping[str, Any]] | None = None) -> str:
-    """Build .claude/agents/<role>.md: frontmatter from the catalog and config, body from the template."""
+    """Build .claude/agents/<role>.md from its template, in the Claude Code subagent format, for this project."""
     roles = roles or load_roles()
     spec = roles[role]
     enabled = set(config["team"]["roles"])
@@ -71,8 +70,8 @@ def render_agent(role: str, config: Mapping[str, Any], roles: Mapping[str, Mappi
     frontmatter: dict[str, Any] = {
         "name": role,
         "description": " ".join(spec["description"].split()),
+        "tools": ", ".join(tools),
         "model": models.get(role, models["default"]),
-        "tools": tools,
         "skills": list(spec.get("process_skills", [])),
     }
     for optional in ("isolation", "color"):
@@ -82,7 +81,7 @@ def render_agent(role: str, config: Mapping[str, Any], roles: Mapping[str, Mappi
     delegate_lines = [
         f"`{name}` — {roles[name]['title'] if name in roles else BUILTIN_AGENTS[name]}" for name in delegates
     ]
-    body = (AGENT_TEMPLATES / f"{role}.md").read_text(encoding="utf-8")
+    _, body = read_agent_template(role)
     body = body.replace("{{delegates}}", _bullets(delegate_lines) if delegate_lines else "_You do not delegate._")
     body = body.replace("{{databricks_skills}}", _bullets([f"`{skill}`" for skill in spec.get("skills", [])]))
 

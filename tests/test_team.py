@@ -14,7 +14,21 @@ AI_DEV_KIT_TOOLS = set(guardrails.AI_DEV_KIT_TOOLS)
 def split(document):
     assert document.startswith("---\n")
     header, body = document[4:].split("\n---\n", 1)
-    return yaml.safe_load(header), body
+    frontmatter = yaml.safe_load(header)
+    if "tools" in frontmatter:  # agents: comma-separated, as in the Claude Code subagent docs
+        assert isinstance(frontmatter["tools"], str)
+        frontmatter["tools"] = cfg.split_tools(frontmatter["tools"])
+    return frontmatter, body
+
+
+def test_agent_templates_use_the_subagent_format():
+    for path in sorted(team.AGENT_TEMPLATES.glob("*.md")):
+        frontmatter, body = cfg.read_agent_template(path.stem)
+        assert set(frontmatter) <= {"name", "description", "tools", "model", "skills", "isolation", "color"}, path.name
+        assert frontmatter["description"] and isinstance(frontmatter["tools"], str), path.name
+        assert isinstance(frontmatter.get("skills", []), list), path.name  # skills must be a YAML list
+        assert body.startswith("# DeltaForce — "), path.name
+    assert cfg.split_tools("Agent(a, b), Read, mcp__x__y") == ["Agent(a, b)", "Read", "mcp__x__y"]
 
 
 def test_role_catalog_is_consistent():

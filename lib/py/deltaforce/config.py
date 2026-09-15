@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shlex
 from collections.abc import Mapping
 from pathlib import Path
@@ -15,8 +16,12 @@ from .paths import FRAMEWORK_DIR
 
 SCHEMA_PATH = FRAMEWORK_DIR / "schemas" / "config.schema.json"
 ROLES_PATH = FRAMEWORK_DIR / "lib" / "data" / "roles.yaml"
+AGENT_TEMPLATES = FRAMEWORK_DIR / "templates" / "claude" / "agents"
 VERSIONS_PATH = FRAMEWORK_DIR / "lib" / "data" / "versions.env"
 LAYERS = ("bronze", "silver", "gold")
+# Subagent frontmatter fields of an agent template that describe the role; its `skills` are the preloaded
+# DeltaForce skills (`process_skills` in the role spec, `skills` there being the Databricks agent skills).
+AGENT_FIELDS = ("description", "tools", "model", "isolation", "color")
 
 CONFIG_HEADER = (
     "# DeltaForce AI project configuration.\n"
@@ -28,9 +33,34 @@ class ConfigError(Exception):
     """The configuration is missing or does not match the schema."""
 
 
+def split_tools(value: Any) -> list[str]:
+    """Tools of a subagent `tools` field — a YAML list or a comma-separated string; commas inside Agent(...) are kept."""
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return [item.strip() for item in re.split(r",(?![^()]*\))", str(value or "")) if item.strip()]
+
+
+def read_agent_template(role: str) -> tuple[dict[str, Any], str]:
+    """Frontmatter and prompt of templates/claude/agents/<role>.md."""
+    path = AGENT_TEMPLATES / f"{role}.md"
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    header, separator, body = text[4:].partition("\n---\n") if text.startswith("---\n") else ("", "", "")
+    data = yaml.safe_load(header) if separator else None
+    if not isinstance(data, dict) or data.get("name") != role:
+        raise ConfigError(f"{path.name}: needs subagent frontmatter with name: {role}")
+    return data, body.lstrip("\n")
+
+
 def load_roles() -> dict[str, dict[str, Any]]:
+    """Each role from lib/data/roles.yaml, with the description, tools, model and skills of its agent template."""
     with ROLES_PATH.open(encoding="utf-8") as f:
-        return yaml.safe_load(f)["roles"]
+        roles = yaml.safe_load(f)["roles"]
+    for role, spec in roles.items():
+        frontmatter, _ = read_agent_template(role)
+        spec.update({key: frontmatter[key] for key in AGENT_FIELDS if key in frontmatter})
+        spec["tools"] = split_tools(spec.get("tools"))
+        spec["process_skills"] = list(frontmatter.get("skills") or [])
+    return roles
 
 
 def load_versions() -> dict[str, str]:
