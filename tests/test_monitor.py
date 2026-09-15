@@ -165,6 +165,24 @@ def test_workflow_counts_handoffs_steps_back_and_po_involvement(project):
     assert feature_flow["deploys"] == {"ok": 1, "failed": 0}
 
 
+def test_timeline_shows_who_worked_when_and_who_asked(project):
+    timeline = model.snapshot(project, NOW)["workflow"]["timeline"]
+    runs = timeline["runs"]
+
+    assert [(run["role"], run["from"]) for run in runs] == [
+        ("qa-engineer", "pm"), ("qa-engineer", "pm"), ("data-engineer", "pm"),
+    ]
+    hooks_run, logged_run, working = runs
+    assert hooks_run == {**hooks_run, "start": "2026-09-14T15:01:00Z", "end": "2026-09-14T15:10:00Z", "running": False, "summary": None}
+    # Before the hooks recorded delegations, runs come from the PM's events.
+    assert logged_run == {**logged_run, "start": "2026-09-14T16:21:00Z", "end": "2026-09-14T16:30:00Z", "result": "blocked", "summary": "F-002 test phase"}
+    assert working == {**working, "running": True, "end": None, "summary": "T-002.1 fix silver joins", "feature": "F-002", "from_title": "Project Manager"}
+
+    lanes = [(marker["lane"], marker["tone"]) for marker in timeline["markers"]]
+    assert ("po", "bad") in lanes and ("po", "po") in lanes  # G1 sent back, then approved; the PM's questions
+    assert ("qa-engineer", "bad") in lanes and ("devops-engineer", "ok") in lanes and ("pm", "bad") in lanes
+
+
 def test_team_shows_who_works_on_what(project):
     snap = model.snapshot(project, NOW)
     team = {role["id"]: role for role in snap["team"]}

@@ -402,8 +402,134 @@ def feature_flow(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _timeline(
+    events: list[dict[str, Any]],
+    activity: list[dict[str, Any]],
+    catalog: dict[str, dict[str, Any]],
+    task_titles: dict[str, str],
+    hooks_since: str | None,
+    now: dt.datetime,
+) -> dict[str, Any]:
+    """Who worked when, who asked them, and the gates, deploys, tests and steps back along the way."""
+    runs: list[dict[str, Any]] = []
+
+    def run(role: Any, source: Any, start: Any, end: Any, summary: Any, task: Any, feature: Any, result: Any) -> None:
+        role, source = str(role or "unknown"), str(source or MAIN_ROLE)
+        started = parse_ts(start)
+        if task and not summary:
+            summary = f"{task} {task_titles.get(str(task), '')}".strip()
+        runs.append({
+            "role": role, "role_title": role_title(role, catalog), "short": ROLE_SHORT.get(role, role[:2].upper()),
+            "from": source, "from_title": role_title(source, catalog),
+            "start": start, "end": end, "running": not end and bool(started) and now - started < AGENT_STALE,
+            "summary": summary, "task": task, "feature": feature or (f"F-{str(task)[2:].split('.')[0]}" if task else None),
+            "result": result,
+        })
+
+    finished = [event for event in events if event.get("event") == "delegation_finished"]
+
+    # Runs recorded by the hooks: each agent from start to stop, with the delegation that started it.
+    delegations = [record for record in activity if record.get("event") == "delegated" and record.get("target_role")]
+    used: set[int] = set()
+    agents: dict[str, dict[str, Any]] = {}
+    for record in activity:
+        agent_id = record.get("agent_id")
+        if agent_id and record.get("event") == "agent_started":
+            agents[agent_id] = {"role": record.get("role"), "start": record.get("ts"), "end": None}
+        elif agent_id and record.get("event") == "agent_stopped" and agent_id in agents:
+            agents[agent_id]["end"] = record.get("ts")
+    for agent in sorted(agents.values(), key=lambda item: str(item["start"])):
+        started, stopped = parse_ts(agent["start"]), parse_ts(agent["end"])
+        match: tuple[int, dict[str, Any]] | None = None
+        for index, delegation in enumerate(delegations):
+            moment = parse_ts(delegation.get("ts"))
+            if index in used or delegation.get("target_role") != agent["role"] or not (moment and started):
+                continue
+            if started - dt.timedelta(minutes=2) <= moment <= started + dt.timedelta(seconds=5):
+                match = (index, delegation)
+        delegation = {}
+        if match:
+            used.add(match[0])
+            delegation = match[1]
+        result = None
+        if stopped:
+            for event in finished:
+                moment = parse_ts(event.get("ts"))
+                if _data(event).get("agent") == agent["role"] and moment and stopped - dt.timedelta(seconds=5) <= moment <= stopped + dt.timedelta(minutes=10):
+                    result = _data(event).get("result")
+                    break
+        run(agent["role"], delegation.get("role"), agent["start"], agent["end"], delegation.get("summary"),
+            delegation.get("task"), delegation.get("feature"), result)
+
+    # Before the hooks recorded anything: the delegations the PM logged as events.
+    waiting: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
+    for event in events:
+        if hooks_since and str(event.get("ts")) >= hooks_since:
+            break
+        data = _data(event)
+        if not data.get("agent") or event.get("event") not in {"delegation_started", "delegation_finished"}:
+            continue
+        key = (data["agent"], event.get("task") or data.get("task"))
+        if event.get("event") == "delegation_started":
+            waiting.setdefault(key, []).append(event)
+        elif waiting.get(key):
+            opened = waiting[key].pop(0)
+            summary = None if opened.get("task") else _data(opened).get("task")
+            run(data["agent"], opened.get("role"), opened.get("ts"), event.get("ts"), summary, opened.get("task"),
+                opened.get("feature"), data.get("result"))
+    hook_runs = [(item["role"], parse_ts(item["start"])) for item in runs]
+    for opened_list in waiting.values():
+        for opened in opened_list:
+            role, started = _data(opened)["agent"], parse_ts(opened.get("ts"))
+            # Logged just before the hooks started recording: the hooks already show this run.
+            if started and any(
+                other_role == role and other_start and started <= other_start <= started + dt.timedelta(minutes=10)
+                for other_role, other_start in hook_runs
+            ):
+                continue
+            summary = None if opened.get("task") else _data(opened).get("task")
+            run(role, opened.get("role"), opened.get("ts"), None, summary, opened.get("task"), opened.get("feature"), None)
+            if hooks_since:
+                runs[-1]["running"] = False  # the hooks would show it if it were still running
+
+    markers: list[dict[str, Any]] = []
+    for event in events:
+        kind, data = event.get("event"), _data(event)
+        back = _step_back(event)
+        if back:
+            markers.append({"ts": event.get("ts"), "lane": MAIN_ROLE, "tone": "bad", "feature": back["feature"],
+                            "text": f"{back['feature']}: {back['text']} — {back['cause']}"})
+        elif kind == "po_decision":
+            approved = data.get("decision") == "approved"
+            subject = f"G2 {event['feature']}" if data.get("gate") == "G2" and event.get("feature") else (data.get("gate") or "decision")
+            markers.append({"ts": event.get("ts"), "lane": "po", "tone": "po" if approved else "bad", "feature": event.get("feature"),
+                            "text": f"{subject}: you {'approved' if approved else 'asked for changes'}"})
+        elif kind == "escalation":
+            markers.append({"ts": event.get("ts"), "lane": "po", "tone": "bad", "feature": event.get("feature"),
+                            "text": f"Escalation: {data.get('reason') or data.get('summary') or ''}".rstrip(": ")})
+        elif kind == "deploy_finished":
+            markers.append({"ts": event.get("ts"), "lane": "devops-engineer", "tone": "ok" if _deploy_ok(event) else "bad",
+                            "feature": event.get("feature"), "text": f"Deploy to dev: {data.get('result', 'finished')}"})
+        elif kind == "test_run":
+            markers.append({"ts": event.get("ts"), "lane": "qa-engineer", "tone": "bad" if data.get("failed") else "ok",
+                            "feature": event.get("feature"), "text": f"Tests: {data.get('passed')} passed, {data.get('failed')} failed"})
+    for record in activity:
+        if record.get("event") == "asked_po":
+            count = int(record.get("questions") or 1)
+            markers.append({"ts": record.get("ts"), "lane": "po", "tone": "po", "feature": None,
+                            "text": f"{role_title(record.get('role') or MAIN_ROLE, catalog)} asked you {count} question{'s' if count != 1 else ''}"})
+
+    runs.sort(key=lambda item: str(item["start"] or ""))
+    markers.sort(key=lambda item: str(item["ts"] or ""))
+    return {"runs": runs[-300:], "markers": markers[-300:]}
+
+
 def _workflow(
-    events: list[dict[str, Any]], activity: list[dict[str, Any]], catalog: dict[str, dict[str, Any]]
+    events: list[dict[str, Any]],
+    activity: list[dict[str, Any]],
+    catalog: dict[str, dict[str, Any]],
+    task_titles: dict[str, str] | None = None,
+    now: dt.datetime | None = None,
 ) -> dict[str, Any]:
     loops = [back for event in events if (back := _step_back(event))]
     for event in events:
@@ -498,6 +624,7 @@ def _workflow(
         "handoffs": handoffs,
         "po": sorted(po_items, key=lambda item: str(item["ts"] or ""), reverse=True)[:60],
         "phases": phases,
+        "timeline": _timeline(events, activity, catalog, task_titles or {}, hooks_since, now or dt.datetime.now(dt.timezone.utc)),
     }
 
 
@@ -771,7 +898,10 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
         "features": features,
         "team": team,
         "session": session,
-        "workflow": _workflow(events, activity, catalog),
+        "workflow": _workflow(
+            events, activity, catalog,
+            {task["id"]: task["title"] for feature in features for task in feature["tasks"]}, now,
+        ),
         "documents": documents(root),
         "problems": problems,
     }

@@ -1,10 +1,78 @@
 # DeltaForce AI
 
-A team of specialized Claude Code agents that design, build, test and deploy on Databricks — data engineering, analytics, data science, ML and GenAI. The human user is the Product Owner; the team is a PM, Solution Architect, Business Analyst, Data Engineer, Data Analyst, Data Scientist, AI Engineer, QA Engineer and DevOps Engineer.
+**A Databricks delivery team made of Claude Code agents, working inside your repository, with you as the Product Owner.**
 
-DeltaForce is installed **into a project repository**, from your IDE, with **one command**. A guided installer asks what it needs and keeps everything inside the project: the DeltaForce framework, tools, Python, the Databricks MCP server, agent skills and configuration. Nothing is installed globally.
+You describe what you need — a new data product, or a change to a project that already exists — and a team of nine specialized agents analyses, designs, builds, tests and deploys it on Databricks: data engineering pipelines, analytics and dashboards, ML models, GenAI assistants and agents. You approve the design and every feature; the team does the rest and asks you only when something needs your decision.
 
-> **Status**: installer, configuration, the nine agents, the team skills, the Product Owner commands, guardrail and audit hooks, support for existing projects and the base of the monitor are implemented — see [docs/roadmap.md](docs/roadmap.md). Architecture and process: [docs/design.md](docs/design.md).
+> **Status**: installer, configuration, the nine agents, the team skills, the Product Owner commands, guardrail and audit hooks, support for existing projects and the monitor are implemented — see [docs/roadmap.md](docs/roadmap.md). Architecture and process: [docs/design.md](docs/design.md).
+
+## What DeltaForce does
+
+| You, the Product Owner | The team |
+| --- | --- |
+| Describe what to build or change — `/df-kickoff` | Analyses the request, the data and, in an existing project, the codebase and what is deployed |
+| Approve the design and the feature list — gate **G1** | Writes the Functional Analysis and the Architecture, splits the work into features |
+| Validate every delivered feature — gate **G2** | Builds features in parallel, deploys them to dev, tests them, reports the evidence |
+| Open the pull request to production | Keeps the dev branch ready for CI/CD |
+
+| Role | What it does |
+| --- | --- |
+| Project Manager | The only one who talks to you. Plans, delegates, tracks the backlog and the state, runs the gates |
+| Solution Architect | Designs the solution — medallion flows, tables, bundle layout — and checks that the work follows it |
+| Business Analyst | Business objectives, expected value, requirements and acceptance criteria |
+| Data Engineer | Ingestion and bronze, silver, gold pipelines and jobs |
+| Data Analyst | Gold marts, metric views, AI/BI dashboards, Genie spaces |
+| Data Scientist | Exploration, features, ML training and evaluation with MLflow |
+| AI Engineer | GenAI: document processing, vector search, agents, evaluation, serving, apps |
+| QA Engineer | Data quality, integration and regression tests on the deployed feature |
+| DevOps Engineer | The only one who integrates, deploys to dev and merges into the dev branch; owns CI/CD |
+
+## How it works
+
+- **Agents in Claude Code.** Every Claude Code session in the project starts as the Project Manager. The PM delegates to the specialists, several at the same time when their work is independent. Each specialist that writes code works in its own git worktree and branch.
+- **Everything is in files.** Request, Functional Analysis, Architecture, backlog, task reports, review reports and project state live in `.deltaforce/`, committed with the code. You can close Claude Code at any time: the next session continues from there.
+- **Databricks through official tooling.** Agents query and explore Databricks with the [Databricks AI Dev Kit](https://github.com/databricks-solutions/ai-dev-kit) MCP server, follow current patterns from the Databricks agent skills, and declare every resource — jobs, pipelines, dashboards, models, endpoints — in a **Databricks Asset Bundle**. Names of catalogs, schemas and tables are always bundle variables.
+- **The process**: kickoff → (existing project: as-is analysis) → requirements and design → **G1** → for each feature: build → integrate and deploy to dev → test → **G2** → merge into the dev branch → a person opens the pull request → CI/CD deploys to production.
+
+## Where the team works
+
+**The repository.** The team works on the dev branch you choose at installation, never on the protected branches (`main`…). Each feature gets a branch `df/F-001`, each task a branch of its own. The code currently deployed on dev is always visible in `.deltaforce/review/`, so you can read it before you approve. Only the DevOps Engineer merges into the dev branch, only after your approval; a person opens the pull request to production. Every commit says which role made it.
+
+**The dev workspace.** The Databricks workspace and the dev catalog and schemas you pick at installation. The team reads and queries data there, creates the schemas and tables the solution needs inside the dev catalog, and deploys and runs the bundle on the dev target. It signs in with a project-local Databricks CLI profile — with OAuth, your own identity.
+
+**The production workspace** (optional). A separate workspace the team can only **read**: SQL queries, model serving and vector search queries, Genie and table statistics, useful when some data exists only in production. Every access is audited with the role that made it. Deployments to production happen only through your CI/CD, from the protected branch.
+
+## What the team can and cannot do
+
+| The team can | The team cannot |
+| --- | --- |
+| Read and query data on dev, and read production when configured | Write outside the dev catalog, or do anything but read on production |
+| Create schemas, tables, jobs, pipelines, dashboards, models and endpoints on dev — through the asset bundle | Create, change or delete Databricks resources by hand, or run `bundle destroy` |
+| Deploy and run the bundle on the dev target (the DevOps Engineer only) | Deploy to production, push to protected branches, force-push or rewrite history |
+| Commit and push feature and task branches; merge approved features into the dev branch | Change Unity Catalog grants, sharing, connections or storage |
+| Extend an existing project, following its conventions and your rules on existing data | Change what DeltaForce installed — agents, skills, settings, framework — or read the credentials |
+
+These rules are not just instructions: hooks check every action of every agent before it runs, also in auto mode, and every Databricks call, shell command and blocked action is recorded in `.deltaforce/audit.jsonl` (details in [Guardrails](#guardrails)).
+
+## Watch the team
+
+The **monitor** opens in your browser when the team starts working: what is happening now and what waits for you, each agent with what it is doing, the feature board with delivery dates, and the workflow — handoffs, work sent back, your involvement and a timeline of who worked when. A link is always in the Claude Code status line. It runs on your computer, only reads `.deltaforce/`, and uses no tokens. See [Watch the team in the browser](#watch-the-team-in-the-browser).
+
+## Why the installer sets up so much
+
+Everything stays inside the project, so every team member gets the same versions without administrator rights or global installs.
+
+| What | Why |
+| --- | --- |
+| uv, Python and the Databricks CLI in `.deltaforce/bin` and `.deltaforce/runtime` | The same tool versions for everyone, nothing installed on the machine |
+| Databricks AI Dev Kit MCP server | Lets the agents explore and query Databricks |
+| Databricks agent skills in `.claude/skills/databricks-*` | Current Databricks patterns for each role |
+| Agents in `.claude/agents` and DeltaForce skills in `.claude/skills/df-*` | The team, its process, formats and rules, and your commands |
+| Hooks, guard policy and Claude settings | The guardrails, the audit trail, the PM as main session, the project profile |
+| `CLAUDE.md` block, `databricks.yml`, bundle variables | Project context for every agent; parametric names and the dev target |
+| Monitor and status line | Watching the team without spending tokens |
+
+The full list, with what is committed and what is not, is in [section 4](#4-what-gets-installed-and-where).
 
 ## Contents
 
@@ -225,7 +293,7 @@ How a project runs:
 
 ### Watch the team in the browser
 
-The first time the team starts working in a Claude Code session, DeltaForce opens the **monitor** in your default browser. It shows what is happening now and what is waiting for you, each agent with what it is doing, and every feature on a board — to do, in progress, waiting for your review, done with its completion date and how long it took. Click a feature for its path through the statuses (with the steps back and why), tasks, activity and details, an agent for its tasks and recent actions, **Workflow** for how the work flowed — handoffs between team members, work sent back to be redone, deploys and test runs, phase durations and every time the team needed you (decisions, questions, escalations) — and **Documents** for the Functional Analysis, the Architecture and the reports. Questions and messages to and from you are counted, never recorded.
+The first time the team starts working in a Claude Code session, DeltaForce opens the **monitor** in your default browser. It shows what is happening now and what is waiting for you, each agent with what it is doing, and every feature on a board — to do, in progress, waiting for your review, done with its completion date and how long it took. Click a feature for its path through the statuses (with the steps back and why), tasks, activity and details, an agent for its tasks and recent actions, **Workflow** for how the work flowed — handoffs between team members, work sent back to be redone, deploys and test runs, phase durations, every time the team needed you (decisions, questions, escalations) and a **Timeline** of who worked when and who asked them — and **Documents** for the Functional Analysis, the Architecture and the reports. Questions and messages to and from you are counted, never recorded.
 
 - It runs on your computer only (`http://127.0.0.1:87xx`, always the same address for a project) and only reads the files in `.deltaforce/`: it uses no tokens and changes nothing. Approvals stay in Claude Code (`/df-approve`, `/df-changes`).
 - It updates by itself every few seconds, and stops on its own about half an hour after the last session closes.
