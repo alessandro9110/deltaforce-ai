@@ -142,6 +142,8 @@ Measured on the first sandbox run (F-001, 19 subagents): the PM main session was
 - **Lean preloads**: every preloaded skill is in every call's context. The PM preloads `df-backlog` and `df-handoff`; builders preload `df-engineering-standards`, `df-git-flow`, `df-handoff`; `df-testing` is preloaded only by the QA Engineer and loaded on demand by the others.
 - Measure again after each change on a real run; the model of the PM (Opus or Sonnet) is a PO decision.
 
+Second measurement (change feature F-005 on the updated version, one session): PM context peaked at 159 k tokens (MVP sessions: 247 k, 192 k, 277 k) and the PM's share of cost fell to 38% (MVP: 37–48%, rising); the PM used 11 `df events` calls and no single `df event`/`df validate` (MVP first session: 20 + 13); the DevOps Engineer made 27 calls with no run polling (MVP sessions: 130, 43, 95); `/clear` was suggested at the close. The largest remaining cost was the Solution Architect updating design documents for a small change (25% of the session) — next lever: change features update only the affected sections of the Functional Analysis and the Architecture.
+
 ### Nested delegation
 
 Subagents may spawn other subagents. Nesting depth comes from `orchestration.max_spawn_depth` in config (default `3`, Claude Code's own default), written to `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`. Who may spawn whom is restricted per role with the `Agent(<agent_type>)` syntax in the `tools` frontmatter:

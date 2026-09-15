@@ -35,7 +35,8 @@ Updated with every change that adds or completes something. Last update: 2026-09
 ### Next — phase 1: stabilize what exists
 
 - [x] Sandbox MVP complete (2026-09-15): four features — NYC taxi bronze/silver, gold KPIs, AI/BI dashboard, TPC-H revenue — delivered through G1 and four G2, 34 tests passed, handover written; 37 handoffs, 2 steps back, 7 deploys (1 blocked by a guardrail bug, fixed)
-- [ ] Next run on the latest version: check `/clear` at clean points, `df events`, no polling, backlog and test views and the status line commands live; measure tokens against the MVP run
+- [x] Run on the latest version (change feature F-005 to the delivered dashboard): change feature, `/clear` suggestion, `df events`, no polling, status line and monitor views confirmed live; PM context peak 159 k (MVP up to 277 k), PM share 38% (MVP up to 48%), DevOps 27 calls (MVP up to 130)
+- [ ] Lighter document updates for change features: only the affected sections of the Functional Analysis and the Architecture (the Solution Architect took 25% of the F-005 session)
 - [x] Installer asks to close Claude Code when its MCP server or hooks run from the project runtime (and stops the monitor by itself)
 - [x] Configurable bundle target name (`targets.dev.bundle_target`, default `dev`, chosen from the project's own bundle when it has no `dev` target) for guardrails, generated files, `CLAUDE.md`, agents and doctor
 - [ ] Validate on a real existing project (its own bundle variables, target names and conventions)
