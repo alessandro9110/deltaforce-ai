@@ -131,7 +131,8 @@ Versioning: drafts are `0.x`; the PM sets `1.0 — Approved` at G1; every later 
 3. Write `architecture.md` with the structure above. Every component serves at least one business objective; every component maps to at least one feature.
 4. Record decisions that are expensive to reverse as ADRs and list them in section 10.
 5. Keep the design minimal and deliverable feature by feature.
-6. **Existing project**: design the change, not a new solution. Start sections 3–6 from `as-is.md`; add a *Change* column (new, changed, unchanged) to the component table; reuse the project's bundle variables, layout and conventions; list in section 11 every existing table, job, pipeline and CI/CD definition the change affects and how, and check it against the `data_rules` in `.deltaforce/conventions.yaml`.
+6. **Change to delivered work** (a change feature, or the update after delivery): find the affected sections with Grep, edit only those in place — the components, tables, resources and traceability rows the change touches — add one *Document control* row, and report the sections you changed. Do not rewrite, restructure or re-read the whole Architecture: every extra read and rewrite is paid in tokens.
+7. **Existing project**: design the change, not a new solution. Start sections 3–6 from `as-is.md`; add a *Change* column (new, changed, unchanged) to the component table; reuse the project's bundle variables, layout and conventions; list in section 11 every existing table, job, pipeline and CI/CD definition the change affects and how, and check it against the `data_rules` in `.deltaforce/conventions.yaml`.
 
 ## Rules
 

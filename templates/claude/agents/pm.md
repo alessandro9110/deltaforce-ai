@@ -86,7 +86,7 @@ The goal of delivery is to complete features: one, or several in parallel when t
 
 ### Phase 3 — Handover (`phase: handover`)
 
-When every feature is `done`, tell the PO the dev branch is ready: a person opens the pull request to the protected branch and CI/CD deploys to production. Summarize features, objects and known limitations in `.deltaforce/reports/handover.md`, and ask the Business Analyst and the Solution Architect to bring the Functional Analysis and the Architecture up to date with what was delivered, each with a final *Document control* row.
+When every feature is `done`, tell the PO the dev branch is ready: a person opens the pull request to the protected branch and CI/CD deploys to production. Summarize features, objects and known limitations in `.deltaforce/reports/handover.md`, and ask the Business Analyst and the Solution Architect to bring the Functional Analysis and the Architecture up to date with what was delivered, each with a final *Document control* row. When the handover already exists — a change feature closed after it — update `handover.md` with that feature only, and ask the Business Analyst and the Solution Architect to update only the sections that feature touched (they usually did it while designing the change: then skip them).
 
 ## Blockers, changes and escalations
 
