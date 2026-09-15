@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DeltaForce AI is a **framework**, not an application: an installable Claude Code setup that gives a *target project repo* a team of Databricks-specialized agents (PM, Solution Architect, Business Analyst, Data Engineer, Data Analyst, Data Scientist, AI Engineer, QA Engineer, DevOps Engineer; the human user is the PO). It is installed into target repos with `install.sh` from GitHub.
 
-Current status: **installer, configuration, agents, skills, PO commands, guardrail/audit hooks and the base of the monitor implemented**. The source of truth is:
+Current status: **installer, configuration, agents, skills, PO commands, guardrail/audit hooks, existing-project support, CI/CD on the client's templates (project pipelines in `.devops/`) and the local monitor implemented**. The source of truth is:
 
 - `docs/design.md` — architecture, process, conventions, open items
 - `docs/roadmap.md` — milestones M0–M6 with exit criteria

@@ -85,12 +85,19 @@ def test_disabled_roles_are_dropped_and_removed(example_config, tmp_path):
     assert "Agent(data-engineer)" in frontmatter["tools"]
 
 
-@pytest.mark.parametrize("template", ["azure-devops/azure-pipelines.yml", "github/databricks-bundle.yml"])
-def test_standard_cicd_templates_validate_on_prs_and_deploy_prod(template):
-    path = ROOT / "templates" / "cicd" / template
-    text = path.read_text(encoding="utf-8")
-    assert yaml.safe_load(text)
+@pytest.mark.parametrize(
+    "files",
+    [
+        ["azure-devops/azure-pipelines.yml"],
+        ["github/databricks-bundle.yml", "github/databricks-bundle/action.yml"],
+    ],
+)
+def test_standard_cicd_templates_validate_on_prs_and_deploy_prod(files):
+    texts = [(ROOT / "templates" / "cicd" / name).read_text(encoding="utf-8") for name in files]
+    assert all(yaml.safe_load(part) for part in texts)
+    text = "\n".join(texts)
     assert "databricks bundle validate -t prod" in text and "databricks bundle deploy -t prod" in text
+    assert ".devops/" in texts[0]  # project pipelines live in .devops/ at the repository root
     assert "BUNDLE_VAR_catalog" in text and "DATABRICKS_CLIENT_SECRET" in text
     assert "dapi" not in text  # no token ever written in a template
 

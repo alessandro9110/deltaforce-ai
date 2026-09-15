@@ -248,17 +248,73 @@ flowchart LR
   M --> H["You open the PR<br/>CI/CD deploys prod"]
 ```
 
-1. **Kickoff** — you describe what to build, or what to change in an existing project.
-2. **As-is analysis** (existing projects) — the Solution Architect analyses the codebase and what is deployed, the Business Analyst what the solution does; conventions and bundle variables they find come to you for confirmation. Your rules on existing data — e.g. *existing tables are never dropped, except Auto Loader tables for a refresh* — bind the whole team.
-3. **Requirements and design** — the **Functional Analysis** and the **Architecture**, in English and Markdown, versioned, with a feature list and dependencies.
-4. **G1** — you approve, or ask for changes.
-5. **Delivery** — independent features in parallel (up to three); specialists work in their own branches, the DevOps Engineer integrates and deploys to dev, the QA Engineer tests.
-6. **G2** — you validate each feature with its review report: what was built, Databricks objects, destructive operations, test and regression evidence. Approved features are merged into the dev branch.
-7. **Handover** — a person opens the pull request to the protected branch; CI/CD deploys to production.
+### 1. Kickoff — what the PM asks you
 
-**CI/CD built on the client's templates** — at kickoff you say where the client's pipeline templates are: a templates repository, files already in the project, or templates you will hand over. The production pipeline is then a feature like the others: the DevOps Engineer builds it on those templates (referencing them, not copying them), and you validate it at G2 with the list of what the client must configure before the first run. Only when the client has no templates, the team proposes the DeltaForce standard for Azure DevOps or GitHub Actions.
+`/df-kickoff` first checks that the readiness checks passed and that the files DeltaForce installed are committed, then walks you through a short conversation. Everything you answer is written to files and committed on the dev branch, so the team — and every later session — works from the same facts.
+
+| Step | What happens | Where it is recorded |
+|---|---|---|
+| **New or existing project** | The PM looks at the repository (code, bundle resources, tests, pipelines, git history) and tells you in two or three lines what it found; you confirm *extend the existing project* or *new project* | `project.kind` in `.deltaforce/conventions.yaml` |
+| **The request** | What to build or change, then at most four questions on what is missing: business goal and expected value, how success is measured, users, data sources, expected outputs, constraints | `.deltaforce/requirements/request.md` |
+| **Table names** | You give them (layer, name, meaning) or the Solution Architect proposes them at G1 | `request.md` |
+| **Rules on existing data** (existing projects) | In your words — e.g. *existing tables in dev are never dropped, except the Auto Loader bronze tables, dropped with their checkpoint to refresh them* — plus jobs, pipelines or folders the team must not touch. They bind every agent, and destructive operations are reported at G2 | `data_rules` in `conventions.yaml`, `request.md` |
+| **Client conventions** | Derived from this repository (existing projects), DeltaForce defaults, defined now (deploy folder, name prefix, tags, Python files or notebooks), from another repository or document, or later. Change them at any time with `/df-conventions` | `conventions.yaml` |
+| **CI/CD templates** | Where the client's pipeline templates are: a templates repository (URL, branch or tag, files), files already in this repository, templates handed over during development, or none (the team proposes the DeltaForce standard) | `cicd` in `conventions.yaml` |
+
+The team then starts on its own: for an existing project the **as-is analysis** comes first — the Solution Architect reads the codebase, the bundle and its variables, what is deployed on dev and the existing pipelines; the Business Analyst what the solution does and its business rules — and conventions and bundle variables they find come to you for confirmation, together with the other open questions.
+
+### 2. Design and G1
+
+The Business Analyst writes the **Functional Analysis** (objectives, value, success metrics, user stories, acceptance criteria) and the Solution Architect the **Architecture** (medallion flows, tables, bundle layout; for an existing project what is new, changed or unchanged). Together they split the work into **features** with dependencies and tasks per role — including a **CI/CD feature** for the production pipeline. You approve with `/df-approve` or ask for changes with `/df-changes`. After G1 the PM suggests `/clear`: the design is saved and delivery starts from the files.
+
+### 3. Build and deploy on dev
+
+For every feature whose dependencies are done (up to three at a time):
+
+1. **Build** — the PM creates the feature branch `df/F-xxx`; the Data Engineer, Data Analyst, Data Scientist and AI Engineer work in parallel, each in its own git worktree and task branch, writing code in `src/`, bundle resources in `resources/` and tests in `tests/`. Names always come from bundle variables.
+2. **Integrate** — the DevOps Engineer, the only role that integrates and deploys, merges the task branches into the feature branch and rebuilds a local integration branch from the dev branch plus every active feature, in the **review worktree `.deltaforce/review/`**. Your main checkout never leaves the dev branch.
+3. **Deploy on dev** — from the review worktree: `bundle validate`, `bundle deploy` and `bundle run` on the dev **bundle target** chosen at installation (`dev` by default, `-t <target>` on every command). Deploying everything active together keeps one feature's deploy from removing another's resources. Runs are started once and awaited, never polled.
+4. **Test** — the QA Engineer tests the deployed feature against its acceptance criteria (data quality, integration, evaluation) and, in an existing project, runs regression checks on the existing objects it touches. Failures go back to the owners as fix tasks.
+5. **G2** — the PM writes `.deltaforce/reports/F-xxx-po-review.md` and asks for your decision: what was built and its business value, Databricks objects created or changed, destructive operations with the rule that allowed each, test and regression evidence, where to look, deviations. Open `.deltaforce/review/` in VS Code to see the code, and the monitor for the evidence. The team keeps working on other features while you review.
+6. **Merge** — after `/df-approve F-xxx` the DevOps Engineer merges the feature into the dev branch, pushes it and cleans up the agent worktrees and branches. When nobody is still working, the PM suggests `/clear`.
+
+The team never deploys to production and never pushes to a protected branch: the hooks block it whatever an agent is asked.
+
+### 4. CI/CD pipeline — in `.devops/`
+
+The production pipeline is a feature of the backlog, owned by the DevOps Engineer and validated by you at G2:
+
+- **Built on the client's templates** recorded at kickoff — referenced, not copied: Azure DevOps `resources.repositories` with `template:` or `extends`, GitHub reusable workflows. Only when the client has none, the DevOps Engineer adapts the DeltaForce standard for Azure DevOps or GitHub Actions, as a proposal.
+- **Released in `.devops/`** at the root of the project repository, e.g. `.devops/azure-pipelines.yml`. GitHub runs workflows only from `.github/workflows/`: there only the trigger workflow, with the steps in a composite action under `.devops/github/`.
+- **What it does**: validates the bundle on pull requests to the protected branch; deploys the production target only from the protected branch, with a service principal whose credentials stay in the CI/CD system; passes a `BUNDLE_VAR_<name>` value for every bundle variable without a default.
+- **Checked locally** (YAML, template references, `bundle validate` on dev) — it cannot run from your machine, so its G2 report lists **what to configure before the first run**: service principal and Unity Catalog permissions, variable group or secrets, environments and approvals, production workspace host.
+
+### 5. Handover and production
+
+When every feature is done, the PM writes `.deltaforce/reports/handover.md` (features, objects, known limitations) and the Business Analyst and Solution Architect bring the Functional Analysis and the Architecture up to date. **A person** opens the pull request from the dev branch to the protected branch; the pipeline in `.devops/` validates it and, once merged, deploys to production.
+
+### 6. Changes, also after delivery
+
+- **At G1 or on a feature under review** — `/df-changes [F-xxx] <what to change>`: the work goes back to the team with fix tasks.
+- **On a feature already done** — `/df-changes F-xxx <what to change>` creates a **change feature** linked to it (`change_of`), with its own tasks, branch, deploy, tests and G2; the original keeps its history and delivery date. Only the affected sections of the Functional Analysis, the Architecture and the handover are updated.
+- **On the request** — `/df-changes <what changes>`: the PM assesses the impact with the Business Analyst and the Solution Architect and asks you to confirm when approved work is affected.
 
 **See the work in progress** — the code currently deployed on dev is in `.deltaforce/review/`: add that folder to your VS Code workspace once. **Close Claude Code at any time** — the next session continues from `.deltaforce/`.
+
+<details>
+<summary><strong>Where the team's work lands</strong> (click to expand)</summary>
+
+| Path | Content |
+|---|---|
+| `.deltaforce/requirements/` | `request.md`, `as-is.md` (existing projects), `functional-analysis.md` |
+| `.deltaforce/architecture/` | `as-is.md` (existing projects), `discovery.md`, `architecture.md`, ADRs |
+| `.deltaforce/backlog/` | One file per feature with its tasks, acceptance criteria and log |
+| `.deltaforce/reports/` | Task reports, G2 review reports, `handover.md` |
+| `.deltaforce/state.yaml`, `events.jsonl` | Phase, active features, next steps · every lifecycle event, read by the monitor |
+| `src/`, `resources/`, `tests/`, `databricks.yml` | Code, bundle resources and tests |
+| `.devops/` | CI/CD pipelines, built on the client's templates |
+
+</details>
 
 ---
 

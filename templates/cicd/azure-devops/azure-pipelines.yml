@@ -1,5 +1,6 @@
 # DeltaForce standard pipeline for a Databricks Asset Bundle — a proposal, used only when the client has no
-# pipeline templates of its own. The DevOps Engineer adapts it to the project; the PO validates it at G2.
+# pipeline templates of its own. The DevOps Engineer adapts it to the project and puts it in
+# .devops/azure-pipelines.yml at the repository root; the PO validates it at G2.
 #
 # Pull requests to the protected branch: validate the bundle. Pushes to the protected branch: validate, then
 # deploy the production target.

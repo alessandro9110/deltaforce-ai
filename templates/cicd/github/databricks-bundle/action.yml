@@ -1,0 +1,24 @@
+# DeltaForce standard steps for a Databricks Asset Bundle, placed in .devops/github/databricks-bundle/action.yml
+# and called by the trigger workflow in .github/workflows/. Credentials and BUNDLE_VAR_<name> values come from
+# the environment of the calling job, never from this repository.
+
+name: databricks-bundle
+description: Validate the Databricks Asset Bundle and, when asked, deploy the production target
+
+inputs:
+  deploy:
+    description: Deploy the production target after validating it
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: databricks/setup-cli@main
+    - name: Validate the bundle
+      shell: bash
+      run: databricks bundle validate -t prod
+    - name: Deploy the production target
+      if: inputs.deploy == 'true'
+      shell: bash
+      run: databricks bundle deploy -t prod

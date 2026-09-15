@@ -136,7 +136,7 @@ tests/
   data_quality/
   integration/
   evaluation/
-cicd/
+.devops/             # CI/CD pipelines, built on the client's templates
 .deltaforce/          # team documents and state: requirements, architecture, backlog, reports — not product code
 ```
 
