@@ -1,0 +1,29 @@
+name: tests
+
+# Every change to the framework runs the suite: the hook, config, generation, team,
+# backlog, monitor and skill-structure tests, plus a syntax check of the installer scripts.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    # The team works on Windows and the guardrail tests assume Windows paths.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - name: Run the test suite
+        shell: bash
+        run: |
+          uv run --no-project --python 3.11 --with pytest --with pyyaml --with jsonschema pytest tests -q
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the installer scripts parse
+        run: |
+          for f in install.sh lib/*.sh lib/monitor/*.sh; do bash -n "$f"; done
