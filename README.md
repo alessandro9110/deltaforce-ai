@@ -110,6 +110,7 @@ Skills are instructions Claude Code loads into an agent's context. The team uses
 
 | Skill | Kind | Used by | What it holds |
 |---|---|---|---|
+| `/df-prepare` | Your command | You | What to bring to the kickoff and how the team works — read-only, run it before `/df-kickoff` |
 | `/df-kickoff` | Your command | You | Readiness check, new or existing project, the request, table names, rules on existing data, client conventions, CI/CD templates, environments — then the team starts |
 | `/df-status` | Your command | You | Where the project stands and what waits for you; read-only |
 | `/df-approve` | Your command | You | Approve the design and feature list (G1) or a delivered feature (G2) |
@@ -237,6 +238,36 @@ The installer ends with the readiness checks: configuration, Claude Code, git an
 
 ---
 
+## Prepare the Kickoff
+
+Run **`/df-prepare`** in the project: the PM shows this same list filled in with what it already knows from your repository and configuration, so you only prepare what is missing. It changes nothing.
+
+`/df-kickoff` is then a conversation, not a form: answer in your own words and the PM asks only what is still missing. It goes faster when you have these ready.
+
+**Bring to the kickoff**
+
+| Topic | What the PM asks |
+|---|---|
+| The request | What the team must build or change, why now, what improves (revenue, cost, time, risk, decisions), how success is measured, who uses the result |
+| Data | Which sources — catalogs, schemas, tables and volumes already on Databricks, files to upload, external systems |
+| Outputs | Tables, dashboards, ML models, GenAI assistants or agents, apps |
+| Constraints | Deadlines, sensitive data, performance, cost |
+| Names | Schema and table names you already have in mind — including where particular objects belong, for example the schema for registered models, feature tables and predictions. Otherwise the team proposes them and you confirm at G1 |
+| Existing project | Your rules on existing data and objects (what may be dropped or rewritten and what may not), and the jobs, pipelines or folders the team must not touch |
+| Conventions | How this client organizes Databricks projects: deploy folder, naming prefixes, mandatory tags, notebooks or Python files. Or take the DeltaForce defaults and change them later with `/df-conventions` |
+| CI/CD | Where the client's pipeline templates are — a repository, files here, provided later, or none |
+| Environments | Every environment besides the team's dev target — prototyping, test, UAT, pre-production, production: what it is for, where it is, its catalogs and bundle target, whether the team may **deploy**, only **read** or **not go there**, whether the team or CI/CD deploys it, and its data rules |
+
+**How the team works** — the boundaries you are agreeing to, and what you keep in your hands:
+
+- It **reads anywhere** it has access to, but **writes only in the dev catalog** and in the environments you confirm in the installer. Production is read-only and every access is audited.
+- Every Databricks resource is declared in the **asset bundle** and deployed by the DevOps Engineer — nothing created by hand.
+- Every object it creates carries a **description**, and every ML or GenAI result exists as an **MLflow run**; QA checks both.
+- It never pushes to your protected branches and never deploys production: the pull request to `main` and the production deployment stay with you.
+- You approve twice: **G1** on the design and the feature list, **G2** on each delivered feature.
+
+---
+
 ## Work With the Team
 
 Open the project in VS Code and start Claude Code: the session starts as the **Project Manager**. Talk to it in plain language, and use the commands below at the decisive moments.
@@ -245,6 +276,7 @@ Open the project in VS Code and start Claude Code: the session starts as the **P
 
 | Command | When |
 |---|---|
+| `/df-prepare` | Before the kickoff: what to bring, what the team already knows from the repository, and the boundaries it works within. Changes nothing |
 | `/df-kickoff [what to build or change]` | Start the project: the PM checks whether the repository already holds a project, asks what to build or change, known table names, your rules on existing data, the client conventions and where the client's CI/CD templates are, then the team starts |
 | `/df-status` | Where the project stands and what is waiting for you |
 | `/df-approve` · `/df-approve F-001 [notes]` | Approve the design and the feature list (G1) · approve a delivered feature (G2) |

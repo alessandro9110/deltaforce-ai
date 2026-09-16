@@ -33,7 +33,7 @@ The project is **existing** when there is product content: source code or notebo
 
 ## 3. Collect the request
 
-1. If `$ARGUMENTS` is not empty, that is the request. Otherwise ask: *What should the team build?* — for an existing project: *What should the team add or change?* — and let the PO answer freely.
+1. If `$ARGUMENTS` is not empty, that is the request. Otherwise tell the PO in three or four lines what the kickoff will cover — the request and its business goal, the data sources and expected outputs, constraints, the schema and table names they already have in mind, the client conventions, the CI/CD templates and the environments besides dev (and, for an existing project, the rules on existing data) — then ask: *What should the team build?* — for an existing project: *What should the team add or change?* — and let them answer freely. Say they can answer in their own words and that you will ask only what is missing.
 2. Ask only what is still missing to start, in one round of at most four questions (use AskUserQuestion when there are clear options):
    - the business goal and the expected benefit for the client — why build it now, what improves (revenue, cost, time, risk, decisions) and how success will be measured — and who will use the result;
    - the data sources — already in Databricks (catalogs, schemas, tables, volumes), files to upload, external systems;

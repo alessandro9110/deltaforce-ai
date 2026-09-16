@@ -19,7 +19,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [x] Monitor backlog: one-line description on feature cards, Backlog view with descriptions, dependencies, acceptance criteria and task tables, task panel (what was asked, who worked on it and when, report), feature panel ordered from what it is to how it went
 - [x] Guided, project-scoped installer started with one command from the IDE terminal; self-bootstrap and update; readiness checks gate `/df-kickoff`
 - [x] Project configuration and JSON Schemas (config, conventions, state, feature, event)
-- [x] Nine agents rendered from the role catalog, five process skills, PO commands (`/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions`)
+- [x] Nine agents rendered from the role catalog, five process skills, PO commands (`/df-prepare`, `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions`)
 - [x] Parallel discovery (Business Analyst and Solution Architect) and parallel delivery of independent features through a local integration branch
 - [x] Functional Analysis and Architecture as versioned deliverables; business objectives, value and success metrics
 - [x] Team documents and state under `.deltaforce/`

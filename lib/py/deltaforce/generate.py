@@ -248,7 +248,7 @@ Generated from `.deltaforce/config.yaml` by the DeltaForce installer. Change the
 | Project | `{project['name']}` |
 | Workspace | {db['host']} |
 | Databricks CLI | `"$DF_ROOT/.deltaforce/bin/databricks"` — profile `{db['profile']}` is preselected through the environment |
-| Team | Sessions start as the PM; PO commands `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions` |
+| Team | Sessions start as the PM; PO commands `/df-prepare`, `/df-kickoff`, `/df-status`, `/df-approve`, `/df-changes`, `/df-conventions` |
 | Client conventions | `.deltaforce/conventions.yaml` |{prod_row}
 | Bundle target | `{target}` — the team's dev target: always pass `-t {target}`{target_note} |{others_row}
 | SQL warehouse | `{db['warehouse_id']}` |

@@ -184,7 +184,9 @@ df_commit_install() {
 df_run_doctor() {
     if df_py doctor --target "$(df_native_path "$DF_TARGET_DIR")"; then
         df_step "DeltaForce is ready"
-        df_msg "Open Claude Code in this repository and run /df-kickoff."
+        df_msg "Open Claude Code in this repository and run /df-prepare: it lists what to bring to the"
+        df_msg "kickoff — request, data, outputs, constraints, names, conventions, CI/CD and environments —"
+        df_msg "and how the team works. When you have it, start with /df-kickoff."
     else
         local script=.deltaforce/framework/install.sh
         [ "$DF_FRAMEWORK_DIR" = "$DF_TARGET_DIR/.deltaforce/framework" ] || script="$DF_FRAMEWORK_DIR/install.sh"

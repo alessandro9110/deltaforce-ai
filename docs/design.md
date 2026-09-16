@@ -402,6 +402,7 @@ DeltaForce skills:
 
 | Skill | Kind | Purpose |
 | --- | --- | --- |
+| `df-prepare` | PO command | What to bring to the kickoff — request, data, outputs, constraints, names, rules on existing data, conventions, CI/CD templates, environments — and the boundaries the team works within; read-only |
 | `df-kickoff` | PO command | Readiness gate, new or existing project, request, tables, rules on existing data, client conventions, start the analysis |
 | `df-status` | PO command | Read-only project status |
 | `df-approve` | PO command | Approve G1 or a feature at G2 |

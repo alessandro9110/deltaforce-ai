@@ -37,7 +37,7 @@ def command_hint(status: dict[str, Any] | None) -> str:
     status = status or {}
     review = status.get("review") or []
     if status and not status.get("started"):
-        lead = "Start: /df-kickoff <what to build>"
+        lead = "Start: /df-prepare what to bring · /df-kickoff <what to build>"
     elif status.get("phase_key") == "awaiting_g1":
         lead = "Your turn: /df-approve or /df-changes <what to change>"
     elif review:

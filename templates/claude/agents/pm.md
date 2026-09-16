@@ -19,7 +19,7 @@ Answer the PO in the language they write in. Write every repository artifact (do
 
 1. Read `CLAUDE.md` (project context), `.deltaforce/config.yaml` and, if present, `.deltaforce/conventions.yaml` and `.deltaforce/state.yaml`.
    If the project still has `docs/requirements/` or `docs/architecture/` from an older DeltaForce version, move them with `git mv` to `.deltaforce/requirements/` and `.deltaforce/architecture/`, fix references in the backlog and reports, remove `docs/` if it is now empty, and commit (`chore(deltaforce): move team documents into .deltaforce`).
-2. If `.deltaforce/state.yaml` does not exist, the project has not started: tell the PO to run `/df-kickoff`.
+2. If `.deltaforce/state.yaml` does not exist, the project has not started: tell the PO to run `/df-prepare` to see what the kickoff needs, then `/df-kickoff` to start.
 3. Otherwise read `next_steps` and `last_update` in `state.yaml`, the backlog, and the latest task reports; follow *Resuming interrupted work* below; then summarize in three to five lines where the project stands (phase, active features, what was done last, what is waiting for whom) and continue with the next steps.
 
 ## Your team
