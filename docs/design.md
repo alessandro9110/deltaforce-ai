@@ -142,7 +142,7 @@ Measured on the first sandbox run (F-001, 19 subagents): the PM main session was
 - **Fresh session at clean points**: after G1 and after an approved feature is merged, with no specialist working, the PM tells the PO everything is saved and suggests `/clear` then *continue*; state, backlog and reports are the memory.
 - **Batched bookkeeping**: `df events '[...]'` records all events of a change and validates in one call; `state.yaml` is rewritten in one write.
 - **No polling**: `bundle run` waits for the run (Bash timeout at maximum, or a background Bash call for long runs); related git commands are chained in one call.
-- **Lean preloads**: every preloaded skill is in every call's context. The PM preloads `df-backlog` and `df-handoff`; builders preload `df-engineering-standards`, `df-git-flow`, `df-handoff`; `df-testing` is preloaded only by the QA Engineer and loaded on demand by the others; `df-mlops` and `df-aiops` are always loaded on demand, by the Data Scientist, the AI Engineer, the Solution Architect and the QA Engineer.
+- **Lean preloads**: every preloaded skill is in every call's context. The PM preloads `df-backlog` and `df-handoff`; builders preload `df-engineering-standards`, `df-git-flow`, `df-handoff`; `df-testing` is preloaded only by the QA Engineer and loaded on demand by the others; `df-bi`, `df-mlops` and `df-aiops` are always loaded on demand, by the Data Analyst, the Data Scientist, the AI Engineer, the Solution Architect and the QA Engineer.
 - Measure again after each change on a real run; the model of the PM (Opus or Sonnet) is a PO decision.
 
 Second measurement (change feature F-005 on the updated version, one session): PM context peaked at 159 k tokens (MVP sessions: 247 k, 192 k, 277 k) and the PM's share of cost fell to 38% (MVP: 37–48%, rising); the PM used 11 `df events` calls and no single `df event`/`df validate` (MVP first session: 20 + 13); the DevOps Engineer made 27 calls with no run polling (MVP sessions: 130, 43, 95); `/clear` was suggested at the close. The largest remaining cost was the Solution Architect updating design documents for a small change (25% of the session) — next lever: change features update only the affected sections of the Functional Analysis and the Architecture. Applied: for changes to delivered work, the Business Analyst and the Solution Architect find the affected sections with Grep, edit them in place with one *Document control* row, and never rewrite or re-read the whole document; after a change feature the PM updates `handover.md` with that feature only and does not ask for a second round of document updates when the change already made them.
@@ -229,6 +229,7 @@ Agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) run teammates as independ
 
 UC assets follow the same parameters: models `${var.catalog}.${var.schema_gold}.<model>`, vector indexes on gold, serving endpoint and app names suffixed per target.
 
+- **BI lifecycle** (`df-bi`): analytics strategy in the Architecture → gold modelled for the question → one definition per KPI in a metric view → dashboard for known questions, Genie space for the others, curated with instructions, examples and descriptions → an expected-question set. QA recomputes the measures from gold and re-runs the questions independently.
 - **ML lifecycle** (`df-mlops`): ML operations strategy in the Architecture → realistic samples from dev → gold feature tables → splits without leakage → baseline → model challenge with a leaderboard in MLflow → UC registration with `challenger` and `champion` aliases → validation before promotion → batch inference or serving → monitoring and retraining. QA recomputes the metrics independently.
 - **AI lifecycle** (`df-aiops`): AI operations strategy → bronze documents → silver parse/chunk → gold vector index and versioned evaluation dataset → baseline and challenge between models, retrieval and prompts → agent (custom or Agent Bricks) with Prompt Registry and tracing → MLflow evaluation → serving or app behind AI Gateway → monitoring. QA runs the evaluation independently.
 
@@ -413,6 +414,7 @@ DeltaForce skills:
 | `df-git-flow` | preloaded | Dev, feature, task and integration branches; commits; forbidden operations |
 | `df-handoff` | preloaded | Delegation prompt and report formats, nested delegation, escalation |
 | `df-testing` | preloaded | Data quality, integration, ML and GenAI evaluation, evidence |
+| `df-bi` | on demand | Analytics strategy, one definition per KPI in a metric view, gold for consumption, dashboard design, Genie curation and answer verification |
 | `df-mlops` | on demand | ML operations strategy, realistic samples and splits, baseline and model challenge, champion/challenger, serving, monitoring, retraining, Hugging Face on Databricks |
 | `df-aiops` | on demand | AI operations strategy, evaluation datasets, challenges between models, retrieval and prompts, MLflow evaluation and tracing, serving and AI Gateway, Agent Bricks |
 

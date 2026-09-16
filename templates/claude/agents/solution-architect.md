@@ -110,7 +110,7 @@ Workspace, catalog and schemas, compute, bundle layout and resources, environmen
 Unity Catalog permissions, access to production data, secrets, sensitive data.
 
 ## 8. Operations
-Scheduling, monitoring, data quality, alerting, cost. For ML features an *ML operations* subsection (`df-mlops` §1), for GenAI features an *AI operations* subsection (`df-aiops` §1), designed with the Data Scientist and the AI Engineer.
+Scheduling, monitoring, data quality, alerting, cost. For analytics features an *Analytics* subsection (`df-bi` §1), for ML features an *ML operations* subsection (`df-mlops` §1), for GenAI features an *AI operations* subsection (`df-aiops` §1), designed with the Data Analyst, the Data Scientist and the AI Engineer.
 
 ## 9. Integrations
 External systems and interfaces, if any.
