@@ -48,6 +48,21 @@ def test_generate_is_idempotent_and_preserves_user_content(example_config, tmp_p
     assert ".deltaforce/.databrickscfg*" in gitignore
 
 
+def test_new_bundle_declares_the_direct_engine_and_an_existing_one_is_left_alone(example_config, tmp_path):
+    paths = ProjectPaths(tmp_path)
+    generate.write_bundle(example_config, paths)
+
+    bundle = yaml.safe_load(read(paths.bundle))
+    # Genie spaces and the newer resource types deploy only with the direct engine.
+    assert bundle["bundle"]["engine"] == "direct"
+    assert example_config["targets"]["dev"].get("bundle_target", "dev") in bundle["targets"]
+
+    own = "bundle:\n  name: client_platform\ntargets:\n  development: {}\n"
+    paths.bundle.write_text(own, encoding="utf-8")
+    generate.write_bundle(example_config, paths)
+    assert read(paths.bundle) == own
+
+
 def test_mcp_server_and_local_settings_share_the_project_profile(example_config, tmp_path):
     paths = ProjectPaths(tmp_path)
     generate.generate_all(example_config, paths)

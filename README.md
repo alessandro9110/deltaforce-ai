@@ -497,7 +497,7 @@ To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databri
 | `.claude/settings.local.json` | Project profile for every command, guardrail and audit hooks, status line | ignored |
 | `.mcp.json` | The `databricks` MCP server (and `databricks-prod`) with this machine's paths | ignored |
 | `CLAUDE.md` | A *DeltaForce project context* block | committed |
-| `databricks.yml`, `resources/deltaforce.variables.yml` | Bundle skeleton (created only if missing) · dev values of the bundle variables (existing variables are not redefined) | committed |
+| `databricks.yml`, `resources/deltaforce.variables.yml` | Bundle skeleton (created only if missing, with the direct deployment engine) · dev values of the bundle variables (existing variables are not redefined) | committed |
 | `.gitignore` | A managed block for the machine-specific files | committed |
 
 Content you write yourself in `CLAUDE.md`, `.gitignore` and `.claude/settings.json` is preserved. With OAuth, the Databricks CLI keeps its tokens in its own cache under your user profile — the only thing outside the project.

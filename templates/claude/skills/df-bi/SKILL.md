@@ -52,6 +52,18 @@ A Genie space is a product, not a switch: what makes it good is curation.
 - **Descriptions carry the semantics**: table, column, measure and dimension descriptions are what Genie reads first — the same descriptions the standards already require.
 - **Feedback loop**: review the questions people actually ask, and turn the wrong answers into instructions, examples or a missing measure.
 
+A Genie space is a bundle resource like any other, in two paired files:
+
+- `resources/<slug>.genie_space.yml` — `title`, `description`, `warehouse_id` (from the bundle variable), `permissions` (`CAN_VIEW`, `CAN_RUN`, `CAN_EDIT`, `CAN_MANAGE`) and `file_path` pointing to the definition;
+- `src/dashboards/<slug>.geniespace.json` — the serialized space: data sources, instructions, example questions. Keep it in git: it is the curation, and it is reviewed like code.
+
+Two commands help, run by the Data Analyst in their worktree (never a deploy):
+
+- `databricks bundle generate genie-space --existing-id <id>` imports a space someone built in the UI into those two files;
+- `databricks bundle generate genie-space --resource <name> --watch` pulls back changes made in the UI while curating, so git stays the source of truth.
+
+**Genie spaces are not bindable**: deploying does not adopt a space that already exists in the workspace, it creates a new one. Never point a bundle resource at a hand-made space without importing it first — the original, with its chat history, would be left behind or overwritten. Record the import in the task report.
+
 ## 6. Verify the answers
 
 - Build a set of expected questions with their reference answers — the BI equivalent of an evaluation dataset — covering the main KPIs, a couple of ambiguous phrasings and at least one out-of-scope question that must be refused.
@@ -60,6 +72,7 @@ A Genie space is a product, not a switch: what makes it good is curation.
 
 ## 7. Rules
 
-- Dashboards, metric views, Genie spaces and their underlying tables are bundle resources, deployed by the DevOps Engineer — never created by hand.
+- Dashboards, metric views, Genie spaces and their underlying tables are bundle resources, deployed by the DevOps Engineer — never created by hand. The MCP tools that would create or change them are blocked by the guardrails; `ask_genie` stays available to question a deployed space.
+- Genie spaces need the bundle **direct deployment engine** (Databricks CLI 1.3.0 or later; the project's CLI is newer). A bundle still on the Terraform engine migrates by itself after a successful deploy, or with `databricks bundle deployment migrate`. If a deploy refuses the resource, the DevOps Engineer checks `engine` in `databricks.yml` — `bundle.engine` or `targets.<target>.engine` — and reports it rather than switching engines under a delivery.
 - Descriptions are mandatory on all of them (`df-engineering-standards`), and they double as the semantic layer Genie relies on.
 - No literal catalog, schema or table names: bundle variables everywhere, including inside dashboard definitions.

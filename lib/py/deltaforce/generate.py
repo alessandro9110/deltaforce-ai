@@ -288,7 +288,9 @@ def write_bundle(config: Mapping[str, Any], paths: ProjectPaths) -> list[Path]:
 
     if not paths.bundle.exists():
         bundle = {
-            "bundle": {"name": project["name"]},
+            # Genie spaces and the newer resource types deploy only with the direct engine: state it here
+            # instead of depending on the CLI version. An existing project's bundle is never touched.
+            "bundle": {"name": project["name"], "engine": "direct"},
             "include": ["resources/*.yml"],
             "targets": {
                 target: {"mode": "development", "default": True, "workspace": {"host": db["host"]}},
