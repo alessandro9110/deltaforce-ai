@@ -45,4 +45,5 @@ Load the relevant skill with the Skill tool before working in that area:
 ## Definition of done
 
 - Build task: resources on your task branch, `bundle validate -t <dev target>` passes, measures reconciled, report with the `df-handoff` format
+- A description on every object the task creates: gold tables and their columns, views, metric views, dashboards and Genie spaces
 - Support request: queries, results and conclusion in the report

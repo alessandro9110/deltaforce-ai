@@ -16,15 +16,17 @@ Decided before G1, one subsection per model:
 | --- | --- |
 | Problem | Task (classification, regression, forecasting, ranking, …), target, prediction grain and horizon, who uses a prediction and how, the business metric it moves |
 | Metrics | Primary model metric that stands for the business metric, secondary metrics (calibration, latency, cost), the threshold and the baseline to beat — from the acceptance criteria |
-| Data | Sources, gold feature tables (point-in-time correct for temporal data), label definition and delay, sampling and split strategy |
+| Data | Sources, feature tables (point-in-time correct for temporal data) in the schema the Architecture assigns to ML objects — gold unless the design says otherwise —, label definition and delay, sampling and split strategy |
 | Candidates | Baseline, model families to challenge (classical, gradient boosting, deep learning, Hugging Face pre-trained or fine-tuned, foundation models through `ai_query`), tuning budget |
-| Promotion | Deploy code, not models: the same training and validation code runs in every environment of the conventions; model `${var.catalog}.${var.schema_gold}.<model>` in Unity Catalog; `challenger` and `champion` aliases and the validation that moves them |
-| Serving | Batch inference job writing gold predictions, or a model serving endpoint declared in the bundle; CPU or GPU, within what the workspace allows (`discovery.md`) |
+| Promotion | Deploy code, not models: the same training and validation code runs in every environment of the conventions; the model registered in Unity Catalog in the schema the Architecture assigns, named from bundle variables; `challenger` and `champion` aliases and the validation that moves them |
+| Serving | Batch inference job writing a predictions table in the schema the Architecture assigns, or a model serving endpoint declared in the bundle; CPU or GPU, within what the workspace allows (`discovery.md`) |
 | Monitoring | Inference tables or a predictions table, data quality monitoring of features and predictions (drift), alerts, how labels come back |
 | Retraining | Schedule or trigger (drift, metric drop, new data), the job that retrains, who approves promotion outside dev |
 | Reproducibility and cost | Seeds, data versions, pinned libraries, compute choice |
 
 Record expensive choices (model family, serving mode, GPU) as ADRs.
+
+**Every experiment lives in MLflow.** Exploration, training, tuning and evaluation are MLflow runs in the project's experiment, declared in the bundle: parameters, metrics, data version, the model and its signature, artifacts. A number that is not in an MLflow run does not exist — never report a metric from a notebook cell, a log or a printed output, and never compare candidates outside a challenge (§5). Registered models and their versions carry a description, like every other object (`df-engineering-standards`).
 
 ## 2. Realistic data
 
@@ -65,7 +67,7 @@ Before any real model, log a baseline on the same split and metrics: majority cl
 ## 7. Serving, monitoring, retraining
 
 - Serving endpoints, jobs and monitors are bundle resources, deployed by the DevOps Engineer.
-- Log predictions (inference tables for endpoints, a gold predictions table for batch), monitor drift of features and predictions and, when labels arrive, the model metric; alert on the thresholds in the Architecture.
+- Log predictions (inference tables for endpoints, a predictions table for batch), monitor drift of features and predictions and, when labels arrive, the model metric; alert on the thresholds in the Architecture.
 - Retraining is a bundle job: it registers a new `challenger` and runs the same validation.
 
 ## 8. Hugging Face models on Databricks

@@ -56,5 +56,6 @@ Hugging Face skills — model choice, memory estimates, datasets and training re
 ## Definition of done
 
 - Code and bundle resources on your task branch, `bundle validate -t <dev target>` passes
-- MLflow challenge with the baseline and a leaderboard; champion registered in Unity Catalog with its alias when the task requires it
+- MLflow challenge with the baseline and a leaderboard; champion registered in Unity Catalog with its alias when the task requires it. Every run — exploration, training, tuning, evaluation — is in MLflow: no metric reported from anywhere else
+- A description on every object the task creates: feature tables and their columns, predictions tables, registered models and versions, volumes, jobs
 - Report with the `df-handoff` format, including data sample and split versions, baseline, leaderboard, model version and alias, error analysis and known limitations

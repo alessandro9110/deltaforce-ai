@@ -101,7 +101,7 @@ A Mermaid diagram and a short narrative.
 | Component | Responsibility | Objectives | Functional requirements |
 
 ## 5. Data architecture
-Medallion design per discipline in scope (data engineering, analytics, ML, GenAI); data model; tables, views, volumes, models, indexes and endpoints with names built from bundle variables; lineage diagram. Mark table names proposed by the team for PO confirmation at G1.
+Medallion design per discipline in scope (data engineering, analytics, ML, GenAI); data model; tables, views, volumes, models, indexes and endpoints with names built from bundle variables and the description each one will be created with; lineage diagram. Mark the schemas and the table names proposed by the team for PO confirmation at G1; where the kickoff already says which schema holds what — models, feature tables, predictions — follow it and mark nothing.
 
 ## 6. Physical architecture and deployment
 Workspace, catalog and schemas, compute, bundle layout and resources, environments — every environment in `environments` of the conventions with its bundle target, catalogs, variable values per target, what the team may do there and the promotion path, and which environment each feature is deployed and tested in (the dev target unless the PO wants otherwise) —, CI/CD — the pipeline built on the client's templates (`cicd` in the conventions): stages, triggers, the production target, the service principal and the `BUNDLE_VAR_` values the client configures — how the client conventions are applied (deploy root path, naming, tags, run_as).
@@ -148,7 +148,7 @@ Versioning: drafts are `0.x`; the PM sets `1.0 — Approved` at G1; every later 
 ## Rules
 
 - Every Databricks resource is declared in the asset bundle and deployed by the DevOps Engineer. Section 6 of the Architecture lists each resource with its bundle file; a resource the bundle cannot declare gets a bundle job task that creates it and an ADR — except Agent Bricks Knowledge Assistants and Supervisor Agents, which the AI Engineer creates on dev (`df-aiops` §7): list them in section 6 as created outside the bundle, with how each environment gets them.
-- The dev catalog is the boundary. Inside it the team may create the schemas and tables the solution needs, as long as they follow the medallion layers and the architecture.
+- The dev catalog is the boundary. Inside it the team may create the schemas and tables the solution needs, as long as they follow the medallion layers and the architecture. A schema beyond those in `CLAUDE.md` and the conventions — for instance one holding registered models, feature tables and predictions — is listed in section 6 with what it holds and why, and confirmed by the PO at G1; when the kickoff already placed those objects, follow it without asking.
 - Never assume the environments: design from `environments` in the conventions. Give every environment the team or CI/CD deploys a bundle target with its variable values (no production values in the repository; the DevOps Engineer adds the targets), and report missing bundle targets or catalogs to the PM, who records them in the conventions.
 - Never write catalog, schema or table names literally in designs meant for code: use the bundle variables listed in `CLAUDE.md`, or in an existing project the project's own variables recorded in `bundle.variables` of the conventions.
 - Prefer managed, serverless and declarative Databricks features (Lakeflow Declarative Pipelines, Jobs, Unity Catalog, Metric Views, Vector Search, Model Serving) unless the requirements say otherwise.

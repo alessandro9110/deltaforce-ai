@@ -39,9 +39,9 @@ The project is **existing** when there is product content: source code or notebo
    - the data sources — already in Databricks (catalogs, schemas, tables, volumes), files to upload, external systems;
    - the expected outputs — tables, dashboards, ML models, GenAI assistants or agents, apps;
    - constraints — deadlines, sensitive data, performance, cost.
-3. Ask whether the PO already has names for the tables to create:
-   - **No, the team proposes them** (default) — the Solution Architect proposes names at G1;
-   - **Yes** — collect layer, table name and meaning for each.
+3. Ask whether the PO already has names for the schemas and tables to create, and where particular objects belong — for example the schema that holds registered models, feature tables and predictions of an ML feature:
+   - **No, the team proposes them** (default) — the Solution Architect proposes schemas and names at G1, where the PO confirms them;
+   - **Yes** — collect, for each: layer or purpose, schema, table or model name and meaning.
 4. **Existing project only** — ask for the rules on existing data and objects, in free text, with an example: *"Existing tables in dev are never dropped or rewritten; the bronze tables loaded with Auto Loader can be dropped, with their checkpoint, to refresh them"*. Also ask whether there are jobs, pipelines or folders the team must not touch. Do not ask for bundle variables, layout or conventions: the team finds them in the analysis and asks the PO to confirm.
 
 ## 4. Client conventions
@@ -85,9 +85,9 @@ Update `.deltaforce/conventions.yaml`: `cicd` (`templates`, `repository`, `ref`,
    ## Data sources
    ## Expected outputs
    ## Constraints
-   ## Tables provided by the PO
-   | Layer | Table | Meaning |
-   (or: None — the team proposes names at G1)
+   ## Schemas and tables provided by the PO
+   | Layer or purpose | Schema | Table or model | Meaning |
+   (or: None — the team proposes schemas and names at G1)
 
    ## Rules on existing data and objects
    (existing project: the PO's rules and what the team must not touch; new project: None)

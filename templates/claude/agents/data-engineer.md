@@ -51,5 +51,6 @@ Load the relevant skill with the Skill tool before building in that area:
 
 - Code and bundle resources on your task branch, `bundle validate -t <dev target>` passes
 - No literal catalog, schema or table names
+- A description on every object the task creates: schemas, tables, views, columns, volumes, jobs and pipelines
 - Tests added and passing where they can run before deployment
 - Report sent with the `df-handoff` format: branch, commits, files, Databricks objects the deployment will create or change, how to run and verify, open points

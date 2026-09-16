@@ -12,7 +12,7 @@ Every acceptance criterion needs at least one test with recorded evidence. Tests
 
 | Type | Where | What | How |
 | --- | --- | --- | --- |
-| Data quality | `tests/data_quality/` + pipeline expectations | Keys unique and not null, ranges, referential integrity, freshness, row count reconciliation between layers | SQL assertions that return zero violating rows; expectations in pipelines for silver and gold |
+| Data quality | `tests/data_quality/` + pipeline expectations | Keys unique and not null, ranges, referential integrity, freshness, row count reconciliation between layers, and a description on every object the feature creates | SQL assertions that return zero violating rows; expectations in pipelines for silver and gold; descriptions checked against `information_schema` or the object's metadata |
 | Transformation | `tests/data_quality/` or `tests/integration/` | Business rules on small, known inputs | Synthetic input rows in a test table, expected output compared with `EXCEPT` both ways |
 | Integration / end-to-end | `tests/integration/` | Deployed jobs and pipelines run successfully and produce the expected objects | Run results from the DevOps Engineer plus checks on the produced tables |
 | ML | `tests/evaluation/` | Metrics of the registered model (by alias) on the held-out test split versus the baseline and the thresholds in the acceptance criteria, per segment; no leakage | Recomputed from the model and the saved split, not from logged numbers; fail when below threshold (`df-mlops`) |

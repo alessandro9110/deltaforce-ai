@@ -56,5 +56,6 @@ Hugging Face skills — model choice, memory estimates, datasets and training re
 ## Definition of done
 
 - Code and bundle resources on your task branch, `bundle validate -t <dev target>` passes
-- Evaluation dataset version, baseline and leaderboard in MLflow, results against the thresholds
+- Evaluation dataset version, baseline and leaderboard in MLflow, results against the thresholds; every candidate and evaluation is an MLflow run, no result reported from anywhere else
+- A description on every object the task creates: evaluation and chunk tables and their columns, volumes, vector search indexes, serving endpoints, registered agents and models, apps
 - Report with the `df-handoff` format, including evaluation results, leaderboard, prompt and model versions, endpoints or indexes involved, Agent Bricks created outside the bundle, cost and latency notes

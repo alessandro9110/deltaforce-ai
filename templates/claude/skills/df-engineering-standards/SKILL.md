@@ -149,10 +149,10 @@ Used unless `.deltaforce/conventions.yaml` says otherwise.
 - Tables, columns, schemas, volumes: `snake_case`; tables carry the layer prefix variable
 - Jobs and pipelines: `[${bundle.name}] <purpose>`
 - Files: `snake_case.py`, `snake_case.sql`; resource files `<domain>.<kind>.yml`
-- Comments on every table and on non-obvious columns
 
 ## Quality
 
+- **Descriptions are mandatory and never left empty.** Every object the team creates on Databricks carries a description of what it holds or does: schemas, tables, views and their columns, volumes, functions, registered models and their versions, vector search indexes, serving endpoints, jobs, pipelines, dashboards and Genie spaces. `COMMENT` in SQL and DDL, `comment` or `description` in bundle resources, the description argument when an MCP tool or the MLflow API creates the object. Say what it is for and where the data comes from, not what the name already says.
 - Idempotent pipelines and jobs: re-running must not duplicate data.
 - Expectations on silver and gold for keys, nulls, ranges and referential integrity.
 - Python files over notebooks for production code unless the client conventions say `notebooks`.

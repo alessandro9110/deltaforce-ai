@@ -212,10 +212,12 @@ Agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) run teammates as independ
 
 - Config values become DABs variables: `catalog`, `schema_bronze`, `schema_silver`, `schema_gold`, and one variable per table.
 - Medallion layout is configurable: `single_schema` (layer prefix on table names, default when the PO gives one schema) or `multi_schema` (one schema per layer).
-- Table names: PO-provided, or proposed by the SA and approved at G1. Either way they are stored in config and generated into `resources/variables.yml`.
+- Schema and table names: PO-provided at kickoff — where the PO also says which schema holds what, for instance registered models, feature tables and predictions — or proposed by the SA and approved at G1. A schema beyond the ones the installer configured is listed in the Architecture with what it holds and confirmed by the PO at G1. Either way names are stored in config and generated into `resources/variables.yml`.
 - **The dev catalog is the boundary, the installer's schemas are the starting point.** The team is free to create further schemas and tables inside the dev catalog when the solution needs them, as long as they are consistent with what is being built: they follow the medallion layers, are described in `.deltaforce/architecture/`, and are declared as bundle resources with variables (never created by hand). New objects coherent with the approved design need no PO escalation; objects that change the request do.
 - Dev target uses `mode: development`; prod target uses `mode: production` with values injected by CI/CD (`BUNDLE_VAR_<name>`) and a service principal.
 - No literal catalog/schema/table names in source: enforced by a hook on edits under `src/` and by QA review.
+- **Descriptions are mandatory**: every object the team creates on Databricks — schemas, tables, views and their columns, volumes, functions, registered models and versions, indexes, endpoints, jobs, pipelines, dashboards, Genie spaces — carries a description of what it holds or does (`COMMENT`, `comment`/`description` in bundle resources, the description argument of an MCP or MLflow call). The Architecture states it with each object, the builders write it, QA checks it as a data quality test.
+- **Experiments live in MLflow**: exploration, training, tuning and every ML or GenAI evaluation is an MLflow run in the project's experiment, with parameters, metrics, data and prompt versions, model and artifacts. A number that is not in an MLflow run is not reported — not from a notebook cell, a log or a printed output.
 
 ### Medallion across disciplines
 

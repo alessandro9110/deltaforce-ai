@@ -26,6 +26,8 @@ Decided before G1:
 
 Record expensive choices (pattern, model provider, vector index design) as ADRs.
 
+**Every experiment lives in MLflow.** Each candidate — LLM, embeddings, chunking, retrieval, prompt variant — is an MLflow evaluation run in the project's experiment, with the prompt version, the dataset version and the judge results; tracing is on. A quality number that is not in an MLflow run does not exist. Indexes, endpoints, evaluation tables, registered agents and prompts carry a description, like every other object (`df-engineering-standards`).
+
 ## 2. Realistic evaluation data
 
 - Build the evaluation dataset from the real documents and data in the dev catalog: questions a user would ask, with expected answers or expected facts and sources. Include hard, ambiguous, out-of-scope and adversarial (prompt injection) cases.
