@@ -4,10 +4,11 @@ Each milestone ends with a demo against a real Databricks dev workspace. See [de
 
 ## Status — what exists and what is left
 
-Updated with every change that adds or completes something. Last update: 2026-09-15.
+Updated with every change that adds or completes something. Last update: 2026-09-16.
 
 ### Done
 
+- [x] One-line install from the public repository, nothing created by hand: `irm <raw>/install.ps1 | iex` in PowerShell (`install.ps1` finds the bash of Git for Windows, downloads `install.sh` and runs it, options in `$env:DF_INSTALL_ARGS`) or `curl -fsSL <raw>/install.sh | bash` in Git Bash; `install.sh` clones the framework into `.deltaforce/framework` and continues from there
 - [x] ML and GenAI builders as experts: `df-mlops` and `df-aiops` — ML or AI operations strategy in the Architecture designed with the Data Scientist and the AI Engineer, realistic samples from dev, splits without leakage, baselines, model challenges and leaderboards, champion and challenger aliases, evaluation datasets, Prompt Registry, tracing, AI Gateway, monitoring and retraining; QA recomputes results independently; official Hugging Face skills (latest `main`, commit recorded) for the Data Scientist and the AI Engineer, with Hub publishing and Hugging Face Jobs blocked by the hook; Agent Bricks created and updated on dev by the AI Engineer, deletes by a person; `databricks-execution-compute`, `databricks-model-serving` (Data Scientist) and `databricks-unstructured-pdf-generation` added
 - [x] Client environments: nothing assumed — the PO declares environments at kickoff (purpose, workspace, catalogs, bundle target, deploy/read/none, deployed by team or CI/CD, data rules); declarations narrow access at once, deploy access beyond dev only after the PO confirms each environment in the installer; SA designs targets and promotion, CI/CD deploys the `cicd` environments; production never deployed by the team
 - [x] QA reads dashboards with the MCP tool (`manage_dashboard`, read actions) instead of the CLI — sandbox audit: 63% of Databricks calls through MCP, the CLI used for bundle commands and for reads without an MCP tool
@@ -61,7 +62,7 @@ Updated with every change that adds or completes something. Last update: 2026-09
 - [ ] Team access to environments on other workspaces (a profile and MCP server per workspace, deploys with its profile) — declared today, deployed through CI/CD
 - [ ] Several people using DeltaForce on the same repository: state and backlog coordination, who acts as PO
 - [ ] Per-role service principals with Unity Catalog grants (at least the DevOps Engineer)
-- [ ] GitHub Actions template; macOS and Linux installer validation; `--uninstall`; public repository and `curl` bootstrap
+- [ ] GitHub Actions template; macOS and Linux installer validation; `--uninstall`
 - [ ] Opt-in agent teams for design review
 - [ ] Beyond Databricks: the team is Databricks-focused today; keep roles, process, guardrails and monitor platform-neutral enough to add other data and AI platforms later
 

@@ -348,9 +348,9 @@ Single-writer rules:
 
 **Everything is project-scoped — nothing is installed globally.** Git for Windows and Claude Code are checked, never installed. With OAuth, the Databricks CLI keeps its token cache in the user profile; that cache is the only user-level artifact.
 
-**The whole installation happens in the IDE's integrated terminal, with one command** — no separate windows, no manual cloning. The command (PowerShell, Command Prompt and Git Bash variants in the README) clones the framework into `.deltaforce/framework` if missing and runs `bash .deltaforce/framework/install.sh`. The same command updates and reconfigures later.
+**The whole installation happens in the IDE's integrated terminal, with one line** — no separate windows, no folder created by hand, no manual cloning. From the public repository: `irm <raw>/install.ps1 | iex` in PowerShell, `curl -fsSL <raw>/install.sh | bash` in Git Bash (README). `install.ps1` only finds the bash of Git for Windows, downloads `install.sh` to a temporary file and runs it (options in `$env:DF_INSTALL_ARGS`); everything else is `install.sh`. The same line updates and reconfigures later, as does `bash .deltaforce/framework/install.sh`.
 
-`install.sh` bootstraps itself: when it runs without its `lib/` folder (e.g. piped) it clones `DF_REPO_URL` at `DF_REF` (default `main`) into `.deltaforce/framework`; when it runs from `.deltaforce/framework` it fetches `DF_REF` first; then it re-executes the fresh copy. `--help` and `--doctor` skip the update. The framework copy is gitignored.
+`install.sh` bootstraps itself: when it runs without its `lib/` folder (e.g. piped) it clones `DF_REPO_URL` at `DF_REF` (default `main`) into `.deltaforce/framework`; when it runs from `.deltaforce/framework` it fetches `DF_REF` first; then it re-executes the fresh copy. Running from a regular checkout with `--target` does neither. The framework copy is gitignored.
 
 ```bash
 bash .deltaforce/framework/install.sh [--target DIR] [--advanced] [--non-interactive] [--yes] [--dry-run] [--doctor]
@@ -376,6 +376,7 @@ The installer is idempotent: re-runs reuse downloaded tools, the AI Dev Kit chec
 ```
 deltaforce-ai/
   install.sh
+  install.ps1           # PowerShell bootstrap: finds bash, downloads and runs install.sh
   lib/
     *.sh                # installer steps
     data/roles.yaml     # added to each agent: MCP tools, production reads, delegates, Databricks and Hugging Face skills

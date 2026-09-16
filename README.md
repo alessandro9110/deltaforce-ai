@@ -176,33 +176,26 @@ No administrator rights and nothing global: the installer brings its own uv, Dat
 
 ### Install in a project
 
-Open the project folder in VS Code (**File → Open Folder…**), open **Terminal → New Terminal** and paste one command. The lines are short on purpose, so they survive copy and paste: paste them all at once.
+Open the project folder in VS Code (**File → Open Folder…**), open **Terminal → New Terminal** and paste one line. The installer does the rest — you never create a folder or clone anything by hand.
 
 #### Windows — PowerShell (VS Code default)
 
 ```powershell
-& "$env:ProgramFiles\Git\bin\bash.exe" -c '
-d=.deltaforce/framework
-u=https://github.com/alessandro9110/deltaforce-ai
-test -d $d || git clone -q --depth 1 $u $d
-bash $d/install.sh'
+irm https://raw.githubusercontent.com/alessandro9110/deltaforce-ai/main/install.ps1 | iex
 ```
 
 #### Windows — Git Bash
 
 ```bash
-d=.deltaforce/framework
-u=https://github.com/alessandro9110/deltaforce-ai
-test -d $d || git clone -q --depth 1 $u $d
-bash $d/install.sh
+curl -fsSL https://raw.githubusercontent.com/alessandro9110/deltaforce-ai/main/install.sh | bash
 ```
 
-**Next steps:** answer the questions in the terminal — when a question shows `[Enter = value]`, Enter keeps that value. If Claude Code is open on the project, the installer asks you to close it first and lists the processes it found. The first run takes a few minutes. Command Prompt cannot take multi-line commands (its prompt has no `PS` in front): switch the terminal to PowerShell or Git Bash. The repository is private: the first time, Git may ask you to sign in to GitHub.
+**Next steps:** answer the questions in the terminal — when a question shows `[Enter = value]`, Enter keeps that value. If Claude Code is open on the project, the installer asks you to close it first and lists the processes it found. The first run takes a few minutes. Command Prompt has no `irm`: switch the terminal to PowerShell or Git Bash.
 
 <details>
 <summary><strong>Installer options</strong> (click to expand)</summary>
 
-Add them after `install.sh`, e.g. `bash .deltaforce/framework/install.sh --dry-run`:
+Add them after `install.sh`, e.g. `bash .deltaforce/framework/install.sh --dry-run`. On the first install, pass them to the bootstrap: in PowerShell `$env:DF_INSTALL_ARGS = '--dry-run'` before the command, in Git Bash `curl -fsSL <url>/install.sh | bash -s -- --dry-run`.
 
 | Option | Effect |
 |---|---|
@@ -427,7 +420,7 @@ A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in
 
 ## Update, reconfigure or remove
 
-**Update** — with Claude Code **closed** (the installer checks and asks), run the install command again. It updates `.deltaforce/framework`, offers your answers as defaults and refreshes everything. The team's work — documents, backlog, reports, state, code, tests, bundle resources, data — is never touched.
+**Update** — with Claude Code **closed** (the installer checks and asks), run the install command again, or the local copy directly. Either way it updates `.deltaforce/framework`, offers your answers as defaults and refreshes everything. The team's work — documents, backlog, reports, state, code, tests, bundle resources, data — is never touched.
 
 ```powershell
 & "$env:ProgramFiles\Git\bin\bash.exe" -c 'bash .deltaforce/framework/install.sh'
