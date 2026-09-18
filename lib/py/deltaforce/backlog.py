@@ -127,6 +127,7 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
         changed = feature.get("change_of")
         if changed and (changed == feature["id"] or changed not in features):
             problems.append(f"{feature['id']}: change_of must name another feature of the backlog ({changed})")
+    problems += _bug_problems(features)
 
     if paths.state_yaml.exists() and not any(p.startswith("state.yaml") for p in problems):
         state = _load_yaml(paths.state_yaml)
@@ -138,25 +139,72 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
                 problems.append(f"state.yaml: next step references unknown feature {step['feature']}")
 
     if paths.events.exists():
+        bug_ids = {bug["id"] for feature in features.values() for bug in feature.get("bugs", [])}
         for number, line in enumerate(paths.events.read_text(encoding="utf-8").splitlines(), start=1):
             if not line.strip():
                 continue
             try:
-                problems += _schema_errors("event", json.loads(line), f"events.jsonl line {number}")
+                event = json.loads(line)
             except json.JSONDecodeError as exc:
                 problems.append(f"events.jsonl line {number}: invalid JSON ({exc.msg})")
+                continue
+            errors = _schema_errors("event", event, f"events.jsonl line {number}")
+            problems += errors
+            if not errors and event.get("bug") and event["bug"] not in bug_ids:
+                problems.append(f"events.jsonl line {number}: bug {event['bug']} is not in any feature file")
 
     return problems
 
 
+OPEN_BUGS = {"open", "fixing", "fixed"}
+CLOSED_BUGS = {"verified", "wont_fix"}
+GATE_BLOCKING = {"blocker", "major"}
+
+
+def _bug_problems(features: dict[str, dict[str, Any]]) -> list[str]:
+    """Bugs: one numbering across the backlog, links that resolve, and no blocker or major bug left open at G2."""
+    problems: list[str] = []
+    tasks = {task["id"]: feature_id for feature_id, feature in features.items() for task in feature["tasks"]}
+    seen: set[str] = set()
+    for feature_id, feature in features.items():
+        for bug in feature.get("bugs", []):
+            where = f"{feature_id}: bug {bug['id']}"
+            if bug["id"] in seen:
+                problems.append(f"{where}: duplicate bug id (bugs are numbered across the whole backlog)")
+            seen.add(bug["id"])
+            if bug["found_in"] not in features:
+                problems.append(f"{where}: found_in names unknown feature {bug['found_in']}")
+            for task_id in bug["fix_tasks"]:
+                if task_id not in tasks:
+                    problems.append(f"{where}: fix task {task_id} is not in any feature")
+            if (bug["status"] in CLOSED_BUGS) != bool(bug["closed"]):
+                problems.append(f"{where}: closed is set when, and only when, the bug is verified or wont_fix")
+            if bug["status"] == "wont_fix" and not str(bug.get("notes") or "").strip():
+                problems.append(f"{where}: wont_fix needs notes with the PO's decision")
+            if bug["status"] not in OPEN_BUGS or bug["severity"] not in GATE_BLOCKING:
+                continue
+            # The features that must fix it first: the one it was found in, when it lives there, and those holding its fix tasks.
+            owners = {tasks[task_id] for task_id in bug["fix_tasks"] if task_id in tasks}
+            if bug["found_in"] == feature_id:
+                owners.add(feature_id)
+            for owner in sorted(owners):
+                if features[owner]["status"] in {"awaiting_po", "done"}:
+                    problems.append(
+                        f"{owner}: is {features[owner]['status']} with {bug['severity']} bug {bug['id']} still {bug['status']}"
+                    )
+    return problems
+
+
 def _build_event(
-    event_type: Any, role: Any, feature: Any = None, task: Any = None, data: Any = None, where: str = "event"
+    event_type: Any, role: Any, feature: Any = None, task: Any = None, data: Any = None, where: str = "event", bug: Any = None
 ) -> dict[str, Any]:
     event: dict[str, Any] = {"ts": now_iso(), "role": role, "event": event_type}
     if feature:
         event["feature"] = feature
     if task:
         event["task"] = task
+    if bug:
+        event["bug"] = bug
     event["data"] = data if data is not None else {}
     errors = _schema_errors("event", event, where)
     if errors:
@@ -177,8 +225,9 @@ def append_event(
     feature: str | None = None,
     task: str | None = None,
     data: dict[str, Any] | None = None,
+    bug: str | None = None,
 ) -> dict[str, Any]:
-    event = _build_event(event_type, role, feature, task, data)
+    event = _build_event(event_type, role, feature, task, data, bug=bug)
     _write_events(paths, [event])
     return event
 
@@ -191,7 +240,7 @@ def append_events(paths: ProjectPaths, items: list[Any]) -> list[dict[str, Any]]
             raise cfg.ConfigError(f"event {number}: must be a JSON object")
         events.append(_build_event(
             item.get("type") or item.get("event"), item.get("role"), item.get("feature"), item.get("task"),
-            item.get("data"), where=f"event {number}",
+            item.get("data"), where=f"event {number}", bug=item.get("bug"),
         ))
     _write_events(paths, events)
     return events

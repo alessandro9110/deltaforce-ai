@@ -106,7 +106,7 @@ def cmd_event(args: argparse.Namespace) -> int:
         raise cfg.ConfigError(f"--data is not valid JSON: {exc.msg}") from exc
     if not isinstance(data, dict):
         raise cfg.ConfigError("--data must be a JSON object")
-    event = backlog.append_event(_paths(args), args.type, args.role, args.feature, args.task, data)
+    event = backlog.append_event(_paths(args), args.type, args.role, args.feature, args.task, data, args.bug)
     print(json.dumps(event, ensure_ascii=False))
     return 0
 
@@ -210,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     event.add_argument("--role", required=True)
     event.add_argument("--feature")
     event.add_argument("--task")
+    event.add_argument("--bug")
     event.add_argument("--data", help="JSON object")
     add("events", cmd_events, "append the lifecycle events of one change, then validate the project").add_argument(
         "events", help='JSON array, e.g. [{"type": "task_status_changed", "role": "pm", "feature": "F-001", "task": "T-001.1", "data": {}}]'

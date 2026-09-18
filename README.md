@@ -335,8 +335,8 @@ For every feature whose dependencies are done (up to three at a time):
 1. **Build** — the PM creates the feature branch `df/F-xxx`; the Data Engineer, Data Analyst, Data Scientist and AI Engineer work in parallel, each in its own git worktree and task branch, writing code in `src/`, bundle resources in `resources/` and tests in `tests/`. Names always come from bundle variables.
 2. **Integrate** — the DevOps Engineer, the only role that integrates and deploys, merges the task branches into the feature branch and rebuilds a local integration branch from the dev branch plus every active feature, in the **review worktree `.deltaforce/review/`**. Your main checkout never leaves the dev branch.
 3. **Deploy on dev** — from the review worktree: `bundle validate`, `bundle deploy` and `bundle run` on the dev **bundle target** chosen at installation (`dev` by default, `-t <target>` on every command) — or on an environment you confirmed, when the design deploys the feature there. Deploying everything active together keeps one feature's deploy from removing another's resources. Runs are started once and awaited, never polled.
-4. **Test** — the QA Engineer tests the deployed feature against its acceptance criteria (data quality, integration, evaluation — for ML and GenAI recomputing the results on its own) and, in an existing project, runs regression checks on the existing objects it touches. Failures go back to the owners as fix tasks.
-5. **G2** — the PM writes `.deltaforce/reports/F-xxx-po-review.md` and asks for your decision: what was built and its business value, Databricks objects created or changed, destructive operations with the rule that allowed each, test and regression evidence, for ML and GenAI the baseline, the model challenge and the evaluation, where to look, deviations. Open `.deltaforce/review/` in VS Code to see the code, and the monitor for the evidence. The team keeps working on other features while you review.
+4. **Test** — the QA Engineer tests the deployed feature against its acceptance criteria (data quality, integration, evaluation — for ML and GenAI recomputing the results on its own) and, in an existing project, runs regression checks on the existing objects it touches. Each failure becomes a **bug** with fix tasks for its owner (see *Bugs* below).
+5. **G2** — the PM writes `.deltaforce/reports/F-xxx-po-review.md` and asks for your decision: what was built and its business value, Databricks objects created or changed, destructive operations with the rule that allowed each, test and regression evidence, bugs found and fixed, for ML and GenAI the baseline, the model challenge and the evaluation, where to look, deviations. Open `.deltaforce/review/` in VS Code to see the code, and the monitor for the evidence. The team keeps working on other features while you review.
 6. **Merge** — after `/df-approve F-xxx` the DevOps Engineer merges the feature into the dev branch, pushes it and cleans up the agent worktrees and branches. When nobody is still working, the PM suggests `/clear`.
 
 The team never deploys to production and never pushes to a protected branch: the hooks block it whatever an agent is asked.
@@ -358,6 +358,7 @@ When every feature is done, the PM writes `.deltaforce/reports/handover.md` (fea
 
 - **At G1 or on a feature under review** — `/df-changes [F-xxx] <what to change>`: the work goes back to the team with fix tasks.
 - **On a feature already done** — `/df-changes F-xxx <what to change>` creates a **change feature** linked to it (`change_of`), with its own tasks, branch, deploy, tests and G2; the original keeps its history and delivery date. Only the affected sections of the Functional Analysis, the Architecture and the handover are updated.
+- **Bugs** — a defect found during development is recorded as a bug in the file of the feature where it lives, even a feature already done, numbered across the project (`B-001`, `B-002`, …) with severity (`blocker`, `major`, `minor`), who found it and when, the evidence and the tasks that fix it. QA, DevOps, the builders and you at G2 can find one; the PM records it. A feature never reaches G2 with a blocker or major bug open: QA verifies every fix by re-running the test that found it. Open minor bugs are listed in the G2 report and you decide: accept them as known limitations or send the feature back. A bug in a delivered feature is fixed inside the feature it blocks, or becomes a change feature if you agree. The monitor shows open bugs on the cards and a bug table in each feature.
 - **On the request** — `/df-changes <what changes>`: the PM assesses the impact with the Business Analyst and the Solution Architect and asks you to confirm when approved work is affected.
 
 **See the work in progress** — the code currently deployed on dev is in `.deltaforce/review/`: add that folder to your VS Code workspace once. **Close Claude Code at any time** — the next session continues from `.deltaforce/`.
@@ -384,18 +385,18 @@ When every feature is done, the PM writes `.deltaforce/reports/handover.md` (fea
 The **monitor** opens in your browser the first time the team starts working in a session. It runs on your computer, only reads `.deltaforce/`, and **uses no tokens**.
 
 <p align="center">
-  <img src="docs/images/monitor-board.png" alt="Monitor: project summary, team and feature board" width="900">
+  <img src="docs/images/monitor-board.png" alt="Monitor: phases, what is happening now and the key figures" width="900">
 </p>
 
 <table>
 <tr>
 <td width="50%" valign="top">
-<img src="docs/images/monitor-backlog.png" alt="Backlog view">
-<p align="center"><strong>Backlog</strong> — every feature with its description, dependencies, acceptance criteria and tasks</p>
+<img src="docs/images/monitor-backlog.png" alt="Features and team">
+<p align="center"><strong>Features and team</strong> — every feature with its tasks, dates and time worked; the team around the Project Manager</p>
 </td>
 <td width="50%" valign="top">
-<img src="docs/images/monitor-feature.png" alt="Feature panel with test evidence">
-<p align="center"><strong>Feature</strong> — what it is, acceptance criteria, test evidence, tasks, path and activity</p>
+<img src="docs/images/monitor-feature.png" alt="Feature panel with its path, figures and your decision">
+<p align="center"><strong>Feature</strong> — its path with times, tests, deploys, your decision, bugs, tasks and activity</p>
 </td>
 </tr>
 <tr>
@@ -410,9 +411,12 @@ The **monitor** opens in your browser the first time the team starts working in 
 </tr>
 </table>
 
+- **Phases** — from kickoff to handover, each with the time the team worked on it (stretches of half an hour or more without activity do not count) and the time on the clock.
 - **Now** — a short description of the project, what the team is doing and what is waiting for you: a short notification, click it for the full requests and the commands to use.
-- **Team** — every agent with what it is doing; click one for its tasks and recent actions.
-- **Features** — board or backlog; click a task for what the agent was asked, who worked on it and its report.
+- **Key figures** — features done, acceptance tests, deploys to dev, bugs, work sent back and how often the team needed you.
+- **Delivery** — one row per feature from start to done, nights and pauses shortened, with your decisions and the bugs marked on it.
+- **Features** — list or board; click a task for what the agent was asked, who worked on it and its report.
+- **Team** — the work passed from the Project Manager to each role (line width) and the time each one worked (circle size), then every agent with what it is doing; click one for its tasks and recent actions.
 - **Usage** — tokens the team used per role, feature, phase and session, with the PM's peak context per session, read from the Claude Code session files on your computer. Add `.deltaforce/pricing.yaml` to see an estimated cost (see *Reference*).
 - **Documents** — Functional Analysis, Architecture and reports, rendered.
 - Always one click away: the link is in the Claude Code status line. From a terminal: `bash .deltaforce/bin/df monitor`. To keep it from opening by itself: `DELTAFORCE_MONITOR=off`.

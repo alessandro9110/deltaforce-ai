@@ -61,6 +61,9 @@ What was done, in three to five lines.
 ## Verification
 Commands, queries, runs or tests executed and their results.
 
+## Defects found
+None, or each defect outside your own task — in another feature, or code that fails at deploy or run: feature where it lives, what is wrong, evidence, proposed severity (blocker, major, minor). Do not fix another feature's code: the PM records it as a bug.
+
 ## Open points
 Questions, risks, decisions needed — each with who can answer (PM, SA, BA, PO).
 ```

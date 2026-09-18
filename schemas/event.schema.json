@@ -39,11 +39,14 @@
         "test_run",
         "po_decision",
         "escalation",
+        "bug_opened",
+        "bug_status_changed",
         "conventions_changed"
       ]
     },
     "feature": { "type": "string", "pattern": "^F-[0-9]{3,}$" },
     "task": { "type": "string", "pattern": "^T-[0-9]{3,}\\.[0-9]+$" },
+    "bug": { "description": "The bug the event is about; feature is the feature it lives in", "type": "string", "pattern": "^B-[0-9]{3,}$" },
     "data": { "type": "object" }
   }
 }

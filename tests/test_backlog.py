@@ -134,3 +134,63 @@ def test_append_event_and_validate_events(project):
 def test_derived_conventions_need_a_reference(project):
     project.conventions.write_text("version: 1\nsource: derived\n", encoding="utf-8")
     assert any("source_reference" in p for p in backlog.validate_project(project))
+
+
+BUG_FEATURE = (
+    "---\nid: F-002\ntitle: Gold customer KPIs\nstatus: {status}\ndepends_on: [F-001]\nbranch: df/F-002\n"
+    "tasks:\n  - id: T-002.1\n    title: Customer KPIs\n    role: data-engineer\n    status: integrated\n    branch: null\n"
+    "bugs:\n  - id: {bug_id}\n    title: KPI counts deleted customers\n    severity: {severity}\n    status: {bug_status}\n"
+    "    found_by: qa-engineer\n    found_during: test\n    found_in: {found_in}\n    evidence: \"12 deleted customers counted\"\n"
+    "    fix_tasks: {fix_tasks}\n    opened: 2026-09-15T10:00:00Z\n    closed: {closed}\n"
+    "po_decision: null\ncreated: 2026-09-15T10:00:00Z\nupdated: 2026-09-15T10:00:00Z\n---\n"
+)
+
+
+def bug_feature(**values):
+    defaults = {"status": "in_test", "bug_id": "B-002", "severity": "major", "bug_status": "open", "found_in": "F-002",
+                "fix_tasks": "[T-002.1]", "closed": "null"}
+    return BUG_FEATURE.format(**{**defaults, **values})
+
+
+def test_bugs_are_numbered_across_the_backlog_and_their_links_resolve(project):
+    write_feature(project, "F-002-gold-kpis.md", bug_feature())
+    assert backlog.validate_project(project) == []
+
+    write_feature(project, "F-002-gold-kpis.md", bug_feature(bug_id="B-001", found_in="F-009", fix_tasks="[T-009.1]"))
+    problems = backlog.validate_project(project)
+    assert any("duplicate bug id" in problem for problem in problems)
+    assert any("found_in names unknown feature F-009" in problem for problem in problems)
+    assert any("fix task T-009.1 is not in any feature" in problem for problem in problems)
+
+    write_feature(project, "F-002-gold-kpis.md", bug_feature(bug_status="wont_fix"))
+    problems = backlog.validate_project(project)
+    assert any("closed is set when" in problem for problem in problems)
+    assert any("wont_fix needs notes" in problem for problem in problems)
+
+
+def test_no_feature_reaches_g2_with_a_blocker_or_major_bug_open(project):
+    write_feature(project, "F-002-gold-kpis.md", bug_feature(status="awaiting_po"))
+    assert any("F-002: is awaiting_po with major bug B-002 still open" in p for p in backlog.validate_project(project))
+
+    # A minor bug may stay open: the PO decides at G2.
+    write_feature(project, "F-002-gold-kpis.md", bug_feature(status="awaiting_po", severity="minor"))
+    assert backlog.validate_project(project) == []
+
+    # A bug found later in a delivered feature does not hold it back, only the feature that fixes it.
+    write_feature(project, "F-002-gold-kpis.md", bug_feature(status="done", found_in="F-001", fix_tasks="[T-001.3]"))
+    assert backlog.validate_project(project) == []
+    (project.backlog / "F-001-silver-customer-dedup.md").write_text(
+        (ROOT / "examples" / "feature.example.md").read_text(encoding="utf-8").replace("status: in_test", "status: awaiting_po", 1)
+        .replace("    status: fixed\n", "    status: verified\n").replace("    closed: null\n", "    closed: 2026-09-14T15:00:00Z\n"),
+        encoding="utf-8",
+    )
+    assert any("F-001: is awaiting_po with major bug B-002" in p for p in backlog.validate_project(project))
+
+
+def test_bug_events_name_a_known_bug(project):
+    event = {"type": "bug_opened", "role": "pm", "feature": "F-001", "bug": "B-001",
+             "data": {"title": "Duplicates", "severity": "major", "found_in": "F-001", "found_by": "qa-engineer"}}
+    backlog.append_events(project, [event])
+    assert backlog.validate_project(project) == []
+    backlog.append_events(project, [{**event, "bug": "B-042"}])
+    assert any("bug B-042 is not in any feature file" in problem for problem in backlog.validate_project(project))

@@ -1,6 +1,6 @@
 ---
 name: df-backlog
-description: DeltaForce project state, backlog and event formats — state.yaml, feature files, task and feature statuses, PO review reports and the df events/validate helper. Use whenever reading or updating project state or logging lifecycle events.
+description: DeltaForce project state, backlog and event formats — state.yaml, feature files, task and feature statuses, bugs, PO review reports and the df events/validate helper. Use whenever reading or updating project state or logging lifecycle events.
 user-invocable: false
 ---
 
@@ -70,6 +70,18 @@ tasks:
     role: qa-engineer
     status: in_progress
     branch: null
+bugs:                        # defects that live in this feature, wherever they were found
+  - id: B-004                # numbered across the whole backlog: the highest B- number + 1
+    title: Duplicates when an id repeats in one batch
+    severity: major          # blocker (stops the work) | major (wrong result) | minor
+    status: fixing           # open | fixing | fixed | verified | wont_fix
+    found_by: qa-engineer    # a role id or po
+    found_during: test       # build | integration | test | g2
+    found_in: F-003          # the feature being worked on when it was found
+    evidence: "query or run that shows it"
+    fix_tasks: [T-003.3]     # tasks that fix it, in this feature or another one
+    opened: 2026-09-14T13:10:00Z
+    closed: null             # set when verified or wont_fix
 po_decision: null            # or {decision: approved|changes_requested, at: <timestamp>, notes: "..."}
 started: 2026-09-14T11:00:00Z  # first time the feature went in_progress; null before
 completed: null              # when it became done; null until then
@@ -110,6 +122,11 @@ Feature: `todo → in_progress → integrating → in_test → awaiting_po → d
 
 Task: `todo → in_progress → ready_for_integration → integrated → done`, plus `blocked`.
 
+Bug: `open → fixing` (fix task delegated) `→ fixed` (fix integrated) `→ verified` (QA re-ran the test that found it), or `wont_fix` — only by the PO's decision, recorded in `notes`.
+
+- A defect goes in the file of the feature where it lives, the one in progress or an earlier one; a `done` feature gets the bug, never a status change. Fix it with fix tasks in the feature it blocks; a non-blocking bug in a `done` feature becomes a change feature (`/df-changes`) if the PO agrees.
+- No feature goes `awaiting_po` or `done` while a `blocker` or `major` bug found in it or fixed by its tasks is open; open `minor` bugs are listed at G2 and the PO decides.
+
 ## Events
 
 Record the events of one change together, in a single call — it appends all of them (or none, when one is invalid) and then validates the whole project:
@@ -132,6 +149,8 @@ Every tool call re-reads the whole conversation: do not run one command per even
 | `test_run` | QA results recorded | `{"passed":12,"failed":0}` |
 | `po_decision` | G1 or G2 decision | `{"gate":"G2","decision":"approved"}` |
 | `escalation` | something needs the PO | `{"reason":"..."}` |
+| `bug_opened` | a bug is recorded (`bug`, `feature` = where it lives) | `{"title":"...","severity":"major","found_in":"F-004","found_by":"qa-engineer"}` |
+| `bug_status_changed` | a bug status changes | `{"from":"fixed","to":"verified"}` |
 | `conventions_changed` | `.deltaforce/conventions.yaml` changes | `{"keys":["bundle.root_path"]}` |
 
 The helper adds the timestamp and validates the event.
@@ -165,6 +184,8 @@ Objectives served, and how the result moves the success metrics (or how it will 
 None, or each operation with the object and the data rule that allows it (existing projects).
 ## Test evidence
 | Acceptance criterion | Test | Result | Evidence |
+## Bugs
+| Bug | Where it lives | Severity | Status | Fixed by |   (found while building it; open minor ones for the PO to decide)
 ## Regression checks
 | Existing object or test | Check | Result | Evidence |
 (existing projects)

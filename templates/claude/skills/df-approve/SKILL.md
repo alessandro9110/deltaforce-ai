@@ -28,7 +28,7 @@ The rest of `$ARGUMENTS` are the PO's notes.
 
 ## 3. G2 — a delivered feature
 
-1. In the feature file set `po_decision` to `approved` with the time and notes; log `po_decision` (`{"gate":"G2","decision":"approved"}`).
+1. In the feature file set `po_decision` to `approved` with the time and notes; log `po_decision` (`{"gate":"G2","decision":"approved"}`). Open `minor` bugs the PO accepts stay `open`: they are known limitations until a change feature fixes them.
 2. Delegate to `devops-engineer`: merge `df/F-xxx` into the dev branch, push, rebuild `df/integration` with the features still active.
 3. When the merge is confirmed: set the feature `done` and `completed` to the current time, remove it from `active_features`, update `next_steps`, log `feature_status_changed` with `bash .deltaforce/bin/df events '[...]'` (it validates), and commit the backlog and state changes on the dev branch.
 4. Tell the PO in one or two lines what was merged and what starts or continues now. If no specialist is still working and nothing is blocked, add that everything is saved and this is a good moment for `/clear`, then *continue*; wait for their answer. Otherwise go on with Phase 2: start the features this one unblocked.

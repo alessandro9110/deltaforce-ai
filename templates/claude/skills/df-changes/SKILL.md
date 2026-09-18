@@ -28,7 +28,7 @@ If it is ambiguous, confirm your understanding in one line before acting.
 ## 3. Changes to a feature not yet done (G2)
 
 1. In the feature file set `po_decision` to `changes_requested` with the time and notes, and the status back to `in_progress`; log `po_decision` and `feature_status_changed` in one `bash .deltaforce/bin/df events '[...]'` call.
-2. Turn the notes into fix tasks for the right owners (ask the Solution Architect or the Business Analyst when the owner is unclear) and add them to the feature.
+2. Turn the notes into fix tasks for the right owners (ask the Solution Architect or the Business Analyst when the owner is unclear) and add them to the feature. A note that describes something not working as agreed is a bug: record it as `df-backlog` describes (`found_by: po`, `found_during: g2`), linked to its fix tasks, and log `bug_opened`.
 3. Continue delivery for that feature: build, integrate and deploy, test, then G2 again. Other active features keep going.
 4. Tell the PO which fixes are planned.
 
@@ -36,7 +36,7 @@ If it is ambiguous, confirm your understanding in one line before acting.
 
 A delivered feature is never reopened: its delivery date and history stay as they are. The change becomes a new feature.
 
-1. Add the change, dated, under *Change requests* in `.deltaforce/requirements/request.md`.
+1. Add the change, dated, under *Change requests* in `.deltaforce/requirements/request.md`. If the PO reports a defect in it, first record the bug in the done feature's file (`found_by: po`), or take the bug already recorded there; the change feature's fix tasks go in its `fix_tasks`.
 2. Create `.deltaforce/backlog/F-<next>-change-<slug>.md` with `title: "Change to F-xxx: <short summary>"`, `change_of: F-xxx`, `depends_on` with `F-xxx` and any other feature it needs, `status: todo`. Body: *Business value* (why the PO wants the change), *What changes* (the PO's notes in plain words), *Acceptance criteria* — the new behaviour and what must stay as it is — and *Design references*.
 3. In parallel, delegate to `business-analyst` — the acceptance criteria and the Functional Analysis — and to `solution-architect` — technical tasks per role, impact on the design (an ADR only when a decision changes), on the other features and on existing data. Add the tasks to the change feature. Tell both it is a **change to delivered work**: they update only the sections the change touches, in place, with one *Document control* row each, and do not rewrite or re-read the whole documents.
 4. Log `feature_created` (data: `{"title":"...","change_of":"F-xxx"}`) with `df events`, and commit the request, documents and backlog on the dev branch.

@@ -16,7 +16,7 @@ You are the PM. This command only reads: do not change files, do not delegate, d
 Answer in the PO's language:
 
 1. **Headline** — one line: phase and overall progress (e.g. *Delivery — 2 of 5 features done, 2 in progress*).
-2. **Features** — a table: Feature · Title · Status · Waiting for · Note. *Waiting for* is one of: team, DevOps, QA, PO, dependency F-xxx.
-3. **Waiting for you** — what the PO has to review or decide, each with the command to use (`/df-approve F-xxx`, `/df-changes F-xxx <notes>`, `/df-approve` for G1).
+2. **Features** — a table: Feature · Title · Status · Waiting for · Note. *Waiting for* is one of: team, DevOps, QA, PO, dependency F-xxx. *Note* includes open bugs (`B-xxx`, severity).
+3. **Waiting for you** — what the PO has to review or decide (including open bugs waiting for their decision), each with the command to use (`/df-approve F-xxx`, `/df-changes F-xxx <notes>`, `/df-approve` for G1).
 4. **Last update** — the time and summary of `last_update`.
 5. **Next steps** — the `next_steps` from `state.yaml`, grouped by owner (the PO's own steps first).

@@ -34,6 +34,11 @@ TASK_STATUS = {
     "todo": "To do", "in_progress": "In progress", "ready_for_integration": "Ready for integration",
     "integrated": "Integrated", "done": "Done", "blocked": "Blocked",
 }
+BUG_STATUS = {
+    "open": "Open", "fixing": "Fixing", "fixed": "Fixed, to verify", "verified": "Verified", "wont_fix": "Won't fix",
+}
+OPEN_BUGS = {"open", "fixing", "fixed"}
+BUG_SEVERITY = ("blocker", "major", "minor")
 COLUMNS = {
     "todo": "todo", "blocked": "todo", "in_progress": "doing", "integrating": "doing", "in_test": "doing",
     "awaiting_po": "po", "done": "done",
@@ -51,6 +56,7 @@ NOT_DOCUMENTS = {"framework", "runtime", "review", "bin"}
 ACTIVITY_TAIL_BYTES = 4 * 1024 * 1024
 AGENT_STALE = dt.timedelta(hours=3)
 SESSION_STALE = dt.timedelta(hours=4)
+IDLE_GAP = dt.timedelta(minutes=30)  # a stretch this long without events or activity is not time worked
 MAIN_ROLE_BUSY = dt.timedelta(minutes=2)
 FEATURE_FILE = re.compile(r"^(F-\d{3,})")
 WORKTREE_PREFIX = re.compile(r"^.*?/\.claude/worktrees/[^/]+/")
@@ -271,11 +277,38 @@ def describe_event(event: dict[str, Any], catalog: dict[str, dict[str, Any]]) ->
     elif kind == "escalation":
         text = f"Escalation: {data.get('summary') or data.get('reason') or 'the team needs a decision'}"
         tone = "bad"
+    elif kind == "bug_opened":
+        where = f" in {feature}" if feature else ""
+        found = f", found during {data['found_in']}" if data.get("found_in") and data.get("found_in") != feature else ""
+        text = f"Bug {event.get('bug') or ''} opened{where}: {data.get('title', '')}".replace("  ", " ").rstrip(": ")
+        text += f" ({data['severity']}{found})" if data.get("severity") else ""
+        tone = "bad"
+    elif kind == "bug_status_changed":
+        text = f"Bug {event.get('bug') or ''}: {_label(BUG_STATUS, data.get('from'))} → {_label(BUG_STATUS, data.get('to'))}"
+        tone = "ok" if data.get("to") == "verified" else "info"
     elif kind == "conventions_changed":
         text = "Client conventions changed"
     else:
         text = kind.replace("_", " ")
     return {"ts": event.get("ts"), "role": event.get("role"), "text": text, "tone": tone, "feature": feature, "task": task}
+
+
+# ─── time worked ────────────────────────────────────────────────
+
+
+def moments_of(*records: list[dict[str, Any]]) -> list[dt.datetime]:
+    """Every moment the project left a trace, in order: events and recorded activity."""
+    found = [moment for group in records for record in group if (moment := parse_ts(record.get("ts")))]
+    found.sort()
+    return found
+
+
+def active_seconds(moments: list[dt.datetime], start: dt.datetime | None, end: dt.datetime | None) -> int | None:
+    """Time worked between two moments: stretches of 30 minutes or more without a trace do not count."""
+    if not start or not end or end <= start:
+        return None
+    points = [start, *(moment for moment in moments if start < moment < end), end]
+    return int(sum((later - earlier).total_seconds() for earlier, later in zip(points, points[1:]) if later - earlier < IDLE_GAP))
 
 
 # ─── features ───────────────────────────────────────────────────
@@ -325,6 +358,30 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
                 "report": task.get("report"),
             })
 
+        bugs = []
+        for bug in meta.get("bugs") or []:
+            if not isinstance(bug, dict):
+                continue
+            bug_status = str(bug.get("status")) if bug.get("status") in BUG_STATUS else "open"
+            bugs.append({
+                "id": str(bug.get("id", "")),
+                "feature": feature_id,
+                "title": str(bug.get("title", "")),
+                "severity": str(bug.get("severity")) if bug.get("severity") in BUG_SEVERITY else "major",
+                "status": bug_status,
+                "status_label": BUG_STATUS[bug_status],
+                "open": bug_status in OPEN_BUGS,
+                "found_by": bug.get("found_by"),
+                "found_by_title": role_title(bug.get("found_by"), catalog) if bug.get("found_by") != "po" else "You",
+                "found_during": bug.get("found_during"),
+                "found_in": str(bug["found_in"]) if bug.get("found_in") else None,
+                "evidence": str(bug.get("evidence") or ""),
+                "fix_tasks": [str(item) for item in bug.get("fix_tasks") or []],
+                "opened": bug.get("opened"),
+                "closed": bug.get("closed"),
+                "notes": str(bug.get("notes") or ""),
+            })
+
         decision = meta.get("po_decision") if isinstance(meta.get("po_decision"), dict) else None
         started = meta.get("started") or _event_ts(
             feature_events, lambda e: _status_to(e, set(FEATURE_STATUS) - {"todo", "blocked"})
@@ -352,6 +409,9 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
             "branch": meta.get("branch"),
             "tasks": tasks,
             "tasks_done": sum(task["status"] in FINISHED_TASKS for task in tasks),
+            "bugs": bugs,
+            "bugs_open": sum(bug["open"] for bug in bugs),
+            "bugs_found": [],
             "po_decision": decision,
             "started": started,
             "completed": completed,
@@ -375,6 +435,10 @@ def _features(root: Path, events: list[dict[str, Any]], catalog, problems: list[
         feature["blocked_by"] = [item for item in feature["depends_on"] if item not in done]
         if feature["change_of"] in by_id:
             by_id[feature["change_of"]]["changed_by"].append(feature["id"])
+        # Bugs found while building this feature that live in another one.
+        feature["bugs_found"] = [
+            bug for other in features if other["id"] != feature["id"] for bug in other["bugs"] if bug["found_in"] == feature["id"]
+        ]
     return features
 
 
@@ -431,6 +495,40 @@ def feature_flow(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def interrupted_agents(activity: list[dict[str, Any]]) -> dict[str, str]:
+    """Agents that never stopped because their session died (a crash, a PC restart): agent id → last activity.
+
+    An agent without a stop is interrupted when its session ended, or when another session started
+    after the agent's last activity — one session works on the repository at a time.
+    """
+    agents: dict[str, dict[str, Any]] = {}
+    ended: dict[str, str] = {}
+    starts: list[tuple[str, str]] = []
+    for record in activity:
+        ts, agent_id, session_id, kind = str(record.get("ts") or ""), record.get("agent_id"), record.get("session_id"), record.get("event")
+        if not ts:
+            continue
+        if kind == "session_started" and session_id:
+            starts.append((ts, session_id))
+            ended.pop(session_id, None)
+        elif kind == "session_ended" and session_id:
+            ended[session_id] = ts
+        if not agent_id:
+            continue
+        if kind == "agent_started":
+            agents[agent_id] = {"session": session_id, "last": ts, "stopped": False}
+        elif agent_id in agents:
+            agents[agent_id]["last"] = max(agents[agent_id]["last"], ts)
+            agents[agent_id]["stopped"] = agents[agent_id]["stopped"] or kind == "agent_stopped"
+    return {
+        agent_id: agent["last"] for agent_id, agent in agents.items()
+        if not agent["stopped"] and (
+            agent["session"] in ended
+            or any(other != agent["session"] and ts >= agent["last"] for ts, other in starts)
+        )
+    }
+
+
 def _timeline(
     events: list[dict[str, Any]],
     activity: list[dict[str, Any]],
@@ -467,6 +565,8 @@ def _timeline(
             agents[agent_id] = {"role": record.get("role"), "start": record.get("ts"), "end": None}
         elif agent_id and record.get("event") == "agent_stopped" and agent_id in agents:
             agents[agent_id]["end"] = record.get("ts")
+    for agent_id, last in interrupted_agents(activity).items():
+        agents[agent_id].update(end=last, interrupted=True)
     for agent in sorted(agents.values(), key=lambda item: str(item["start"])):
         started, stopped = parse_ts(agent["start"]), parse_ts(agent["end"])
         match: tuple[int, dict[str, Any]] | None = None
@@ -480,8 +580,8 @@ def _timeline(
         if match:
             used.add(match[0])
             delegation = match[1]
-        result = None
-        if stopped:
+        result = "interrupted" if agent.get("interrupted") else None
+        if stopped and not result:
             for event in finished:
                 moment = parse_ts(event.get("ts"))
                 if _data(event).get("agent") == agent["role"] and moment and stopped - dt.timedelta(seconds=5) <= moment <= stopped + dt.timedelta(minutes=10):
@@ -539,6 +639,10 @@ def _timeline(
         elif kind == "deploy_finished":
             markers.append({"ts": event.get("ts"), "lane": "devops-engineer", "tone": "ok" if _deploy_ok(event) else "bad",
                             "feature": event.get("feature"), "text": f"Deploy to dev: {data.get('result', 'finished')}"})
+        elif kind == "bug_opened":
+            lane = data.get("found_by") if data.get("found_by") in ROLE_SHORT else event.get("role") or MAIN_ROLE
+            markers.append({"ts": event.get("ts"), "lane": lane, "tone": "bad", "feature": event.get("feature"),
+                            "text": describe_event(event, catalog)["text"]})
         elif kind == "test_run":
             markers.append({"ts": event.get("ts"), "lane": "qa-engineer", "tone": "bad" if data.get("failed") else "ok",
                             "feature": event.get("feature"), "text": f"Tests: {data.get('passed')} passed, {data.get('failed')} failed"})
@@ -560,6 +664,7 @@ def _workflow(
     task_titles: dict[str, str] | None = None,
     now: dt.datetime | None = None,
 ) -> dict[str, Any]:
+    now = now or dt.datetime.now(dt.timezone.utc)
     loops = [back for event in events if (back := _step_back(event))]
     for event in events:
         data = _data(event)
@@ -596,13 +701,16 @@ def _workflow(
         })
 
     deploys = {"ok": 0, "failed": 0}
+    deploy_runs: list[dict[str, Any]] = []
     tests = {"passed": 0, "failed": 0}
     po_items: list[dict[str, Any]] = []
     po = {"gates": 0, "changes": 0, "questions": 0, "escalations": 0, "messages": 0}
     for event in events:
         kind, data = event.get("event"), _data(event)
         if kind == "deploy_finished":
-            deploys["ok" if _deploy_ok(event) else "failed"] += 1
+            ok = _deploy_ok(event)
+            deploys["ok" if ok else "failed"] += 1
+            deploy_runs.append({"ts": event.get("ts"), "feature": event.get("feature"), "target": data.get("target"), "ok": ok})
         elif kind == "test_run":
             tests["failed" if data.get("failed") else "passed"] += 1
         elif kind == "po_decision":
@@ -635,11 +743,20 @@ def _workflow(
             if record.get("command"):
                 po_items.append({"ts": record.get("ts"), "kind": "command", "feature": None, "text": f"You ran {record['command']}"})
 
+    # Phases: how long each one lasted on the clock, and how much of it was worked (design §9).
     changes = [(event.get("ts"), _data(event).get("to")) for event in events if event.get("event") == "phase_changed"]
-    phases = [
-        {"phase": phase, "label": PHASES.get(str(phase), str(phase)), "start": start, "end": changes[index + 1][0] if index + 1 < len(changes) else None}
-        for index, (start, phase) in enumerate(changes) if phase
-    ]
+    moments = moments_of(events, activity)
+    phases = []
+    for index, (start, phase) in enumerate(changes):
+        if not phase:
+            continue
+        end = changes[index + 1][0] if index + 1 < len(changes) else None
+        started, ended = parse_ts(start), parse_ts(end) or now
+        phases.append({
+            "phase": phase, "label": PHASES.get(str(phase), str(phase)), "start": start, "end": end, "open": end is None,
+            "elapsed_seconds": int((ended - started).total_seconds()) if started and ended else None,
+            "active_seconds": active_seconds(moments, started, ended),
+        })
 
     return {
         "counts": {
@@ -650,10 +767,11 @@ def _workflow(
             "po": {**po, "total": po["gates"] + po["questions"] + po["escalations"]},
         },
         "loops": sorted(loops, key=lambda item: str(item["ts"] or ""), reverse=True),
+        "deploys": deploy_runs,
         "handoffs": handoffs,
         "po": sorted(po_items, key=lambda item: str(item["ts"] or ""), reverse=True)[:60],
         "phases": phases,
-        "timeline": _timeline(events, activity, catalog, task_titles or {}, hooks_since, now or dt.datetime.now(dt.timezone.utc)),
+        "timeline": _timeline(events, activity, catalog, task_titles or {}, hooks_since, now),
     }
 
 
@@ -720,9 +838,10 @@ def _team(
             described = describe_event(event, catalog)
             recent[data["agent"]].append({"ts": event.get("ts"), "text": described["text"]})
 
+    interrupted = interrupted_agents(activity)
     open_agents = [
-        agent for agent in agents.values()
-        if not agent.get("stopped") and now - agent["last"] < AGENT_STALE and agent.get("role")
+        agent for agent_id, agent in agents.items()
+        if not agent.get("stopped") and agent_id not in interrupted and now - agent["last"] < AGENT_STALE and agent.get("role")
     ]
     session_open = any(not session["ended"] and now - session["last"] < SESSION_STALE for session in sessions.values())
 
@@ -1120,7 +1239,31 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
     for feature in features:
         for task in feature["tasks"]:
             task["runs"] = runs_by_task.get(task["id"], [])
+    # Time worked: for a feature, the stretch from start to done without the idle gaps (nights, pauses).
+    moments = moments_of(events, activity)
+    for feature in features:
+        feature["active_seconds"] = active_seconds(moments, parse_ts(feature["started"]), parse_ts(feature["completed"]))
+    worked: dict[str, float] = {}
+    for item in workflow["timeline"]["runs"]:
+        start = parse_ts(item["start"])
+        end = parse_ts(item["end"]) or (now if item.get("running") else None)
+        if start and end and end > start:
+            worked[item["role"]] = worked.get(item["role"], 0.0) + (end - start).total_seconds()
+    for role in team:
+        role["worked_seconds"] = int(worked.get(role["id"], 0))
+
     workflow["counts"]["changes_after_delivery"] = sum(bool(feature["change_of"]) for feature in features)
+    workflow["counts"]["features"] = {
+        "total": len(features),
+        "done": sum(feature["status"] == "done" for feature in features),
+    }
+    all_bugs = [bug for feature in features for bug in feature["bugs"]]
+    workflow["counts"]["bugs"] = {
+        "total": len(all_bugs),
+        "open": sum(bug["open"] for bug in all_bugs),
+        "verified": sum(bug["status"] == "verified" for bug in all_bugs),
+        "blocking": sum(bug["open"] and bug["severity"] != "minor" for bug in all_bugs),
+    }
 
     conventions = _load_yaml(base / "conventions.yaml", problems)
     conventions = conventions if isinstance(conventions, dict) else {}

@@ -212,6 +212,24 @@ def test_sessions_end_and_stale_agents_go_idle(project):
     assert model.snapshot(project, NOW)["session"]["open"] is False
 
 
+def test_agents_of_a_session_that_died_are_interrupted_not_working(project):
+    activity = project / ".deltaforce" / "runtime" / "activity.jsonl"
+    with activity.open("a", encoding="utf-8") as handle:
+        # The same session resuming (compaction) does not interrupt its agents.
+        handle.write(json.dumps({"ts": "2026-09-14T16:58:30Z", "session_id": "s1", "role": "pm", "event": "session_started"}) + "\n")
+    assert {role["id"]: role for role in model.snapshot(project, NOW)["team"]}["data-engineer"]["status"] == "working"
+
+    with activity.open("a", encoding="utf-8") as handle:
+        # PC restarted: s1 never ended, its agent never stopped, a new session starts.
+        handle.write(json.dumps({"ts": "2026-09-14T16:59:00Z", "session_id": "s2", "role": "pm", "event": "session_started"}) + "\n")
+    snap = model.snapshot(project, NOW)
+    team = {role["id"]: role for role in snap["team"]}
+    assert team["data-engineer"]["status"] == "idle" and team["data-engineer"]["instances"] == 0
+    assert team["pm"]["status"] != "waiting"
+    run = snap["workflow"]["timeline"]["runs"][-1]
+    assert run == {**run, "role": "data-engineer", "running": False, "end": "2026-09-14T16:58:00Z", "result": "interrupted"}
+
+
 def test_an_approved_feature_being_closed_no_longer_waits_for_the_po(project):
     write_feature(project, "F-004-revenue.md", feature(
         "F-004", "Monthly revenue", "awaiting_po", po_decision={"decision": "approved", "at": "2026-09-14T16:59:00Z", "notes": ""},
@@ -538,3 +556,58 @@ def test_the_page_opens_once_per_session(tmp_path, monkeypatch):
     launcher.update_state(tmp_path, port=8765)
     monkeypatch.setattr(launcher, "start", lambda root, python: pytest.fail("a known session must not ping or spawn"))
     assert launcher.ensure(tmp_path, tmp_path / "python", "s1", open_page=True) == "http://127.0.0.1:8765/"
+
+
+def test_bugs_show_where_they_live_and_where_they_were_found(project):
+    bug = {
+        "id": "B-001", "title": "Silver keeps cancelled trips", "severity": "major", "status": "fixing", "found_by": "qa-engineer",
+        "found_during": "test", "found_in": "F-002", "evidence": "3 cancelled trips in silver", "fix_tasks": ["T-002.1"],
+        "opened": "2026-09-14T16:40:00Z", "closed": None,
+    }
+    write_feature(project, "F-001-bronze-silver.md", feature(
+        "F-001", "Bronze and silver", "done", tasks=[task("T-001.1", "data-engineer", "integrated")],
+        po_decision={"decision": "approved", "at": "2026-09-14T16:30:00Z", "notes": "ok"}, bugs=[bug],
+    ))
+    with (project / ".deltaforce" / "events.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"ts": "2026-09-14T16:40:00Z", "role": "pm", "event": "bug_opened", "feature": "F-001", "bug": "B-001",
+                                 "data": {"title": bug["title"], "severity": "major", "found_in": "F-002", "found_by": "qa-engineer"}}) + "\n")
+
+    snap = model.snapshot(project, NOW)
+    features = {item["id"]: item for item in snap["features"]}
+    lives = features["F-001"]
+    assert lives["bugs_open"] == 1 and lives["bugs"][0] == {**lives["bugs"][0], "status_label": "Fixing", "open": True, "found_by_title": "QA Engineer"}
+    assert [item["id"] for item in features["F-002"]["bugs_found"]] == ["B-001"] and features["F-002"]["bugs_open"] == 0
+    assert snap["workflow"]["counts"]["bugs"] == {"total": 1, "open": 1, "verified": 0, "blocking": 1}
+    assert lives["events"][0]["text"] == "Bug B-001 opened in F-001: Silver keeps cancelled trips (major, found during F-002)"
+    markers = snap["workflow"]["timeline"]["markers"]
+    assert any(marker["lane"] == "qa-engineer" and marker["text"].startswith("Bug B-001") for marker in markers)
+
+
+def test_time_worked_leaves_out_the_idle_stretches(project):
+    snap = model.snapshot(project, NOW)
+    features = {item["id"]: item for item in snap["features"]}
+
+    # F-001 ran from 15:40 to 16:30, but nothing happened between 15:40 and 16:10: that half hour is not work.
+    assert features["F-001"]["cycle_seconds"] == 50 * 60
+    assert features["F-001"]["active_seconds"] == 20 * 60
+    assert features["F-002"]["active_seconds"] is None  # not finished yet
+
+    delivery = next(phase for phase in snap["workflow"]["phases"] if phase["phase"] == "delivery")
+    assert delivery["open"] is True
+    assert delivery["elapsed_seconds"] == 89 * 60  # 15:31 until now
+    assert delivery["active_seconds"] == 59 * 60  # without the idle half hour and the quiet time since 16:58
+
+    worked = {role["id"]: role["worked_seconds"] for role in snap["team"]}
+    assert worked["qa-engineer"] == 18 * 60  # two runs: 15:01 → 15:10 and the test phase 16:21 → 16:30
+    assert worked["data-engineer"] == 8 * 60  # started 16:52, still running at 17:00
+    assert worked["data-analyst"] == 0
+
+
+def test_key_figures_of_the_project(project):
+    counts = model.snapshot(project, NOW)["workflow"]["counts"]
+    assert counts["features"] == {"total": 4, "done": 1}
+    assert counts["deploys"] == {"ok": 1, "failed": 0}
+    assert counts["tests"] == {"passed": 0, "failed": 1}
+
+    deploys = model.snapshot(project, NOW)["workflow"]["deploys"]
+    assert deploys == [{"ts": "2026-09-14T16:20:00Z", "feature": "F-002", "target": "dev", "ok": True}]

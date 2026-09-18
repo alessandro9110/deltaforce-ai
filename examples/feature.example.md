@@ -15,6 +15,23 @@ tasks:
     role: qa-engineer
     status: in_progress
     branch: null
+  - id: T-001.3
+    title: Keep the latest record when a customer id repeats
+    role: data-engineer
+    status: integrated
+    branch: df/F-001-data-engineer-T3
+bugs:
+  - id: B-001
+    title: Duplicate customers when the same id arrives twice in one batch
+    severity: major
+    status: fixed
+    found_by: qa-engineer
+    found_during: test
+    found_in: F-001
+    evidence: "SELECT customer_id, count(*) FROM silver_customers GROUP BY 1 HAVING count(*) > 1 returned 42 rows"
+    fix_tasks: [T-001.3]
+    opened: 2026-09-14T13:10:00Z
+    closed: null
 po_decision: null
 started: 2026-09-14T11:00:00Z
 completed: null

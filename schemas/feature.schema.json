@@ -23,12 +23,35 @@
         "additionalProperties": false,
         "required": ["id", "title", "role", "status", "branch"],
         "properties": {
-          "id": { "type": "string", "pattern": "^T-[0-9]{3,}\\.[0-9]+$" },
+          "id": { "$ref": "#/$defs/task_id" },
           "title": { "type": "string", "minLength": 1 },
           "role": { "$ref": "#/$defs/role" },
           "status": { "enum": ["todo", "in_progress", "ready_for_integration", "integrated", "done", "blocked"] },
           "branch": { "type": ["string", "null"] },
           "report": { "description": "Specialist reports for this task, one dated section per delegation", "type": ["string", "null"] }
+        }
+      }
+    },
+    "bugs": {
+      "description": "Defects that live in this feature, wherever they were found. Ids are numbered across the whole backlog.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "severity", "status", "found_by", "found_during", "found_in", "evidence", "fix_tasks", "opened", "closed"],
+        "properties": {
+          "id": { "$ref": "#/$defs/bug_id" },
+          "title": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["blocker", "major", "minor"] },
+          "status": { "enum": ["open", "fixing", "fixed", "verified", "wont_fix"] },
+          "found_by": { "anyOf": [{ "$ref": "#/$defs/role" }, { "const": "po" }] },
+          "found_during": { "enum": ["build", "integration", "test", "g2"] },
+          "found_in": { "description": "The feature being worked on when the bug was found", "$ref": "#/$defs/feature_id" },
+          "evidence": { "type": "string", "minLength": 1 },
+          "fix_tasks": { "type": "array", "items": { "$ref": "#/$defs/task_id" }, "uniqueItems": true },
+          "opened": { "$ref": "#/$defs/timestamp" },
+          "closed": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+          "notes": { "description": "Why it will not be fixed (the PO's decision), or anything else worth keeping", "type": "string" }
         }
       }
     },
@@ -54,6 +77,8 @@
   },
   "$defs": {
     "feature_id": { "type": "string", "pattern": "^F-[0-9]{3,}$" },
+    "task_id": { "type": "string", "pattern": "^T-[0-9]{3,}\\.[0-9]+$" },
+    "bug_id": { "type": "string", "pattern": "^B-[0-9]{3,}$" },
     "timestamp": {
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
