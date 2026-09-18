@@ -247,3 +247,78 @@ def test_medallion_schemas_are_distinct():
     dev = {"catalog": "c", "medallion": {"layout": "multi_schema", "bronze": "raw", "silver": "clean", "gold": "raw"}}
     assert generate.medallion_schemas(dev) == ["raw", "clean"]
     assert generate.medallion_variables(dev)["prefix_bronze"] == ""
+
+
+def test_table_prefixes_can_be_configured_and_emptied():
+    """One schema without prefixes is a real client layout; the defaults stay `bronze_`, `silver_`, `gold_`."""
+    default = {"catalog": "c", "medallion": {"layout": "single_schema", "schema": "dev"}}
+    assert generate.medallion_variables(default)["prefix_gold"] == "gold_"
+
+    without = {"catalog": "c", "medallion": {"layout": "single_schema", "schema": "dev", "prefixes": {"bronze": "", "silver": "", "gold": ""}}}
+    variables = generate.medallion_variables(without)
+    assert [variables[f"prefix_{layer}"] for layer in ("bronze", "silver", "gold")] == ["", "", ""]
+    assert variables["schema_gold"] == "dev"
+
+    named = {"catalog": "c", "medallion": {"layout": "single_schema", "schema": "dev", "prefixes": {"bronze": "raw_", "silver": "cln_", "gold": "biz_"}}}
+    assert generate.medallion_variables(named)["prefix_silver"] == "cln_"
+
+
+def test_the_project_context_block_states_the_prefixes_in_use(example_config):
+    example_config["targets"]["dev"]["medallion"] = {"layout": "single_schema", "schema": "dev", "prefixes": {"bronze": "", "silver": "", "gold": ""}}
+    assert "without a layer prefix" in generate.render_project_context(example_config)
+
+    example_config["targets"]["dev"]["medallion"]["prefixes"] = {"bronze": "raw_", "silver": "silver_", "gold": "gold_"}
+    assert "`raw_`, `silver_`, `gold_`" in generate.render_project_context(example_config)
+
+
+def test_the_values_of_the_projects_own_bundle_are_read_back(tmp_path):
+    """An existing project already names its catalog and schemas: those values are the defaults and the doctor's truth."""
+    paths = ProjectPaths(tmp_path)
+    (tmp_path / "resources").mkdir(parents=True)
+    paths.bundle.write_text(
+        "bundle:\n  name: client\ninclude:\n  - resources/*.yml\n"
+        "variables:\n  catalog:\n    default: main\n  schema_gold:\n    default: gold\n"
+        "targets:\n  development:\n    variables:\n      catalog: dev_main\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "resources" / "more.yml").write_text(
+        "variables:\n  warehouse_id:\n    default: abc123\n  unused:\n    description: no default\n", encoding="utf-8"
+    )
+
+    values = generate.existing_bundle_variable_values(paths)
+    assert values == {"catalog": "main", "schema_gold": "gold", "warehouse_id": "abc123"}
+    assert generate.existing_bundle_variable_values(paths, "development")["catalog"] == "dev_main"
+    assert generate.existing_bundle_variable_values(paths, "unknown")["catalog"] == "main"
+
+
+def _doctor_with(config, tmp_path):
+    from deltaforce import doctor as doctor_module
+
+    paths = ProjectPaths(tmp_path)
+    checker = doctor_module.Doctor(paths)
+    checker.config = config
+    checker.check_bundle_alignment()
+    return {check.id: check for check in checker.checks}
+
+
+def test_the_doctor_reports_a_configuration_that_disagrees_with_the_bundle(example_config, tmp_path):
+    """The typo that survived a whole install: config said `goald`, the project's bundle said `gold`."""
+    paths = ProjectPaths(tmp_path)
+    paths.bundle.write_text(
+        "bundle:\n  name: client\nvariables:\n  catalog:\n    default: main\n"
+        "  schema_gold:\n    default: gold\n  schema_silver:\n    default: silver\n  schema_bronze:\n    default: bronze\n",
+        encoding="utf-8",
+    )
+    config = copy.deepcopy(example_config)
+    config["targets"]["dev"]["catalog"] = "main"
+    config["targets"]["dev"]["medallion"] = {"layout": "multi_schema", "bronze": "bronze", "silver": "silver", "gold": "goald"}
+
+    check = _doctor_with(config, tmp_path)["bundle-alignment"]
+    assert not check.ok and "schema_gold: config 'goald' vs bundle 'gold'" in check.detail
+
+    config["targets"]["dev"]["medallion"]["gold"] = "gold"
+    assert _doctor_with(config, tmp_path)["bundle-alignment"].ok
+
+
+def test_the_doctor_says_nothing_when_the_project_has_no_bundle_of_its_own(example_config, tmp_path):
+    assert "bundle-alignment" not in _doctor_with(copy.deepcopy(example_config), tmp_path)

@@ -39,6 +39,7 @@ When the Solution Architect consults you, answer with a proposal for the *AI ope
 5. **Build** — agents and RAG code in `src/ai/agents/` and `src/ai/rag/`, apps in `src/apps/`; prompts in the MLflow Prompt Registry, tracing on; vector search endpoints and indexes, serving endpoints, apps and any other resource declared in the bundle — never created by hand (see `df-engineering-standards`); every name from bundle variables.
 6. **Agent Bricks** — when the design uses a Knowledge Assistant or a Supervisor Agent, which the bundle cannot declare: create or update it on dev with `manage_ka` or `manage_mas` (`create_or_update`), sources in the dev catalog, definition in `src/ai/agent_bricks/<name>.yml`, and list it under *Created outside the bundle* in your report. Never delete one: a person does (`df-aiops` §7).
 7. **Try it on dev** — query indexes and endpoints on dev; `bundle validate -t <dev target>` with `"$DF_ROOT/.deltaforce/bin/databricks"`. You never deploy.
+ 8. **Run it before you hand it over** — a task is `ready_for_integration` only when its code has run at least once in the context it will run in: SQL on the dev warehouse, Python with `execute_code`, Databricks Connect or a one-off `databricks jobs submit` when it must run exactly as a job task. `bundle validate` is not a run, and a deploy is not how code is tried out (`df-testing`, *Run it before you hand it over*).
 8. **Test and commit** — tests following `df-testing`, commits with the trailers from `df-git-flow`; push when a remote exists.
 
 Check feature availability in `discovery.md` before designing around it (vector search endpoints, GPU serving, Agent Bricks, foundation models); report alternatives when a feature is missing. Hugging Face models are fine-tuned, registered and served on Databricks: never push to the Hugging Face Hub or use Hugging Face Jobs (`df-aiops` §6).
@@ -52,6 +53,10 @@ Databricks skills — load the relevant one with the Skill tool before working i
 Hugging Face skills — model choice, memory estimates, datasets and training recipes for embeddings, rerankers and language models; apply them on Databricks as `df-aiops` §6 says:
 
 {{huggingface_skills}}
+
+LangChain, LangGraph and Deep Agents skills — agent and RAG patterns; load one when the design asks for that framework. Whatever the framework, the agent is logged, registered and evaluated with MLflow in Unity Catalog and served through a Databricks endpoint (`df-aiops`): the framework is an implementation detail, never a second way to operate a model:
+
+{{langchain_skills}}
 
 ## Definition of done
 

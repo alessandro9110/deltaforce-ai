@@ -100,6 +100,19 @@ def test_disabled_roles_are_dropped_and_removed(example_config, tmp_path):
     assert "Agent(data-engineer)" in frontmatter["tools"]
 
 
+def test_skill_references_are_installed_next_to_their_skill(example_config, tmp_path):
+    """A skill loads its references by relative path: they must land in the project, not only in the framework."""
+    paths = ProjectPaths(tmp_path)
+    team.install_team(example_config, paths)
+
+    standards = paths.skills / "df-engineering-standards"
+    assert (standards / "SKILL.md").exists()
+    installed = sorted(path.name for path in (standards / "references").glob("*.md"))
+    expected = sorted(path.name for path in (team.SKILL_TEMPLATES / "df-engineering-standards" / "references").glob("*.md"))
+    assert installed == expected and installed, installed
+    assert (paths.skills / "df-bi" / "references" / "genie-space.md").exists()
+
+
 @pytest.mark.parametrize(
     "files",
     [
@@ -171,3 +184,33 @@ def test_skills_are_refreshed_and_conventions_created_once(example_config, tmp_p
     summary = team.install_team(example_config, paths)
     assert ".deltaforce/conventions.yaml" not in summary
     assert "Use notebooks" in paths.conventions.read_text(encoding="utf-8")
+
+
+def test_langchain_skills_come_from_their_own_folder_of_the_repository(example_config, tmp_path):
+    """The LangChain repository keeps its skills under config/skills, not skills/ like the Hugging Face one."""
+    config = copy.deepcopy(example_config)
+    wanted = cfg.langchain_skills_for_roles(config["team"]["roles"])
+    assert wanted, "the AI Engineer should have LangChain skills"
+
+    source = tmp_path / "lc"
+    for name in [*wanted, "langchain-typescript-quickstart"]:
+        (source / "config" / "skills" / name).mkdir(parents=True)
+        (source / "config" / "skills" / name / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+    paths = ProjectPaths(tmp_path / "project")
+
+    installed = team.install_external_skills("langchain", config, paths, source, "https://example.com/lc.git", "def5678")
+    assert installed == wanted
+    assert all((paths.skills / name / "SKILL.md").exists() for name in wanted)
+    assert not (paths.skills / "langchain-typescript-quickstart").exists()  # only what the roles asked for
+    record = json.loads(paths.langchain_skills_record.read_text(encoding="utf-8"))
+    assert record["commit"] == "def5678" and record["repo"].endswith("lc.git")
+
+    _, body = split(team.render_agent("ai-engineer", config))
+    assert "`langchain-rag`" in body and "`langgraph-fundamentals`" in body
+
+
+def test_a_missing_external_skill_stops_the_install(example_config, tmp_path):
+    source = tmp_path / "lc"
+    (source / "config" / "skills").mkdir(parents=True)
+    with pytest.raises(cfg.ConfigError, match="LangChain skills not found"):
+        team.install_external_skills("langchain", example_config, ProjectPaths(tmp_path / "p"), source, "repo", "c0ffee")

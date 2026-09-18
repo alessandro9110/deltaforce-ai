@@ -14,6 +14,8 @@
 #   skills     Databricks agent skills installed for the role and listed in its prompt
 #   huggingface_skills  skills from github.com/huggingface/skills (latest main) installed for the role and listed in
 #              its prompt; only those whose know-how applies on Databricks — no Hub publishing, Jobs, Spaces or SageMaker
+#   langchain_skills    skills from github.com/langchain-ai/langchain-skills (latest main, folder config/skills)
+#              installed for the role and listed in its prompt; the Python ones only — agents run on Databricks
 #
 # In the template frontmatter, `skills` are the DeltaForce skills preloaded into the agent: every preloaded skill
 # is in the context of every call, so preload only what the role needs on every task; the others load on demand.
@@ -68,6 +70,7 @@ roles:
     delegates: [ai-engineer, data-engineer]
     skills: [databricks-core, databricks-agent-bricks, databricks-vector-search, databricks-model-serving, databricks-mlflow-evaluation, databricks-ai-functions, databricks-apps-python, databricks-execution-compute, databricks-unstructured-pdf-generation]
     huggingface_skills: [huggingface-best, hf-mem, huggingface-datasets, train-sentence-transformers, trl-training, huggingface-llm-trainer]
+    langchain_skills: [ecosystem-primer, langchain-fundamentals, langchain-python-quickstart, langchain-rag, langchain-middleware, langgraph-fundamentals, langgraph-python-quickstart, langgraph-human-in-the-loop, eval-engineering]
 
   qa-engineer:
     title: QA Engineer

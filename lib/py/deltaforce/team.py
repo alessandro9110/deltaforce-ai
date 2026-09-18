@@ -13,7 +13,14 @@ from typing import Any
 import yaml
 
 from . import guardrails
-from .config import AGENT_TEMPLATES, ConfigError, huggingface_skills_for_roles, load_roles, read_agent_template
+from .config import (
+    AGENT_TEMPLATES,
+    ConfigError,
+    huggingface_skills_for_roles,
+    langchain_skills_for_roles,
+    load_roles,
+    read_agent_template,
+)
 from .paths import FRAMEWORK_DIR, ProjectPaths
 
 TEMPLATES = FRAMEWORK_DIR / "templates"
@@ -86,8 +93,9 @@ def render_agent(role: str, config: Mapping[str, Any], roles: Mapping[str, Mappi
     _, body = read_agent_template(role)
     body = body.replace("{{delegates}}", _bullets(delegate_lines) if delegate_lines else "_You do not delegate._")
     body = body.replace("{{databricks_skills}}", _bullets([f"`{skill}`" for skill in spec.get("skills", [])]))
-    huggingface = spec.get("huggingface_skills") or []
-    body = body.replace("{{huggingface_skills}}", _bullets([f"`{skill}`" for skill in huggingface]) if huggingface else "_None._")
+    for placeholder in ("huggingface_skills", "langchain_skills"):
+        names = spec.get(placeholder) or []
+        body = body.replace("{{" + placeholder + "}}", _bullets([f"`{skill}`" for skill in names]) if names else "_None._")
 
     header = yaml.safe_dump(frontmatter, sort_keys=False, allow_unicode=True, width=10_000)
     return f"---\n{header}---\n\n{body}"
@@ -124,17 +132,41 @@ def install_team(config: Mapping[str, Any], paths: ProjectPaths) -> list[str]:
     return summary
 
 
-def install_huggingface_skills(config: Mapping[str, Any], paths: ProjectPaths, source: Path, repo: str, commit: str) -> list[str]:
-    """Copy the Hugging Face skills of the enabled roles from a checkout of their repository and record the commit.
+# Skills DeltaForce installs from someone else's repository: where they live in the checkout, which roles ask for them,
+# and the file recording what was installed and from which commit. These repositories follow fast-moving libraries, so
+# every install takes the latest `main` and writes the commit down.
+EXTERNAL_SKILLS = {
+    "huggingface": {
+        "label": "Hugging Face",
+        "folder": "skills",
+        "wanted": huggingface_skills_for_roles,
+        "record": lambda paths: paths.huggingface_skills_record,
+    },
+    "langchain": {
+        "label": "LangChain",
+        "folder": "config/skills",
+        "wanted": langchain_skills_for_roles,
+        "record": lambda paths: paths.langchain_skills_record,
+    },
+}
+
+
+def install_external_skills(
+    kind: str, config: Mapping[str, Any], paths: ProjectPaths, source: Path, repo: str, commit: str
+) -> list[str]:
+    """Copy the skills of the enabled roles from a checkout of `kind`'s repository and record the commit.
 
     Skills an earlier install recorded and the roles no longer need are removed; other skills are never touched.
     """
-    wanted = huggingface_skills_for_roles(config["team"]["roles"])
-    missing = [name for name in wanted if not (source / "skills" / name / "SKILL.md").exists()]
+    spec = EXTERNAL_SKILLS[kind]
+    wanted = spec["wanted"](config["team"]["roles"])
+    folder = source / spec["folder"]
+    missing = [name for name in wanted if not (folder / name / "SKILL.md").exists()]
     if missing:
-        raise ConfigError(f"Hugging Face skills not found in {repo}: {', '.join(missing)}")
+        raise ConfigError(f"{spec['label']} skills not found in {repo}: {', '.join(missing)}")
+    record_path = spec["record"](paths)
     try:
-        previous = json.loads(paths.huggingface_skills_record.read_text(encoding="utf-8")).get("skills") or []
+        previous = json.loads(record_path.read_text(encoding="utf-8")).get("skills") or []
     except (OSError, ValueError, AttributeError):
         previous = []
     paths.skills.mkdir(parents=True, exist_ok=True)
@@ -142,13 +174,17 @@ def install_huggingface_skills(config: Mapping[str, Any], paths: ProjectPaths, s
         if name not in wanted and (paths.skills / name).is_dir():
             _remove_tree(paths.skills / name)
     for name in wanted:
-        _sync_tree(source / "skills" / name, paths.skills / name)
+        _sync_tree(folder / name, paths.skills / name)
     record = {
         "repo": repo,
         "commit": commit,
         "skills": wanted,
         "installed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
     }
-    paths.huggingface_skills_record.parent.mkdir(parents=True, exist_ok=True)
-    paths.huggingface_skills_record.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    record_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     return wanted
+
+
+def install_huggingface_skills(config: Mapping[str, Any], paths: ProjectPaths, source: Path, repo: str, commit: str) -> list[str]:
+    return install_external_skills("huggingface", config, paths, source, repo, commit)

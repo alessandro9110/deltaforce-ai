@@ -47,8 +47,22 @@ def cmd_hf_skills(args: argparse.Namespace) -> int:
 
 
 def cmd_install_hf_skills(args: argparse.Namespace) -> int:
+    return _install_external("huggingface", args)
+
+
+def cmd_lc_skills(args: argparse.Namespace) -> int:
+    data = cfg.load_config(_paths(args).config)
+    print(",".join(cfg.langchain_skills_for_roles(data["team"]["roles"])))
+    return 0
+
+
+def cmd_install_lc_skills(args: argparse.Namespace) -> int:
+    return _install_external("langchain", args)
+
+
+def _install_external(kind: str, args: argparse.Namespace) -> int:
     paths = _paths(args)
-    installed = team.install_huggingface_skills(cfg.load_config(paths.config), paths, Path(args.source), args.repo, args.commit)
+    installed = team.install_external_skills(kind, cfg.load_config(paths.config), paths, Path(args.source), args.repo, args.commit)
     print(",".join(installed))
     return 0
 
@@ -90,6 +104,13 @@ def cmd_bundle_targets(args: argparse.Namespace) -> int:
         details = [f"mode {spec['mode']}" if spec.get("mode") else "", "default" if spec.get("default") else ""]
         details = [item for item in details if item]
         print(f"{name}|{name}{' (' + ', '.join(details) + ')' if details else ''}")
+    return 0
+
+
+def cmd_bundle_variables(args: argparse.Namespace) -> int:
+    values = generate.existing_bundle_variable_values(_paths(args), getattr(args, "target_name", None))
+    for name, value in values.items():
+        print(f"{name}={value}")
     return 0
 
 
@@ -191,6 +212,11 @@ def main(argv: list[str] | None = None) -> int:
     hf.add_argument("--source", required=True, help="checkout of the Hugging Face skills repository")
     hf.add_argument("--repo", required=True)
     hf.add_argument("--commit", required=True)
+    add("lc-skills", cmd_lc_skills, "print the LangChain skills of the enabled roles")
+    lc = add("install-lc-skills", cmd_install_lc_skills, "copy the LangChain skills of the enabled roles into .claude/skills")
+    lc.add_argument("--source", required=True, help="checkout of the LangChain skills repository")
+    lc.add_argument("--repo", required=True)
+    lc.add_argument("--commit", required=True)
     add("roles", cmd_roles, "print the role catalog")
     add("list", cmd_list, "turn Databricks CLI JSON into menu lines").add_argument(
         "--kind", required=True, choices=sorted(databricks_io.LISTINGS)
@@ -201,6 +227,9 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--host", required=True)
     add("generate", cmd_generate, "generate project files from the configuration")
     add("bundle-targets", cmd_bundle_targets, "print the targets of the project's own bundle as menu lines")
+    add("bundle-variables", cmd_bundle_variables, "print name=value for the variables of the project's own bundle").add_argument(
+        "--target-name", help="bundle target whose variable overrides win"
+    )
     add("environments", cmd_environments, "print the declared environments the installer may let the team deploy to").add_argument(
         "--bundle-target", default="dev", help="the team's dev bundle target"
     )

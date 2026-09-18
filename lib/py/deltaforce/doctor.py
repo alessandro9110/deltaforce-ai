@@ -18,8 +18,10 @@ from .generate import (
     GITIGNORE_START,
     MCP_SERVER_NAME,
     existing_bundle_targets,
+    existing_bundle_variable_values,
     is_deltaforce_statusline,
     medallion_schemas,
+    medallion_variables,
 )
 from .paths import ProjectPaths
 
@@ -207,13 +209,18 @@ class Doctor:
         detail = f"{len(expected)} skills" if not missing else "missing: " + ", ".join(missing)
         self.add("skills", "Databricks agent skills", not missing, detail)
 
-        expected = cfg.huggingface_skills_for_roles(self.config["team"]["roles"])
-        if expected:
+        for key, label, wanted, record in (
+            ("huggingface-skills", "Hugging Face skills", cfg.huggingface_skills_for_roles, self.paths.huggingface_skills_record),
+            ("langchain-skills", "LangChain skills", cfg.langchain_skills_for_roles, self.paths.langchain_skills_record),
+        ):
+            expected = wanted(self.config["team"]["roles"])
+            if not expected:
+                continue
             missing = [skill for skill in expected if not (self.paths.skills / skill / "SKILL.md").exists()]
-            commit = _read_json(self.paths.huggingface_skills_record).get("commit")
+            commit = _read_json(record).get("commit")
             detail = f"{len(expected)} skills" + (f" at commit {commit}" if commit else "")
             detail = detail if not missing else "missing: " + ", ".join(missing) + " — re-run the installer"
-            self.add("huggingface-skills", "Hugging Face skills", not missing, detail)
+            self.add(key, label, not missing, detail)
 
     def check_generated(self) -> None:
         server = _read_json(self.paths.mcp_json).get("mcpServers", {}).get(MCP_SERVER_NAME, {})
@@ -340,6 +347,32 @@ class Doctor:
         detail = f"{len(cases)} scenarios behave as expected" if not failed else f"unexpected result for {failed[0]}"
         self.add("guard-self-test", "Guardrails self-test", not failed, detail)
 
+    def check_bundle_alignment(self) -> None:
+        """The team's configuration must say what the project's own bundle says: the code follows the bundle."""
+        target = cfg.dev_bundle_target(self.config)
+        declared = existing_bundle_variable_values(self.paths, target)
+        if not declared:
+            return
+        dev = self.config["targets"]["dev"]
+        ours = {
+            "catalog": dev["catalog"],
+            "warehouse_id": self.config["databricks"]["warehouse_id"],
+            **medallion_variables(dev),
+        }
+        mismatched = [
+            f"{name}: config '{ours[name]}' vs bundle '{declared[name]}'"
+            for name in sorted(ours)
+            if name in declared and str(declared[name]) != str(ours[name])
+        ]
+        detail = "; ".join(mismatched) if mismatched else f"{len(declared)} variable(s) of the project's bundle match the configuration"
+        self.add(
+            "bundle-alignment",
+            "Configuration matches the project's bundle",
+            not mismatched,
+            (detail + " — re-run the installer and take the bundle values") if mismatched else detail,
+            "warn",
+        )
+
     def check_bundle_validate(self) -> None:
         target = cfg.dev_bundle_target(self.config)
         ok, output = self.databricks("bundle", "validate", "-t", target, cwd=self.paths.root)
@@ -364,6 +397,7 @@ def run(paths: ProjectPaths) -> dict[str, Any]:
         doctor.check_project_state()
         doctor.check_environments()
         doctor.check_guardrails()
+        doctor.check_bundle_alignment()
         if workspace_ok:
             doctor.check_bundle_validate()
 

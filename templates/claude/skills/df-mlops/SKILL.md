@@ -41,6 +41,7 @@ Record expensive choices (model family, serving mode, GPU) as ADRs.
 - Temporal data: split by time — train on the past, test on the future — never at random. Entities with many rows (customer, device): group split, so an entity is never on both sides.
 - No feature computed after the prediction time or derived from the target, no duplicates across splits; scalers and encoders fitted on train only, inside the model pipeline.
 - Fixed seeds; save the split (ids or a split column) and log it.
+- **Features must be as of prediction time.** A feature table that keeps only the current value leaks the future into training: give feature tables an effective timestamp and read them with a point-in-time join (as-of join on the entity and the event time), or rebuild the feature from the events available before the prediction. Say in the report which features are point-in-time and which are static by nature.
 
 ## 4. Baseline first
 
@@ -67,7 +68,8 @@ Before any real model, log a baseline on the same split and metrics: majority cl
 ## 7. Serving, monitoring, retraining
 
 - Serving endpoints, jobs and monitors are bundle resources, deployed by the DevOps Engineer.
-- Log predictions (inference tables for endpoints, a predictions table for batch), monitor drift of features and predictions and, when labels arrive, the model metric; alert on the thresholds in the Architecture.
+- Log predictions: inference tables on serving endpoints (payload logging — the endpoint writes requests and responses to a Unity Catalog table), a predictions table for batch. Both carry the model name and version so a number can always be traced back to what produced it.
+- Monitor what can move: input drift on the features that matter, drift of the prediction distribution, and — when labels arrive — the model metric against the value approved at G2. Thresholds come from the Architecture; a monitor is a bundle resource like any other, and what it should do when it fires (open a bug, retrain, warn) is decided at design time, not when it fires.
 - Retraining is a bundle job: it registers a new `challenger` and runs the same validation.
 
 ## 8. Hugging Face models on Databricks

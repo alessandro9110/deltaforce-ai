@@ -61,6 +61,7 @@ def load_roles() -> dict[str, dict[str, Any]]:
         spec["tools"] = split_tools(spec.get("tools"))
         spec["process_skills"] = list(frontmatter.get("skills") or [])
         spec.setdefault("huggingface_skills", [])
+        spec.setdefault("langchain_skills", [])
     return roles
 
 
@@ -138,6 +139,11 @@ def huggingface_skills_for_roles(roles: list[str]) -> list[str]:
     return _skill_union(roles, "huggingface_skills")
 
 
+def langchain_skills_for_roles(roles: list[str]) -> list[str]:
+    """LangChain, LangGraph and Deep Agents skills of the roles, in order, without duplicates."""
+    return _skill_union(roles, "langchain_skills")
+
+
 def _csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
@@ -173,6 +179,12 @@ def build_from_env(env: Mapping[str, str]) -> dict[str, Any]:
     medallion: dict[str, Any] = {"layout": layout}
     if layout == "single_schema":
         medallion["schema"] = get("DF_SCHEMA")
+        # An answered but empty prefix means "no prefix"; an unanswered one keeps the default.
+        answered = {layer: env.get(f"DF_PREFIX_{layer.upper()}") for layer in LAYERS}
+        if any(value is not None for value in answered.values()):
+            medallion["prefixes"] = {
+                layer: (answered[layer] if answered[layer] is not None else f"{layer}_").strip() for layer in LAYERS
+            }
     else:
         for layer in LAYERS:
             medallion[layer] = get(f"DF_SCHEMA_{layer.upper()}")

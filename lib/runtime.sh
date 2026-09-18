@@ -79,21 +79,30 @@ df_install_skills() {
 # folder outside the project: its deepest files (~100 characters) under the project runtime would exceed the Windows
 # path limit when long paths are disabled.
 df_install_hf_skills() {
+    df_install_external_skills "Hugging Face" hf-skills install-hf-skills "$DF_HF_SKILLS_REPO"
+}
+
+# LangChain, LangGraph and Deep Agents skills for the roles that ask for them.
+df_install_langchain_skills() {
+    df_install_external_skills "LangChain" lc-skills install-lc-skills "$DF_LC_SKILLS_REPO"
+}
+
+# Copy the skills of the enabled roles from a repository that follows a fast-moving library: always its latest main,
+# with the commit recorded in .deltaforce/runtime so an update can be told apart from a change of our own.
+df_install_external_skills() {
+    local label=$1 list_command=$2 install_command=$3 repo=$4
     local skills commit staging
-    skills=$(df_py hf-skills --target "$(df_native_path "$DF_TARGET_DIR")") \
-        || df_die "Could not resolve the Hugging Face skills for the enabled roles"
+    skills=$(df_py "$list_command" --target "$(df_native_path "$DF_TARGET_DIR")")         || df_die "Could not resolve the $label skills for the enabled roles"
     if [ -z "$skills" ]; then
-        df_ok "No Hugging Face skills for the enabled roles"
+        df_ok "No $label skills for the enabled roles"
         return 0
     fi
     staging=$(mktemp -d)
-    git -c core.longpaths=true clone --quiet --depth 1 "$DF_HF_SKILLS_REPO" "$staging/hf" \
-        || { rm -rf "$staging"; df_die "Could not download the Hugging Face skills from $DF_HF_SKILLS_REPO"; }
-    commit=$(git -C "$staging/hf" rev-parse --short HEAD)
-    if ! df_py install-hf-skills --target "$(df_native_path "$DF_TARGET_DIR")" --source "$(df_native_path "$staging/hf")" \
-        --repo "$DF_HF_SKILLS_REPO" --commit "$commit" >/dev/null; then
+    git -c core.longpaths=true clone --quiet --depth 1 "$repo" "$staging/skills"         || { rm -rf "$staging"; df_die "Could not download the $label skills from $repo"; }
+    commit=$(git -C "$staging/skills" rev-parse --short HEAD)
+    if ! df_py "$install_command" --target "$(df_native_path "$DF_TARGET_DIR")" --source "$(df_native_path "$staging/skills")"         --repo "$repo" --commit "$commit" >/dev/null; then
         rm -rf "$staging"
-        df_die "Could not copy the Hugging Face skills into .claude/skills"
+        df_die "Could not copy the $label skills into .claude/skills"
     fi
     rm -rf "$staging"
     df_ok "${skills//,/, } (commit $commit) → .claude/skills"

@@ -331,6 +331,11 @@ details.po-chip { display: block; min-width: 0; }
 .timeline span { padding-bottom: 10px; overflow-wrap: anywhere; }
 
 .doc-list { display: grid; gap: 2px; }
+.audit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.audit-list li { display: grid; grid-template-columns: 92px 26px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 13px; }
+.audit-list time { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.audit-what { display: grid; gap: 3px; min-width: 0; }
+.audit-what code { overflow-wrap: anywhere; background: var(--surface-2); }
 .doc-list a { display: grid; gap: 1px; padding: 8px 10px; margin: 0 -10px; border-radius: 8px; color: inherit; text-decoration: none; }
 .doc-list a:hover { background: var(--surface-2); }
 .doc-title { font-weight: 600; }

@@ -8,6 +8,7 @@ this module: prompts and answers are never returned.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import re
@@ -157,8 +158,50 @@ def _feature_of(text: str) -> str | None:
     return None
 
 
-def usage(root: Path, phases: list[tuple[str, str]], cache: TranscriptCache = CACHE) -> dict[str, Any]:
-    """Token use per role, feature, phase, model and session. `phases` are (start time, phase) pairs in order."""
+# A subagent whose prompt never names the feature is placed by the delegation that started it.
+DELEGATION_WINDOW = dt.timedelta(minutes=10)
+
+
+def _moment(value: str | None) -> dt.datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)
+
+
+def _delegated_feature(delegations: list[tuple[str, str, str]], role: str, started: str | None) -> str | None:
+    """The feature of the closest `delegated` record for this role around the run's first message."""
+    moment = _moment(started)
+    if not moment:
+        return None
+    best: tuple[dt.timedelta, str] | None = None
+    for timestamp, target_role, feature in delegations:
+        if target_role != role or not feature:
+            continue
+        delegated = _moment(timestamp)
+        if not delegated:
+            continue
+        distance = abs(delegated - moment)
+        if distance <= DELEGATION_WINDOW and (best is None or distance < best[0]):
+            best = (distance, feature)
+    return best[1] if best else None
+
+
+def usage(
+    root: Path,
+    phases: list[tuple[str, str]],
+    cache: TranscriptCache = CACHE,
+    delegations: list[tuple[str, str, str]] | None = None,
+) -> dict[str, Any]:
+    """Token use per role, feature, phase, model and session.
+
+    `phases` are (start time, phase) pairs in order; `delegations` are (time, role, feature) triples from the recorded
+    activity, which place the runs whose prompt never names the feature.
+    """
+    delegations = delegations or []
     folder = transcripts_dir(root)
     if not folder.is_dir():
         return {"available": False, "folder": str(folder)}
@@ -187,8 +230,11 @@ def usage(root: Path, phases: list[tuple[str, str]], cache: TranscriptCache = CA
             except (OSError, ValueError):
                 meta = {}
             state = cache.read(agent_file)
+            role = str(meta.get("agentType") or "unknown")
             feature = _feature_of(f"{meta.get('description', '')}\n{state.prompt or ''}")
-            runs.append((str(meta.get("agentType") or "unknown"), state, feature))
+            if not feature and state.messages:
+                feature = _delegated_feature(delegations, role, min(stamp for stamp, _, _ in state.messages.values()))
+            runs.append((role, state, feature))
 
         session = {**_bucket(), "id": session_file.stem[:8], "start": None, "end": None, "agents": 0, "pm_peak_context": 0}
         for role, state, feature in runs:

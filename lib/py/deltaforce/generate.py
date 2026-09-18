@@ -83,14 +83,20 @@ def replace_block(text: str, start: str, end: str, body: str) -> str:
     return text.rstrip("\n") + "\n\n" + managed + "\n"
 
 
+def medallion_prefixes(medallion: Mapping[str, Any]) -> dict[str, str]:
+    """Table name prefix per layer: `bronze_`… in a single schema, none with one schema per layer, unless configured."""
+    configured = medallion.get("prefixes") if isinstance(medallion.get("prefixes"), Mapping) else {}
+    default = (lambda layer: f"{layer}_") if medallion["layout"] == "single_schema" else (lambda layer: "")
+    return {layer: str(configured.get(layer, default(layer)) or "") for layer in LAYERS}
+
+
 def medallion_variables(dev: Mapping[str, Any]) -> dict[str, str]:
     medallion = dev["medallion"]
+    prefixes = medallion_prefixes(medallion)
     if medallion["layout"] == "single_schema":
         schemas = {layer: medallion["schema"] for layer in LAYERS}
-        prefixes = {layer: f"{layer}_" for layer in LAYERS}
     else:
         schemas = {layer: medallion[layer] for layer in LAYERS}
-        prefixes = {layer: "" for layer in LAYERS}
     return {
         **{f"schema_{layer}": schemas[layer] for layer in LAYERS},
         **{f"prefix_{layer}": prefixes[layer] for layer in LAYERS},
@@ -213,8 +219,11 @@ def render_project_context(config: Mapping[str, Any]) -> str:
     medallion = dev["medallion"]
     variables = medallion_variables(dev)
 
+    prefixes = medallion_prefixes(medallion)
     if medallion["layout"] == "single_schema":
-        layout = f"single schema `{medallion['schema']}`, table names prefixed `bronze_`, `silver_`, `gold_`"
+        used = [f"`{prefixes[layer]}`" for layer in LAYERS if prefixes[layer]]
+        naming = f", table names prefixed {', '.join(used)}" if used else ", table names without a layer prefix"
+        layout = f"single schema `{medallion['schema']}`{naming}"
     else:
         layout = ", ".join(f"{layer} `{medallion[layer]}`" for layer in LAYERS)
     compute = "serverless" if db["compute"] == "serverless" else f"cluster `{db['cluster_id']}`"
@@ -371,6 +380,36 @@ def existing_bundle_variables(paths: ProjectPaths) -> set[str]:
         if isinstance(document.get("variables"), dict)
         for name in document["variables"]
     }
+
+
+def existing_bundle_variable_values(paths: ProjectPaths, target: str | None = None) -> dict[str, str]:
+    """What the project's own bundle gives its variables, with the target's overrides on top.
+
+    These are the values the project's code already uses: the installer offers them as defaults and the doctor
+    reports a configuration that disagrees with them.
+    """
+
+    def usable(value: Any) -> str | None:
+        return str(value) if isinstance(value, (str, int, float)) and str(value).strip() else None
+
+    values: dict[str, str] = {}
+    documents = _project_bundle_documents(paths)
+    for document in documents:
+        variables = document.get("variables")
+        if isinstance(variables, dict):
+            for name, spec in variables.items():
+                default = spec.get("default") if isinstance(spec, dict) else spec
+                if (value := usable(default)) is not None:
+                    values[str(name)] = value
+    for document in documents:
+        targets = document.get("targets")
+        spec = targets.get(target) if target and isinstance(targets, dict) else None
+        overrides = spec.get("variables") if isinstance(spec, dict) else None
+        if isinstance(overrides, dict):
+            for name, value in overrides.items():
+                if (usable_value := usable(value)) is not None:
+                    values[str(name)] = usable_value
+    return values
 
 
 def existing_bundle_targets(paths: ProjectPaths) -> dict[str, dict[str, Any]]:

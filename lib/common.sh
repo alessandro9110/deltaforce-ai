@@ -93,6 +93,10 @@ df_choose() {
         __values+=("${__item%%|*}")
         __labels+=("${__item#*|}")
     done
+    # A list with a single item answers itself: offer it as the default instead of rejecting Enter.
+    if [ -z "$__default" ] && [ "${#__values[@]}" -eq 1 ]; then
+        __default=${__values[0]}
+    fi
     for __i in "${!__values[@]}"; do
         [ "${__values[$__i]}" = "$__default" ] && __default_index=$((__i + 1))
     done

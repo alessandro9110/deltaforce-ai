@@ -113,6 +113,7 @@
   "$defs": {
     "branch": { "type": "string", "pattern": "^[^\\s]+$" },
     "uc_name": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+    "table_prefix": { "type": "string", "pattern": "^[A-Za-z0-9_]*$", "maxLength": 32 },
     "role": {
       "enum": [
         "pm",
@@ -144,6 +145,17 @@
           "properties": {
             "layout": { "enum": ["single_schema", "multi_schema"] },
             "schema": { "$ref": "#/$defs/uc_name" },
+            "prefixes": {
+              "description": "Table name prefix per layer in a single schema; an empty string means no prefix",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["bronze", "silver", "gold"],
+              "properties": {
+                "bronze": { "$ref": "#/$defs/table_prefix" },
+                "silver": { "$ref": "#/$defs/table_prefix" },
+                "gold": { "$ref": "#/$defs/table_prefix" }
+              }
+            },
             "bronze": { "$ref": "#/$defs/uc_name" },
             "silver": { "$ref": "#/$defs/uc_name" },
             "gold": { "$ref": "#/$defs/uc_name" }
@@ -158,7 +170,10 @@
             },
             {
               "if": { "required": ["layout"], "properties": { "layout": { "const": "multi_schema" } } },
-              "then": { "required": ["bronze", "silver", "gold"], "not": { "required": ["schema"] } }
+              "then": {
+                "required": ["bronze", "silver", "gold"],
+                "not": { "anyOf": [{ "required": ["schema"] }, { "required": ["prefixes"] }] }
+              }
             }
           ]
         }

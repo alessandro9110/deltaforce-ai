@@ -134,3 +134,20 @@ def test_usage_endpoint(sessions):
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+def test_a_run_whose_prompt_never_names_the_feature_is_placed_by_its_delegation(sessions):
+    project, _ = sessions
+    # agent-a2 (business-analyst, "Write the requirements") has no F-xxx anywhere in its prompt.
+    without = {row["feature"]: row for row in usage.usage(project, [], usage.TranscriptCache())["features"]}
+    assert "unlinked" in without
+
+    delegations = [
+        ("2026-09-15T09:29:00Z", "business-analyst", "F-001"),  # one minute before the run's first message
+        ("2026-09-15T09:29:00Z", "data-engineer", "F-009"),  # another role at the same moment: not this run
+        ("2026-09-15T04:00:00Z", "business-analyst", "F-007"),  # same role, hours away: outside the window
+    ]
+    placed = {row["feature"]: row for row in usage.usage(project, [], usage.TranscriptCache(), delegations)["features"]}
+    assert "unlinked" not in placed
+    assert placed["F-001"]["runs"] == 1
+    assert placed["F-002"]["runs"] == 1  # the prompt still wins where it names the feature

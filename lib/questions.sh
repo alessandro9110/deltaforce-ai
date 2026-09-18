@@ -107,6 +107,50 @@ df_ask_workspace() {
         "service-principal|Service principal (OAuth client ID and secret)"
 }
 
+# Table name prefixes in a single-schema layout: the defaults, or none when the answer is empty (issue #3).
+df_ask_prefixes() {
+    local layer name default
+    for layer in bronze silver gold; do
+        name="DF_PREFIX_${layer^^}"
+        default=${!name-${layer}_}
+        df_ask "$name" "Table prefix for $layer (empty = no prefix)" "$default"
+        printf -v "$name" '%s' "$(printf '%s' "${!name}" | tr -d '[:space:]')"
+        [[ ${!name} =~ ^[A-Za-z0-9_]*$ ]] || df_die "Invalid table prefix: '${!name}'"
+    done
+}
+
+# Defaults from the project's own bundle: what its code already uses wins over anything we could invent.
+df_load_bundle_defaults() {
+    local -a pairs=()
+    local pair name value
+    mapfile -t pairs < <(df_py bundle-variables --target "$(df_native_path "$DF_TARGET_DIR")" --target-name "$DF_BUNDLE_TARGET" 2>/dev/null)
+    [ ${#pairs[@]} -gt 0 ] || return 0
+    for pair in "${pairs[@]}"; do
+        name=${pair%%=*}
+        value=${pair#*=}
+        [ -n "$value" ] || continue
+        case "$name" in
+            catalog) DF_CATALOG=${DF_CATALOG:-$value} ;;
+            warehouse_id) DF_WAREHOUSE_ID=${DF_WAREHOUSE_ID:-$value} ;;
+            schema_bronze) DF_SCHEMA_BRONZE=${DF_SCHEMA_BRONZE:-$value} ;;
+            schema_silver) DF_SCHEMA_SILVER=${DF_SCHEMA_SILVER:-$value} ;;
+            schema_gold) DF_SCHEMA_GOLD=${DF_SCHEMA_GOLD:-$value} ;;
+            prefix_bronze) DF_PREFIX_BRONZE=${DF_PREFIX_BRONZE-$value} ;;
+            prefix_silver) DF_PREFIX_SILVER=${DF_PREFIX_SILVER-$value} ;;
+            prefix_gold) DF_PREFIX_GOLD=${DF_PREFIX_GOLD-$value} ;;
+        esac
+    done
+    if [ -n "${DF_SCHEMA_BRONZE:-}${DF_SCHEMA_SILVER:-}${DF_SCHEMA_GOLD:-}" ] && [ -z "${DF_MEDALLION_LAYOUT:-}" ]; then
+        if [ "$DF_SCHEMA_BRONZE" = "$DF_SCHEMA_SILVER" ] && [ "$DF_SCHEMA_SILVER" = "$DF_SCHEMA_GOLD" ]; then
+            DF_MEDALLION_LAYOUT=single_schema
+            DF_SCHEMA=${DF_SCHEMA:-$DF_SCHEMA_BRONZE}
+        else
+            DF_MEDALLION_LAYOUT=multi_schema
+        fi
+    fi
+    df_ok "Defaults from the project's bundle (target '$DF_BUNDLE_TARGET')"
+}
+
 df_ask_target() {
     local -a items=()
 
@@ -129,6 +173,10 @@ df_ask_target() {
     fi
     [[ $DF_BUNDLE_TARGET =~ ^[A-Za-z0-9_-]+$ ]] || df_die "Invalid bundle target: '$DF_BUNDLE_TARGET'"
     df_ok "Bundle target '$DF_BUNDLE_TARGET'"
+
+    # An existing project already tells us its names: the bundle's own variable values are the defaults, so the
+    # team's configuration cannot drift from the code (a mistyped schema used to survive a whole install).
+    df_load_bundle_defaults
 
     mapfile -t items < <(df_databricks_items warehouses warehouses list)
     if [ ${#items[@]} -gt 0 ]; then
@@ -176,6 +224,7 @@ df_ask_target() {
     if [ "$DF_MEDALLION_LAYOUT" = single_schema ]; then
         df_ask_valid DF_SCHEMA "Dev schema" "${DF_SCHEMA:-}" "$schema_re" "$schema_hint"
         DF_SCHEMA_BRONZE="" DF_SCHEMA_SILVER="" DF_SCHEMA_GOLD=""
+        df_ask_prefixes
     else
         df_ask_valid DF_SCHEMA_BRONZE "Bronze schema" "${DF_SCHEMA_BRONZE:-}" "$schema_re" "$schema_hint"
         df_ask_valid DF_SCHEMA_SILVER "Silver schema" "${DF_SCHEMA_SILVER:-}" "$schema_re" "$schema_hint"
@@ -351,7 +400,8 @@ df_print_summary() {
         others+="${others:+; }$env_name (target $env_target, catalogs ${env_catalogs//,/, })"
     done
     if [ "$DF_MEDALLION_LAYOUT" = single_schema ]; then
-        schemas="$DF_SCHEMA (prefixes bronze_, silver_, gold_)"
+        local prefixes="${DF_PREFIX_BRONZE-bronze_}, ${DF_PREFIX_SILVER-silver_}, ${DF_PREFIX_GOLD-gold_}"
+        [ -n "${prefixes//[ ,]/}" ] && schemas="$DF_SCHEMA (prefixes $prefixes)" || schemas="$DF_SCHEMA (no table prefix)"
     else
         schemas="bronze=$DF_SCHEMA_BRONZE silver=$DF_SCHEMA_SILVER gold=$DF_SCHEMA_GOLD"
     fi

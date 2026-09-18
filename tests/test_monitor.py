@@ -611,3 +611,35 @@ def test_key_figures_of_the_project(project):
 
     deploys = model.snapshot(project, NOW)["workflow"]["deploys"]
     assert deploys == [{"ts": "2026-09-14T16:20:00Z", "feature": "F-002", "target": "dev", "ok": True}]
+
+
+def test_audit_shows_what_was_blocked_and_what_production_was_read(project):
+    write_jsonl(project / ".deltaforce" / "audit.jsonl", [
+        {"ts": "2026-09-14T16:00:00Z", "role": "data-engineer", "tool": "mcp__databricks__execute_sql",
+         "workspace": "dev", "decision": "allowed", "input": "SELECT 1"},
+        {"ts": "2026-09-14T16:05:00Z", "role": "data-engineer", "tool": "Bash", "workspace": None, "decision": "denied",
+         "input": "databricks bundle deploy -t prod", "reason": "only the devops-engineer deploys and runs bundles"},
+        {"ts": "2026-09-14T16:06:00Z", "role": "data-scientist", "tool": "mcp__databricks-prod__execute_sql",
+         "workspace": "prod", "decision": "allowed", "input": "SELECT count(*) FROM sales"},
+        {"ts": "2026-09-14T16:07:00Z", "role": "data-scientist", "tool": "mcp__databricks-prod__manage_jobs",
+         "workspace": "prod", "decision": "denied", "input": "{\"action\": \"create\"}", "reason": "production is read-only"},
+    ])
+    audit = model.snapshot(project, NOW)["audit"]
+
+    assert audit["available"] and not audit["partial"] and audit["calls"] == 4
+    assert audit["counts"] == {"denied": 2, "production_reads": 1}
+    assert [(row["role"], row["denied"], row["production_reads"]) for row in audit["roles"]] == [
+        ("data-engineer", 1, 0), ("data-scientist", 1, 1),
+    ]
+    assert [item["ts"] for item in audit["denials"]] == ["2026-09-14T16:07:00Z", "2026-09-14T16:05:00Z"]  # newest first
+    blocked = audit["denials"][1]
+    assert blocked["tool"] == "Bash" and blocked["role_title"] == "Data Engineer"
+    assert blocked["reason"].startswith("only the devops-engineer")
+    assert blocked["input"] == "databricks bundle deploy -t prod"
+    assert [item["tool"] for item in audit["production"]] == ["execute_sql"]
+
+
+def test_audit_is_empty_when_nothing_was_audited(project):
+    audit = model.snapshot(project, NOW)["audit"]
+    assert audit == {**audit, "available": False, "calls": 0, "counts": {"denied": 0, "production_reads": 0}}
+    assert audit["denials"] == [] and audit["roles"] == []

@@ -8,7 +8,7 @@ allowed-tools: Read, Glob
 
 # Prepare the kickoff
 
-You are the PM. Talk to the PO in their language. This command only informs: read files, write nothing.
+You are the PM. **Answer in the language of this conversation** — the command takes no arguments, so the language of the PO's previous messages is the only signal; when there is none, ask in one line. This command only informs: read files, write nothing.
 
 ## 1. Where the project stands
 
@@ -18,7 +18,7 @@ Read `.deltaforce/status.json`. If `ready` is not `true`, say DeltaForce is not 
 
 ## 2. What to bring
 
-Read the *DeltaForce project context* block in `CLAUDE.md` and `.deltaforce/conventions.yaml`, and look at what the repository contains (`Glob` on `src/`, `resources/`, `databricks.yml`) to tell the PO whether the team will extend an existing project or start from scratch.
+Read the *DeltaForce project context* block in `CLAUDE.md`, `.deltaforce/config.yaml` and `.deltaforce/conventions.yaml`, and look at what the repository contains (`Glob` on `src/`, `resources/`, `databricks.yml`) to tell the PO whether the team will extend an existing project or start from scratch.
 
 Then show a short table — topic · what the PM will ask · what is already known — filling the last column from the files above so the PO only prepares what is missing:
 
@@ -31,7 +31,7 @@ Then show a short table — topic · what the PM will ask · what is already kno
 | Names | Schema and table names the PO already has in mind, including where particular objects belong — for example the schema holding registered models, feature tables and predictions. Otherwise the team proposes them and the PO confirms at G1 |
 | Existing data | Only when the team extends an existing project: what may be dropped or rewritten and what may not, and the jobs, pipelines or folders the team must not touch |
 | Conventions | How the client organizes Databricks projects: deploy folder, naming prefixes, mandatory tags, notebooks or Python files — or the DeltaForce defaults, changeable later with `/df-conventions` |
-| CI/CD | Where the client's pipeline templates are: a repository (URL and branch), files in this repository, provided later, or none |
+| CI/CD | The provider is already chosen: read `project.cicd` from `.deltaforce/config.yaml` and name it (`azure-devops`, `github-actions` or `none`). What to bring is where the client's pipeline templates are — a repository (URL and branch), files in this repository, provided later, or none — which the kickoff records in `cicd` of `.deltaforce/conventions.yaml`. An empty `cicd` there means the templates are not recorded yet, not that there is no CI/CD |
 | Environments | Every environment besides the dev target — prototyping, test, UAT, pre-production, production: what it is for, where it is, its catalogs and bundle target, whether the team may deploy, only read or not go there, whether the team or CI/CD deploys it, and its data rules |
 
 Nothing has to be complete: the kickoff is a conversation and the PM asks only what is missing.

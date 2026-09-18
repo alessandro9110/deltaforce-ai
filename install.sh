@@ -184,6 +184,7 @@ main() {
 
     df_step "Hugging Face skills"
     df_install_hf_skills
+    df_install_langchain_skills
 
     df_step "Project files"
     df_generate

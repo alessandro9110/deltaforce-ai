@@ -99,6 +99,10 @@ class ProjectPaths:
     def huggingface_skills_record(self) -> Path:
         return self.runtime / "huggingface-skills.json"
 
+    @property
+    def langchain_skills_record(self) -> Path:
+        return self.runtime / "langchain-skills.json"
+
     # ─── Claude Code ───────────────────────────────────────────
 
     @property

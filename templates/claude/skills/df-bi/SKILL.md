@@ -7,6 +7,24 @@ description: DeltaForce BI practices on Databricks — the analytics strategy in
 
 The Data Analyst builds it; the Solution Architect designs the analytics layer with them; the DevOps Engineer deploys; the QA Engineer verifies on their own. For current APIs load `databricks-aibi-dashboards`, `databricks-metric-views`, `databricks-dbsql` and `databricks-data-discovery`.
 
+## 0. Know the data before you model it
+
+When the work starts from data the client already has, the first deliverable is understanding, not a chart. Before any
+KPI is written down:
+
+- **Inventory**: which catalogs, schemas and tables are in scope, who owns them, which ones are certified and which are
+  somebody's leftovers. Prefer the sources the client already trusts; say which ones you rejected and why.
+- **Profile each candidate table** (`databricks-data-discovery`, `execute_sql`): row count, time range, grain (one row
+  per what), keys and their uniqueness, null rates, cardinality of the columns you would filter on, and the few values
+  that dominate. Cheap queries, one pass, results in the report.
+- **Meaning, not just types**: for every column that will end up in a KPI, what it means in the business, its unit and
+  currency, how it behaves when data is late or corrected. Ask the PO what you cannot deduce — a wrong assumption here
+  becomes a wrong number everywhere.
+- **Joins and pitfalls**: which relationships hold, where duplicates or fan-out come from, which filters everyone
+  applies implicitly (test rows, cancelled orders, internal accounts).
+- Write it as the *Data* part of the Architecture's *Analytics* section: what exists, what is trustworthy, what the
+  numbers can and cannot answer. Everything below stands on it.
+
 ## 1. Strategy — Architecture section *Analytics*
 
 Decided before G1:
@@ -52,15 +70,10 @@ A Genie space is a product, not a switch: what makes it good is curation.
 - **Descriptions carry the semantics**: table, column, measure and dimension descriptions are what Genie reads first — the same descriptions the standards already require.
 - **Feedback loop**: review the questions people actually ask, and turn the wrong answers into instructions, examples or a missing measure.
 
-A Genie space is a bundle resource like any other, in two paired files:
-
-- `resources/<slug>.genie_space.yml` — `title`, `description`, `warehouse_id` (from the bundle variable), `permissions` (`CAN_VIEW`, `CAN_RUN`, `CAN_EDIT`, `CAN_MANAGE`) and `file_path` pointing to the definition;
-- `src/dashboards/<slug>.geniespace.json` — the serialized space: data sources, instructions, example questions. Keep it in git: it is the curation, and it is reviewed like code.
-
-Two commands help, run by the Data Analyst in their worktree (never a deploy):
-
-- `databricks bundle generate genie-space --existing-id <id>` imports a space someone built in the UI into those two files;
-- `databricks bundle generate genie-space --resource <name> --watch` pulls back changes made in the UI while curating, so git stays the source of truth.
+A Genie space is a bundle resource: one file, `resources/<slug>.genie_space.yml`, with `title`, `description`,
+`warehouse_id` (from the bundle variable), optional `permissions`, and the curation **inlined** under
+`serialized_space`. Read `references/genie-space.md` before writing it — the format, what the server keeps, the import
+of an existing space and the post-deploy check that stops the perpetual plan drift are all there.
 
 **Genie spaces are not bindable**: deploying does not adopt a space that already exists in the workspace, it creates a new one. Never point a bundle resource at a hand-made space without importing it first — the original, with its chat history, would be left behind or overwritten. Record the import in the task report.
 

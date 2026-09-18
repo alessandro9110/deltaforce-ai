@@ -52,12 +52,14 @@ Record expensive choices (pattern, model provider, vector index design) as ADRs.
 - Evaluate retrieval (are the expected sources found) separately from generation.
 - Check the judges against a small human-labelled sample before trusting them.
 - `tests/evaluation/` runs the evaluation on the deployed endpoint or the registered version against the thresholds; the QA Engineer runs it independently.
+- **Keep a red-team slice in the evaluation set**: prompt injection through the retrieved documents ("ignore your instructions"), questions outside the scope, requests for data the user may not see, and the personal or sensitive data the domain can produce. The expected answer is the refusal or the safe answer, and it is scored like any other case — a release that regresses on this slice does not ship.
 
 ## 5. Build and operate
 
 - Tracing on from the first prototype; prompts loaded from the registry by alias; model, index and endpoint names from bundle variables.
 - Vector search endpoints and indexes, serving endpoints, apps and monitors are bundle resources, deployed by the DevOps Engineer.
 - Respect the workspace limits recorded in `discovery.md` (vector search endpoints, GPU serving, Agent Bricks availability, foundation models available).
+- **Guardrails belong to the endpoint, not to the prompt**: where the workspace offers AI Gateway on the serving endpoint, configure there what must hold whoever calls it — safety filters, blocked topics, personal data handling, rate limits and the usage tracking that shows what it costs. A prompt asking the model to behave is not a control; the gateway is. Record in the Architecture what is enforced at the gateway and what is left to the prompt.
 
 ## 6. Hugging Face models
 

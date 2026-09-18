@@ -910,6 +910,68 @@ def _doc_title(path: Path) -> str:
     return path.stem.replace("-", " ")
 
 
+# ─── audit ──────────────────────────────────────────────────────
+
+
+AUDIT_TAIL_BYTES = 4 * 1024 * 1024
+AUDIT_SHOWN = 60
+AUDIT_INPUT_LIMIT = 220
+
+
+def _audit(root: Path, catalog: dict[str, dict[str, Any]], problems: list[str]) -> dict[str, Any]:
+    """What the guardrails blocked and what the team read on production, per role — from `.deltaforce/audit.jsonl`."""
+    path = root / ".deltaforce" / "audit.jsonl"
+    records = _read_jsonl(path, problems, AUDIT_TAIL_BYTES)
+    try:
+        partial = path.exists() and path.stat().st_size > AUDIT_TAIL_BYTES
+    except OSError:
+        partial = False
+
+    by_role: dict[str, dict[str, Any]] = {}
+    denials: list[dict[str, Any]] = []
+    production: list[dict[str, Any]] = []
+    calls = 0
+
+    for record in records:
+        role = str(record.get("role") or MAIN_ROLE)
+        entry = by_role.setdefault(role, {
+            "role": role, "title": role_title(role, catalog), "denied": 0, "production_reads": 0, "calls": 0,
+        })
+        entry["calls"] += 1
+        calls += 1
+        denied = str(record.get("decision")) == "denied"
+        on_production = str(record.get("workspace")) == "prod"
+        item = {
+            "ts": record.get("ts"),
+            "role": role,
+            "role_title": entry["title"],
+            "tool": str(record.get("tool") or "").split("__")[-1],
+            "reason": str(record.get("reason") or ""),
+            "input": _truncate(" ".join(str(record.get("input") or "").split()), AUDIT_INPUT_LIMIT),
+            "workspace": record.get("workspace"),
+        }
+        if denied:
+            entry["denied"] += 1
+            denials.append(item)
+        elif on_production:
+            entry["production_reads"] += 1
+            production.append(item)
+
+    order = {role: index for index, role in enumerate(ROLE_ORDER)}
+    return {
+        "available": path.exists(),
+        "partial": partial,
+        "calls": calls,
+        "counts": {"denied": len(denials), "production_reads": len(production)},
+        "denials": denials[-AUDIT_SHOWN:][::-1],
+        "production": production[-AUDIT_SHOWN:][::-1],
+        "roles": sorted(
+            (entry for entry in by_role.values() if entry["denied"] or entry["production_reads"]),
+            key=lambda entry: order.get(entry["role"], len(order)),
+        ),
+    }
+
+
 def documents(root: Path) -> list[dict[str, Any]]:
     base = root / ".deltaforce"
     if not base.is_dir():
@@ -1290,5 +1352,6 @@ def snapshot(root: Path, now: dt.datetime | None = None) -> dict[str, Any]:
         "session": session,
         "workflow": workflow,
         "documents": documents(root),
+        "audit": _audit(root, catalog, problems),
         "problems": problems,
     }

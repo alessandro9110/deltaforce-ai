@@ -82,3 +82,24 @@ def test_the_project_context_block_lists_every_po_command(example_config, tmp_pa
     block = paths.claude_md.read_text(encoding="utf-8")
     for command in sorted(PO_COMMANDS):
         assert f"/{command}" in block, f"CLAUDE.md does not tell the team about /{command}"
+
+
+def test_reference_files_are_linked_and_every_link_resolves():
+    """A reference nobody links to rots; a link to a missing file wastes a tool call at run time."""
+    reference_link = re.compile(r"(?:(df-[a-z-]+)/)?(references/[\w.-]+\.md)")
+    for skill in sorted(skill_names()):
+        folder = SKILLS / skill
+        text = (folder / "SKILL.md").read_text(encoding="utf-8")
+        own = {link for owner, link in reference_link.findall(text) if not owner}
+        for other in sorted(folder.glob("references/*.md")):
+            assert f"references/{other.name}" in own, f"{skill}: {other.name} is not linked from SKILL.md"
+        for link in sorted(own):
+            assert (folder / link).exists(), f"{skill}: {link} does not exist"
+
+
+def test_cross_skill_reference_links_resolve():
+    """`df-bi/references/genie-space.md` written inside another skill must point at a file that exists."""
+    cross = re.compile(r"(df-[a-z-]+)/(references/[\w.-]+\.md)")
+    for path in sorted(SKILLS.glob("*/*.md")) + sorted(SKILLS.glob("*/references/*.md")) + sorted(AGENTS.glob("*.md")):
+        for skill, reference in cross.findall(path.read_text(encoding="utf-8")):
+            assert (SKILLS / skill / reference).exists(), f"{path.name} points at {skill}/{reference}, which does not exist"

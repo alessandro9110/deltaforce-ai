@@ -63,7 +63,14 @@ def project_usage(root: Path) -> dict[str, Any]:
         for event in events
         if event.get("event") == "phase_changed" and isinstance(event.get("data"), dict) and event["data"].get("to")
     ]
-    result = usage.usage(root, phases)
+    # The delegations the hooks recorded place the subagent runs whose prompt never names the feature.
+    activity = model._read_jsonl(root / ".deltaforce" / "runtime" / "activity.jsonl", [], model.ACTIVITY_TAIL_BYTES)
+    delegations = [
+        (str(record.get("ts")), str(record.get("target_role")), str(record.get("feature")))
+        for record in activity
+        if record.get("event") == "delegated" and record.get("target_role") and record.get("feature")
+    ]
+    result = usage.usage(root, phases, delegations=delegations)
     if result.get("available"):
         titles = {feature["id"]: feature["title"] for feature in model._features(root, events, {}, [])}
         labels = {phase: label for phase, label in model.PHASES.items()}
