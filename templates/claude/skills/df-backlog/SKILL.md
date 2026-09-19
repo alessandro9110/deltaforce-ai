@@ -108,7 +108,7 @@ Objectives: O1, O3 (see .deltaforce/requirements/functional-analysis.md). One or
 - 2026-09-14 — integrated and deployed to dev (run 123456)
 ```
 
-Ids: features `F-001`, `F-002`, …; tasks `T-<feature number>.<n>`. Slugs are lowercase words joined by `-`. Timestamps are UTC ISO 8601.
+Ids: features `F-001`, `F-002`, …; tasks `T-<feature number>.<n>`. Slugs are lowercase words joined by `-`. Timestamps are UTC ISO 8601 **read from the clock** (`date -u +%Y-%m-%dT%H:%M:%SZ`), never written from memory: `df validate` rejects a timestamp in the future, and a wrong one makes the board and the monitor lie.
 
 ## Statuses
 
@@ -193,7 +193,7 @@ None, or each operation with the object and the data rule that allows it (existi
 (ML and GenAI features: baseline, leaderboard, chosen model or setup with version and alias, evaluation dataset version, thresholds met, MLflow run ids)
 ## Created outside the bundle
 (Agent Bricks: each Knowledge Assistant or Supervisor Agent, its definition in src/ai/agent_bricks/ and how other environments get it)
-## Where to look
+## Where to look   (files in review/, tables, runs, dashboards, the README sections the feature added)
 ## What to configure before the first run
 (CI/CD feature: service principal and permissions, variable group or secrets with each BUNDLE_VAR_ value, environments and approvals, production workspace)
 ## Deviations from the design and known limitations

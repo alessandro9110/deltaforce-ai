@@ -103,3 +103,12 @@ def test_cross_skill_reference_links_resolve():
     for path in sorted(SKILLS.glob("*/*.md")) + sorted(SKILLS.glob("*/references/*.md")) + sorted(AGENTS.glob("*.md")):
         for skill, reference in cross.findall(path.read_text(encoding="utf-8")):
             assert (SKILLS / skill / reference).exists(), f"{path.name} points at {skill}/{reference}, which does not exist"
+
+
+def test_the_documentation_owner_can_put_a_readme_on_a_branch():
+    """The Business Analyst writes the repository README on a task branch: it needs the skills and the shell for it."""
+    meta = frontmatter(AGENTS / "business-analyst.md")
+    preloaded = set(meta.get("skills") or [])
+    assert {"df-readme", "df-git-flow"} <= preloaded, f"business-analyst preloads {sorted(preloaded)}"
+    tools = {tool.strip() for tool in str(meta.get("tools") or "").split(",")}
+    assert {"Bash", "Write", "Edit"} <= tools, f"business-analyst tools are {sorted(tools)}"
