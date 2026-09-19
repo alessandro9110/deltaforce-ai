@@ -17,6 +17,9 @@ from .paths import FRAMEWORK_DIR, ProjectPaths
 
 SCHEMAS_DIR = FRAMEWORK_DIR / "schemas"
 FEATURE_FILE = re.compile(r"^(F-\d{3,})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
+TIMESTAMP = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$")
+# A timestamp the team wrote from memory instead of reading the clock. Small enough to tolerate a skewed clock.
+FUTURE_TOLERANCE = dt.timedelta(minutes=5)
 
 
 def now_iso() -> str:
@@ -69,9 +72,30 @@ def _load_yaml(path: Path) -> Any:
         return _normalize(yaml.safe_load(f))
 
 
+def _future_timestamps(data: Any, where: str, now: dt.datetime, path: str = "") -> list[str]:
+    """Every timestamp ahead of the clock, wherever it sits in the file.
+
+    `df event` stamps events from the clock; state and feature files are written by the team, which
+    invents a date when it does not read one. A future timestamp makes the monitor and the reports lie.
+    """
+    problems: list[str] = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            problems += _future_timestamps(value, where, now, f"{path}.{key}" if path else str(key))
+    elif isinstance(data, list):
+        for index, value in enumerate(data):
+            problems += _future_timestamps(value, where, now, f"{path}[{index}]")
+    elif isinstance(data, str) and TIMESTAMP.match(data):
+        when = dt.datetime.fromisoformat(data.replace("Z", "+00:00"))
+        if when - now > FUTURE_TOLERANCE:
+            problems.append(f"{where}: {path} is {data}, in the future (now {now.strftime('%Y-%m-%dT%H:%M:%SZ')}) - read the clock, do not guess it")
+    return problems
+
+
 def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[str]:
     """All problems in config, conventions, state, backlog and events; empty when valid."""
     problems: list[str] = []
+    now = dt.datetime.now(dt.timezone.utc)
 
     if include_config:
         try:
@@ -82,7 +106,9 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
     for name, path in (("conventions", paths.conventions), ("state", paths.state_yaml)):
         if path.exists():
             try:
-                problems += _schema_errors(name, _load_yaml(path), path.name)
+                loaded = _load_yaml(path)
+                problems += _schema_errors(name, loaded, path.name)
+                problems += _future_timestamps(loaded, path.name, now)
             except yaml.YAMLError as exc:
                 problems.append(f"{path.name}: invalid YAML ({exc})")
 
@@ -116,6 +142,7 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
             report = task.get("report")
             if report and not (paths.root / report).exists():
                 problems.append(f"{path.name}: report {report} of {task['id']} does not exist")
+        problems += _future_timestamps(data, path.name, now)
         features[data["id"]] = data
 
     for feature in features.values():
@@ -150,6 +177,7 @@ def validate_project(paths: ProjectPaths, include_config: bool = True) -> list[s
                 continue
             errors = _schema_errors("event", event, f"events.jsonl line {number}")
             problems += errors
+            problems += _future_timestamps(event.get("ts"), f"events.jsonl line {number}", now, "ts")
             if not errors and event.get("bug") and event["bug"] not in bug_ids:
                 problems.append(f"events.jsonl line {number}: bug {event['bug']} is not in any feature file")
 

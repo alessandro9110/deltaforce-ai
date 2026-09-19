@@ -1,7 +1,9 @@
+import datetime as dt
 import json
 import shutil
 
 import pytest
+import yaml
 
 from deltaforce import backlog
 from deltaforce import config as cfg
@@ -194,3 +196,25 @@ def test_bug_events_name_a_known_bug(project):
     assert backlog.validate_project(project) == []
     backlog.append_events(project, [{**event, "bug": "B-042"}])
     assert any("bug B-042 is not in any feature file" in problem for problem in backlog.validate_project(project))
+
+
+def test_timestamps_in_the_future_are_rejected(project):
+    """The team writes state by hand and invents dates: a sandbox run had every feature stamped a day ahead."""
+    ahead = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    state = yaml.safe_load(project.state_yaml.read_text(encoding="utf-8"))
+    state["updated"] = ahead
+    project.state_yaml.write_text(yaml.safe_dump(state, sort_keys=False), encoding="utf-8")
+    problems = backlog.validate_project(project)
+    assert any("updated is" in problem and "in the future" in problem for problem in problems), problems
+
+    feature = project.backlog / "F-001-silver-customer-dedup.md"
+    feature.write_text(feature.read_text(encoding="utf-8").replace("started:", f"started: {ahead}  # ", 1), encoding="utf-8")
+    assert any("started" in problem and "in the future" in problem for problem in backlog.validate_project(project))
+
+
+def test_a_clock_a_few_minutes_ahead_is_tolerated(project):
+    soon = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    state = yaml.safe_load(project.state_yaml.read_text(encoding="utf-8"))
+    state["updated"] = soon
+    project.state_yaml.write_text(yaml.safe_dump(state, sort_keys=False), encoding="utf-8")
+    assert backlog.validate_project(project) == []

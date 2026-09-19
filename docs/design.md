@@ -127,6 +127,7 @@ flowchart TD
 ### Status model
 
 - Feature: `todo → in_progress → integrating → in_test → awaiting_po → done`, plus `blocked`. A G2 rejection moves `awaiting_po → in_progress`. Only a PO decision moves a feature to `done`.
+- Timestamps are read from the clock, never written from memory: `df event` stamps events itself, and the state and feature files the PM writes by hand are checked by `df validate`, which rejects any timestamp more than five minutes ahead of now. A run on the sandbox stamped almost every feature up to a day in the future, and the monitor faithfully reported work that had not happened yet.
 - Task: `todo → in_progress → ready_for_integration → integrated → done`, plus `blocked`. A task reaches `ready_for_integration` only when its code has run at least once in the context it will run in — on the warehouse for SQL, with `execute_code` or Databricks Connect for Python, or as a one-off `databricks jobs submit` when it must run exactly as a job task. `bundle validate` is not a run, and the deploy is not the first test (`df-testing`).
 
 ## 6. Orchestration model
