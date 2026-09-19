@@ -5,6 +5,7 @@ import pytest
 import yaml
 
 from deltaforce import generate
+from deltaforce import guardrails
 from deltaforce.paths import ProjectPaths
 
 
@@ -89,7 +90,9 @@ def test_df_wrapper_is_lf_and_targets_the_project(example_config, tmp_path):
     script = raw.decode("utf-8")
     assert script.startswith("#!/usr/bin/env bash\n")
     assert "lib/py/dfcli.py" in script
-    assert f"--target {tmp_path.resolve().as_posix()}" in script or f"--target '{tmp_path.resolve().as_posix()}'" in script
+    # The script finds the project from its own location: no path of the installing machine may appear in it.
+    assert '--target "$root"' in script
+    assert tmp_path.resolve().as_posix() not in script
 
 
 def test_bundle_is_created_once_and_prod_values_are_never_defaulted(example_config, tmp_path):
@@ -132,10 +135,13 @@ def test_production_server_rules_hooks_and_policy(prod_config, tmp_path):
     assert "mcp__databricks-prod__execute_code" in deny
     assert "mcp__databricks-prod__execute_sql" not in deny
 
-    hooks = json.loads(read(paths.claude_settings_local))["hooks"]
+    # The registration is committed and written through ${CLAUDE_PROJECT_DIR}: no path of the installing machine.
+    hooks = settings["hooks"]
+    assert "hooks" not in json.loads(read(paths.claude_settings_local))
     pre = hooks["PreToolUse"][0]["hooks"][0]
-    assert pre["command"] == paths.venv_python.resolve().as_posix()
-    assert pre["args"][1:] == ["pre", paths.guard_policy.resolve().as_posix()]
+    assert pre["command"] == "${CLAUDE_PROJECT_DIR}/.deltaforce/runtime/venv/Scripts/python.exe"
+    assert pre["args"][1:] == ["pre", "${CLAUDE_PROJECT_DIR}/.deltaforce/runtime/guard-policy.json"]
+    assert tmp_path.name not in json.dumps(hooks)
     assert "async" not in pre  # the guard must block the tool call
     assert hooks["PostToolUse"][0]["hooks"][0]["async"] is True
     assert "async" not in hooks["SessionEnd"][0]["hooks"][0]
@@ -154,9 +160,9 @@ def test_production_server_rules_hooks_and_policy(prod_config, tmp_path):
 def test_disabling_production_cleans_up_and_keeps_user_hooks(prod_config, tmp_path):
     paths = ProjectPaths(tmp_path)
     generate.generate_all(prod_config, paths)
-    local = json.loads(read(paths.claude_settings_local))
-    local["hooks"]["PreToolUse"].append({"matcher": "Bash", "hooks": [{"type": "command", "command": "my-hook"}]})
-    paths.claude_settings_local.write_text(json.dumps(local), encoding="utf-8")
+    settings = json.loads(read(paths.claude_settings))
+    settings["hooks"]["PreToolUse"].append({"matcher": "Bash", "hooks": [{"type": "command", "command": "my-hook"}]})
+    paths.claude_settings.write_text(json.dumps(settings), encoding="utf-8")
 
     plain = copy.deepcopy(prod_config)
     plain["prod"] = None
@@ -167,7 +173,7 @@ def test_disabling_production_cleans_up_and_keeps_user_hooks(prod_config, tmp_pa
     settings = json.loads(read(paths.claude_settings))
     assert settings["enabledMcpjsonServers"] == ["databricks"]
     assert not any(rule.startswith("mcp__databricks-prod__") for rule in settings["permissions"]["deny"])
-    pre_groups = json.loads(read(paths.claude_settings_local))["hooks"]["PreToolUse"]
+    pre_groups = settings["hooks"]["PreToolUse"]
     assert sum("deltaforce_hook.py" in json.dumps(group) for group in pre_groups) == 2  # guard and activity
     assert any("my-hook" in json.dumps(group) for group in pre_groups)
     assert json.loads(read(paths.guard_policy))["prod"]["enabled"] is False
@@ -322,3 +328,41 @@ def test_the_doctor_reports_a_configuration_that_disagrees_with_the_bundle(examp
 
 def test_the_doctor_says_nothing_when_the_project_has_no_bundle_of_its_own(example_config, tmp_path):
     assert "bundle-alignment" not in _doctor_with(copy.deepcopy(example_config), tmp_path)
+
+
+def test_an_installed_project_carries_no_path_of_the_machine(example_config, tmp_path, monkeypatch):
+    """A real install keeps the framework under the project: registration and CLI must then be fully portable."""
+    framework = tmp_path / ".deltaforce" / "framework"
+    (framework / "lib" / "hooks").mkdir(parents=True)
+    (framework / "lib" / "py").mkdir(parents=True)
+    monkeypatch.setattr(generate, "FRAMEWORK_DIR", framework)
+    monkeypatch.setattr(guardrails, "HOOK_SCRIPT", framework / "lib" / "hooks" / "deltaforce_hook.py")
+
+    paths = ProjectPaths(tmp_path)
+    generate.generate_all(example_config, paths)
+
+    machine = tmp_path.resolve().as_posix()
+    hooks = json.dumps(json.loads(read(paths.claude_settings))["hooks"])
+    assert machine not in hooks and "${CLAUDE_PROJECT_DIR}/.deltaforce/framework" in hooks
+    assert machine not in paths.df_wrapper.read_text(encoding="utf-8")
+
+
+def test_hooks_registered_by_an_older_install_are_moved_out_of_the_local_settings(example_config, tmp_path):
+    paths = ProjectPaths(tmp_path)
+    generate.generate_all(example_config, paths)
+    # What an install before the move left behind, next to a hook of the user's own.
+    old = json.loads(read(paths.claude_settings_local))
+    old["hooks"] = {
+        "PreToolUse": [
+            {"matcher": "Bash", "hooks": [{"type": "command", "command": "python", "args": ["deltaforce_hook.py", "pre"]}]},
+            {"matcher": "Bash", "hooks": [{"type": "command", "command": "my-hook"}]},
+        ]
+    }
+    paths.claude_settings_local.write_text(json.dumps(old), encoding="utf-8")
+
+    generate.generate_all(example_config, paths)
+
+    local = json.loads(read(paths.claude_settings_local))
+    assert "deltaforce_hook.py" not in json.dumps(local.get("hooks", {}))
+    assert "my-hook" in json.dumps(local["hooks"])
+    assert guardrails.hooks_registered(json.loads(read(paths.claude_settings)))

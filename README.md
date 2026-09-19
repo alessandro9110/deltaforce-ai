@@ -442,7 +442,7 @@ Hooks check every action of every agent before it runs, also in auto mode. Whate
 | Extend an existing project, following its conventions and your rules on existing data | Change what DeltaForce installed — agents, skills, settings, framework — or read the credentials |
 | Create and update Agent Bricks — Knowledge Assistants, Supervisor Agents — on dev (the AI Engineer only: the bundle cannot declare them) | Delete Agent Bricks, publish models or data to the Hugging Face Hub, or run Hugging Face Jobs |
 
-A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in `.deltaforce/audit.jsonl`. Static deny rules in `.claude/settings.json` back up the hooks, and the readiness checks run a self-test.
+A blocked action shows up as `DeltaForce guardrail: <reason>` and is recorded in `.deltaforce/audit.jsonl`. The hooks are registered in `.claude/settings.json`, which is committed: the paths go through `${CLAUDE_PROJECT_DIR}`, so the registration works for anyone who installs the project, not only on the machine that ran the installer. What it points at (the runtime, the framework, the policy) is not committed, and a hook that cannot start does not block anything — so whoever clones the repository still runs the installer first, and the readiness checks say so. Static deny rules in the same file back up the hooks, and the checks run a self-test.
 
 <details>
 <summary><strong>Blocked actions in detail</strong> (click to expand)</summary>
@@ -504,7 +504,7 @@ To remove it completely, also delete `.deltaforce/`, the `.claude/skills/databri
 | `.claude/agents/` | The DeltaForce agents | committed |
 | `.claude/skills/df-*` · `.claude/skills/databricks-*` · Hugging Face skill folders | DeltaForce skills and your commands · Databricks agent skills · Hugging Face skills | committed |
 | `.claude/settings.json` | Sessions start as the PM, MCP approval, subagent nesting, deny rules | committed |
-| `.claude/settings.local.json` | Project profile for every command, guardrail and audit hooks, status line | ignored |
+| `.claude/settings.local.json` | Project profile for every command, status line — what is specific to your machine | ignored |
 | `.mcp.json` | The `databricks` MCP server (and `databricks-prod`) with this machine's paths | ignored |
 | `CLAUDE.md` | A *DeltaForce project context* block | committed |
 | `databricks.yml`, `resources/deltaforce.variables.yml` | Bundle skeleton (created only if missing, with the direct deployment engine) · dev values of the bundle variables (existing variables are not redefined) | committed |

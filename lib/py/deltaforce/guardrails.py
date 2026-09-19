@@ -85,6 +85,20 @@ def _posix(path: Path) -> str:
     return path.resolve().as_posix()
 
 
+# Claude Code expands it in a hook's command and args, so the registration holds on any machine that installed
+# the project. Paths outside the project - the framework of a checkout run with --target - stay absolute.
+PROJECT_DIR_VAR = "${CLAUDE_PROJECT_DIR}"
+
+
+def project_path(path: Path, root: Path) -> str:
+    """A path under the project root written through `${CLAUDE_PROJECT_DIR}`; anything else, absolute."""
+    resolved, base = path.resolve(), root.resolve()
+    try:
+        return f"{PROJECT_DIR_VAR}/{resolved.relative_to(base).as_posix()}"
+    except ValueError:
+        return resolved.as_posix()
+
+
 def prod_read_roles(config: Mapping[str, Any], roles: Mapping[str, Mapping[str, Any]]) -> list[str]:
     if not config.get("prod"):
         return []
@@ -158,8 +172,8 @@ def merge_hooks(existing: Mapping[str, Any] | None, paths: ProjectPaths) -> dict
     for event, matcher, mode, timeout, background in HOOK_EVENTS:
         hook: dict[str, Any] = {
             "type": "command",
-            "command": _posix(paths.venv_python),
-            "args": [_posix(HOOK_SCRIPT), mode, _posix(paths.guard_policy)],
+            "command": project_path(paths.venv_python, paths.root),
+            "args": [project_path(HOOK_SCRIPT, paths.root), mode, project_path(paths.guard_policy, paths.root)],
             "timeout": timeout,
         }
         if background:
@@ -171,6 +185,12 @@ def merge_hooks(existing: Mapping[str, Any] | None, paths: ProjectPaths) -> dict
     return {event: groups for event, groups in hooks.items() if groups}
 
 
-def hooks_registered(settings_local: Mapping[str, Any]) -> bool:
-    hooks = settings_local.get("hooks") or {}
+def hooks_registered(settings: Mapping[str, Any]) -> bool:
+    hooks = settings.get("hooks") or {}
     return all(any(_is_deltaforce_group(group) for group in hooks.get(event, [])) for event, *_ in HOOK_EVENTS)
+
+
+def without_deltaforce_hooks(hooks: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The hooks of a settings file with the DeltaForce groups removed - used to clear the old local registration."""
+    kept = {event: [group for group in groups if not _is_deltaforce_group(group)] for event, groups in (hooks or {}).items()}
+    return {event: groups for event, groups in kept.items() if groups}

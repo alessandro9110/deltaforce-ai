@@ -309,8 +309,14 @@ class Doctor:
     def check_guardrails(self) -> None:
         policy_ok = self.paths.guard_policy.exists()
         self.add("guard-policy", "Guardrail policy", policy_ok, "" if policy_ok else "missing — re-run the installer")
-        registered = guardrails.hooks_registered(_read_json(self.paths.claude_settings_local))
-        self.add("hooks", "Guardrail and audit hooks registered", registered)
+        registered = guardrails.hooks_registered(_read_json(self.paths.claude_settings))
+        # The registration is committed and project-relative; the runtime it points at is not, so a clone that
+        # never ran the installer has hooks that cannot start - and a hook that cannot start does not block.
+        runtime_ok = self.paths.venv_python.exists()
+        detail = "" if registered else "missing from .claude/settings.json — re-run the installer"
+        if registered and not runtime_ok:
+            detail = "registered, but the runtime is missing — re-run the installer before working"
+        self.add("hooks", "Guardrail and audit hooks registered", registered and runtime_ok, detail)
         if not (policy_ok and registered and self.paths.venv_python.exists()):
             return
 

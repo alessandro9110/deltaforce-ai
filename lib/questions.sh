@@ -383,7 +383,7 @@ df_print_plan() {
     if [ "${DF_PROD_ENABLED:-false}" = true ]; then
         df_msg "  • Read-only production profile '$DF_PROD_PROFILE' ($DF_PROD_AUTH) for $DF_PROD_HOST"
     fi
-    df_msg "  • Guardrail and audit hooks → .claude/settings.local.json"
+    df_msg "  • Guardrail and audit hooks → .claude/settings.json"
     df_msg "  • Missing dev schemas in the chosen catalog created on Databricks"
     df_msg "  • Databricks agent skills for the enabled roles → .claude/skills"
     df_msg "  • Hugging Face skills for the Data Scientist and the AI Engineer (latest version) → .claude/skills"
